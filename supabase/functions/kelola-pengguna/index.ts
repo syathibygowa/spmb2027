@@ -25,7 +25,15 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return jawab({ error: 'Metode tidak diizinkan.' }, 405);
 
   const url = Deno.env.get('SUPABASE_URL')!;
-  const kunciRahasia = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  // Kunci rahasia disediakan otomatis oleh Supabase (nama lama atau baru)
+  let kunciRahasia = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (!kunciRahasia) {
+    try {
+      const daftar = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}');
+      kunciRahasia = daftar.default || Object.values(daftar)[0] as string || '';
+    } catch { /* abaikan */ }
+  }
+  if (!kunciRahasia) return jawab({ error: 'Kunci server tidak ditemukan. Periksa Edge Functions > Secrets.' }, 500);
   const admin = createClient(url, kunciRahasia, { auth: { persistSession: false, autoRefreshToken: false } });
 
   // 1. Pastikan pemanggil adalah Superadmin aktif

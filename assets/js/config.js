@@ -15,5 +15,9 @@ window.SPMB_CONFIG = {
   // Nama Edge Function pengelola akun (dipasang di Langkah 3)
   fungsiPengguna: 'kelola-pengguna',
 
-  versi: '1.0.0 (Fase 1)'
+  // Apps Script "Jembatan Unggah" (unggah berkas ke Google Drive).
+  // Dapat diganti tanpa mengubah kode melalui Dashboard > Pengaturan > Integrasi.
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbweviNVLuJRPENFDaC6fK2Lr83qsFh6DMHij5nx9-m67j5GAEdQFQ6WggWxpic6X4vBiw/exec',
+
+  versi: '2.0.0 (Fase 2)'
 };

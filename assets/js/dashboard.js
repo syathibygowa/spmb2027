@@ -1,12 +1,14 @@
 /* =====================================================================
-   DASHBOARD PANITIA SPMB (Fase 1)
-   Menu: Beranda, Notifikasi, Pengguna, Pengaturan, Log Aktivitas, Profil
+   DASHBOARD PANITIA SPMB (Fase 2)
+   Menu: Beranda, Notifikasi, Konten Situs, Pengguna, Pengaturan, Log Aktivitas, Profil
+   Halaman Konten Situs ada di berkas konten.js
    ===================================================================== */
 (function () {
   'use strict';
   const { sb, CFG, fmt, esc, inisial, toast, dialog, konfirmasi, pesanGalat,
           muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen, themeSegHTML } = window.SPMB;
   const $ = (s, r = document) => r.querySelector(s);
+  const UI = window.SPMB_UI;              // komponen dari konten.js (unggah gambar, urutan)
 
   const NAMA_PERAN = { superadmin: 'Superadmin', admin: 'Admin', penguji: 'Penguji' };
   const TONE_PERAN = { superadmin: 'var(--c7)', admin: 'var(--c1)', penguji: 'var(--c5)' };
@@ -20,8 +22,9 @@
   const MENU = [
     { id: 'beranda',    label: 'Beranda',       ikon: 'ph-squares-four',            tone: 'var(--c1)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Ringkasan dan statistik langsung' },
     { id: 'notifikasi', label: 'Notifikasi',    ikon: 'ph-bell-ringing',            tone: 'var(--c3)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Pemberitahuan untuk akun Anda' },
+    { id: 'konten',     label: 'Konten Situs',  ikon: 'ph-browsers',                tone: 'var(--c7)', peran: ['superadmin'], sub: 'Isi landing page, profil, berita, dan berkas' },
     { id: 'pengguna',   label: 'Pengguna',      ikon: 'ph-users-three',             tone: 'var(--c2)', peran: ['superadmin'], sub: 'Akun Admin dan Penguji' },
-    { id: 'pengaturan', label: 'Pengaturan',    ikon: 'ph-sliders-horizontal',      tone: 'var(--c5)', peran: ['superadmin'], sub: 'Identitas lembaga, kop surat, Ketua Panitia' },
+    { id: 'pengaturan', label: 'Pengaturan',    ikon: 'ph-sliders-horizontal',      tone: 'var(--c5)', peran: ['superadmin'], sub: 'Identitas lembaga, kop surat, Ketua Panitia, integrasi' },
     { id: 'log',        label: 'Log Aktivitas', ikon: 'ph-clock-counter-clockwise', tone: 'var(--c6)', peran: ['superadmin'], sub: 'Riwayat perubahan penting' },
     { id: 'profil',     label: 'Profil Saya',   ikon: 'ph-user-circle',             tone: 'var(--c4)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Data diri dan kata sandi' }
   ];
@@ -29,7 +32,7 @@
   const SEGERA = [
     ['Pendaftar', 'ph-identification-card', 'Fase 3'], ['Verifikasi', 'ph-seal-check', 'Fase 3'],
     ['Seleksi', 'ph-exam', 'Fase 4'], ['Pengumuman', 'ph-megaphone', 'Fase 4'],
-    ['Daftar Ulang', 'ph-clipboard-text', 'Fase 5'], ['Konten Situs', 'ph-browsers', 'Fase 2']
+    ['Daftar Ulang', 'ph-clipboard-text', 'Fase 5']
   ];
 
   const S = { user: null, profil: null, pengaturan: {}, unread: 0, notifTerbaru: [], kanal: null, jamTimer: null, statTimer: null };
@@ -55,6 +58,7 @@
     // Kerangka
     $('#themeSeg').innerHTML = themeSegHTML; SPMB.setTheme(SPMB.getTheme());
     pasangLogo($('#brandLogo'), logoPondok(S.pengaturan));
+    SPMB.pasangFavicon(S.pengaturan.identitas?.logo);
     $('#brandNama').textContent = S.pengaturan.identitas?.nama_singkat || 'Imam Asy-Syathiby';
     $('#brandSub').textContent = 'Dashboard SPMB ' + (S.pengaturan.identitas?.tahun_ajaran || '');
     tampilkanPengguna();
@@ -175,7 +179,9 @@
           <div class="card-head"><div class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-lightning"></i></div><div><h3>Aksi cepat</h3><p>Menu yang sering dipakai</p></div></div>
           <div class="quick">
             <a href="#/notifikasi"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-bell-ringing"></i></span>Notifikasi</a>
-            ${isSuper ? `<a href="#/pengguna"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-user-plus"></i></span>Tambah pengguna</a>
+            ${isSuper ? `<a href="#/konten"><span class="ic-box" style="--tone:var(--c7);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-browsers"></i></span>Konten situs</a>
+            <a href="#/konten?m=berita"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-line"></i></span>Tulis berita</a>
+            <a href="#/pengguna"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-user-plus"></i></span>Tambah pengguna</a>
             <a href="#/pengaturan"><span class="ic-box" style="--tone:var(--c5);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-identification-card"></i></span>Kop surat</a>
             <a href="#/log"><span class="ic-box" style="--tone:var(--c6);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-clock-counter-clockwise"></i></span>Log aktivitas</a>` : ''}
             <a href="#/profil"><span class="ic-box" style="--tone:var(--c4);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-key"></i></span>Ganti kata sandi</a>
@@ -185,7 +191,7 @@
         <div class="card">
           <div class="card-head"><div class="ic-box" style="--tone:var(--c6)"><i class="ph-duotone ph-rocket-launch"></i></div><div><h3>Tahap pengembangan</h3><p>Menu baru muncul sesuai fase</p></div></div>
           <ul class="roadmap-mini">
-            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'on'], ['Landing page dan konten situs', ''], ['Pendaftaran online', ''], ['Seleksi dan pengumuman', ''], ['Daftar ulang', ''], ['Laporan dan cadangan', '']]
+            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'done'], ['Landing page dan konten situs', 'on'], ['Pendaftaran online', ''], ['Seleksi dan pengumuman', ''], ['Daftar ulang', ''], ['Laporan dan cadangan', '']]
               .map(([t, s], i) => `<li class="${s}"><span class="n">${s === 'done' ? '✓' : i}</span>Fase ${i} · ${t}${s === 'on' ? ' <span class="pill" style="--tone:var(--c1);margin-left:auto">Sedang berjalan</span>' : ''}</li>`).join('')}
           </ul>
         </div>
@@ -227,7 +233,7 @@
       const { count: jmlAdmin } = await sb.from('profil_pengguna').select('id', { count: 'exact', head: true }).eq('peran', 'admin').eq('aktif', true);
       const tugas = [
         [!!id.alamat && !!id.telepon, 'Lengkapi alamat dan telepon lembaga', '#/pengaturan?tab=identitas'],
-        [!!(kop.logo_kanan || id.logo), 'Pasang logo pondok pada kop surat', '#/pengaturan?tab=kop'],
+        [!!id.logo, 'Unggah logo pondok (logo situs, ikon tab, dan kop surat)', '#/pengaturan?tab=identitas'],
         [(jmlAdmin || 0) > 0, 'Tambahkan akun Admin panitia', '#/pengguna'],
         [!!kp.nama, 'Tunjuk Ketua Panitia (penanda tangan dokumen)', '#/pengaturan?tab=ketua']
       ];
@@ -360,6 +366,11 @@
       const it = e.target.closest('[data-nid]'); if (it) bukaNotif(it.dataset.nid);
     });
   };
+
+  /* =================================================================
+     KONTEN SITUS (Superadmin) · isi di konten.js
+     ================================================================= */
+  HALAMAN.konten = k => window.SPMB_MODUL.konten(k, { S, setFab, simpanPengaturan });
 
   /* =================================================================
      PENGGUNA (Superadmin)
@@ -545,11 +556,12 @@
         <button role="tab" data-tab="identitas"><i class="ph-duotone ph-buildings" style="color:var(--c1)"></i>Identitas lembaga</button>
         <button role="tab" data-tab="kop"><i class="ph-duotone ph-identification-card" style="color:var(--c5)"></i>Kop surat</button>
         <button role="tab" data-tab="ketua"><i class="ph-duotone ph-seal-check" style="color:var(--c6)"></i>Ketua Panitia</button>
+        <button role="tab" data-tab="integrasi"><i class="ph-duotone ph-plugs-connected" style="color:var(--c2)"></i>Integrasi</button>
       </div>
       <div id="isiTab"></div>`;
     const buka = tab => {
       k.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-      ({ identitas: tabIdentitas, kop: tabKop, ketua: tabKetua })[tab]($('#isiTab'));
+      (({ identitas: tabIdentitas, kop: tabKop, ketua: tabKetua, integrasi: tabIntegrasi })[tab] || tabIdentitas)($('#isiTab'));
     };
     k.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { history.replaceState(null, '', '#/pengaturan?tab=' + b.dataset.tab); buka(b.dataset.tab); });
     buka(tabAwal);
@@ -575,7 +587,7 @@
           ${inp('telepon', 'Telepon / WhatsApp kantor', id.telepon, 'inputmode="tel"')}
           ${inp('email', 'Email lembaga', id.email, 'type="email"')}
           <div class="field full"><label for="i_alamat">Alamat lengkap</label><textarea class="textarea" id="i_alamat" name="alamat" style="min-height:70px">${esc(id.alamat || '')}</textarea></div>
-          ${inp('logo', 'Tautan logo pondok', id.logo, 'full placeholder="https://… (kosongkan untuk memakai assets/img/logo-pondok.png)"', 'Unggah gambar langsung tersedia di Fase 2. Sementara ini gunakan tautan gambar atau berkas logo di repositori.')}
+          ${UI.inputGambar('logo', 'Logo pondok', id.logo, { bagian: 'identitas', maksSisi: 512, bantuan: 'PNG berlatar transparan, bentuk persegi. Dipakai di situs, ikon tab browser, dan kop surat (logo kanan bila kosong).' })}
           ${inp('video_profil', 'Tautan video profil YouTube', id.video_profil, 'full')}
           ${inp('peta_lokasi', 'Tautan Google Maps', id.peta_lokasi, 'full')}
         </div>
@@ -588,6 +600,7 @@
         </div>
         <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:6px"><button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan identitas</button></div>
       </form>`;
+    UI.pasangPemilihGambar(el);
     $('#fId').onsubmit = async e => {
       e.preventDefault();
       const f = e.target, v = n => f.elements[n].value.trim();
@@ -596,7 +609,7 @@
         tahun_ajaran: v('tahun_ajaran'), telepon: v('telepon'), email: v('email'), alamat: v('alamat'), logo: v('logo'),
         video_profil: v('video_profil'), peta_lokasi: v('peta_lokasi'),
         media_sosial: { ...ms, youtube: v('youtube'), instagram: v('instagram'), facebook: v('facebook'), tiktok: v('tiktok') } };
-      try { await simpanPengaturan('identitas', nilai); toast('Identitas lembaga disimpan.'); pasangLogo($('#brandLogo'), logoPondok(S.pengaturan)); $('#brandNama').textContent = nilai.nama_singkat; }
+      try { await simpanPengaturan('identitas', nilai); toast('Identitas lembaga disimpan.'); pasangLogo($('#brandLogo'), logoPondok(S.pengaturan)); SPMB.pasangFavicon(nilai.logo); $('#brandNama').textContent = nilai.nama_singkat; }
       catch (err) { toast(pesanGalat(err), 'err'); }
     };
   }
@@ -612,12 +625,10 @@
               <label><input type="radio" name="mode" value="susun" ${kop.mode !== 'gambar' ? 'checked' : ''}>Disusun dari teks dan logo</label>
               <label><input type="radio" name="mode" value="gambar" ${kop.mode === 'gambar' ? 'checked' : ''}>Satu gambar kop utuh</label>
             </div></div>
-          <div data-mode="gambar">${inp('gambar_kop', 'Tautan gambar kop utuh', kop.gambar_kop, 'placeholder="https://…"', 'Gambar mendatar selebar kertas, sudah memuat logo dan teks.')}</div>
+          <div data-mode="gambar">${UI.inputGambar('gambar_kop', 'Gambar kop utuh', kop.gambar_kop, { bagian: 'kop', maksSisi: 2400, bantuan: 'Gambar mendatar selebar kertas, sudah memuat logo dan teks.' })}</div>
           <div data-mode="susun">
-            <div class="grid-form">
-              ${inp('logo_kiri', 'Tautan logo kiri', kop.logo_kiri)}
-              ${inp('logo_kanan', 'Tautan logo kanan', kop.logo_kanan, '', 'Kosong = logo pondok dari Identitas.')}
-            </div>
+            ${UI.inputGambar('logo_kiri', 'Logo kiri', kop.logo_kiri, { bagian: 'kop', maksSisi: 512 })}
+            ${UI.inputGambar('logo_kanan', 'Logo kanan', kop.logo_kanan, { bagian: 'kop', maksSisi: 512, bantuan: 'Kosong = logo pondok dari Identitas.' })}
             ${inp('baris_1', 'Baris 1 (instansi penaung)', kop.baris_1)}
             ${inp('baris_2', 'Baris 2 (nama lembaga)', kop.baris_2)}
             ${inp('baris_3', 'Baris 3 (lanjutan nama lembaga)', kop.baris_3)}
@@ -638,6 +649,7 @@
         </div>
       </div>`;
     const f = $('#fKop');
+    UI.pasangPemilihGambar(f);
     const baca = () => {
       const v = n => f.elements[n]?.value.trim() ?? '';
       Object.assign(kop, { mode: f.querySelector('[name=mode]:checked').value, gambar_kop: v('gambar_kop'), logo_kiri: v('logo_kiri'), logo_kanan: v('logo_kanan'),
@@ -703,12 +715,47 @@
     };
   }
 
+  function tabIntegrasi(el) {
+    const ig = S.pengaturan.integrasi || {};
+    el.innerHTML = `
+      <form class="card" id="fIntegrasi" novalidate style="max-width:760px">
+        <div class="card-head"><div class="ic-box" style="--tone:var(--c2)"><i class="ph-duotone ph-plugs-connected"></i></div>
+          <div><h3>Apps Script Jembatan Unggah</h3><p>Layanan penyimpan berkas ke Google Drive pondok</p></div></div>
+        <div class="field"><label for="i_gas">URL aplikasi web Apps Script</label>
+          <input class="input" id="i_gas" name="apps_script_url" value="${esc(ig.apps_script_url || '')}" placeholder="${esc(CFG.appsScriptUrl || 'https://script.google.com/macros/s/…/exec')}">
+          <small>Kosongkan untuk memakai alamat bawaan di config.js. Isi hanya bila Apps Script diterapkan ulang dengan alamat baru.</small></div>
+        <div id="hasilPeriksa"></div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap">
+          <button class="btn ghost" type="button" id="btnPeriksa"><i class="ph-duotone ph-pulse" style="color:var(--c5)"></i>Periksa koneksi</button>
+          <button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan</button>
+        </div>
+      </form>
+      <div class="note info" style="max-width:760px;margin-top:16px"><i class="ph-duotone ph-shield-check"></i><div>Setiap unggahan membawa sesi masuk Anda dan diperiksa ke Supabase oleh Apps Script. Pengunjung situs tidak dapat mengunggah atau menghapus berkas konten.</div></div>`;
+    const f = $('#fIntegrasi');
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const url = f.elements.apps_script_url.value.trim();
+      if (url && !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) return toast('Alamat harus berbentuk https://script.google.com/macros/s/…/exec', 'err');
+      try { await simpanPengaturan('integrasi', { ...ig, apps_script_url: url }); toast('Integrasi disimpan.'); } catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+    $('#btnPeriksa').onclick = async () => {
+      const box = $('#hasilPeriksa');
+      box.innerHTML = '<div class="note info"><span class="spinner" style="width:18px;height:18px"></span><div>Menghubungi Apps Script…</div></div>';
+      try {
+        const j = await SPMB.kirimKeJembatan({ aksi: 'periksa' });
+        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>. Unggah gambar siap dipakai.</div></div>`;
+      } catch (err) {
+        box.innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div><b>Belum terhubung.</b> ${esc(pesanGalat(err))}</div></div>`;
+      }
+    };
+  }
+
   /* =================================================================
      LOG AKTIVITAS (Superadmin)
      ================================================================= */
   const NAMA_AKSI = { insert: ['Menambah', 'ph-plus-circle', 'var(--ok)'], update: ['Mengubah', 'ph-pencil-simple', 'var(--c1)'], delete: ['Menghapus', 'ph-trash', 'var(--danger)'],
-    buat_akun: ['Membuat', 'ph-user-plus', 'var(--c2)'], atur_ulang_sandi: ['Atur ulang sandi', 'ph-key', 'var(--c6)'] };
-  const NAMA_OBJEK = { profil_pengguna: 'akun pengguna', pengaturan: 'pengaturan', akun: 'akun' };
+    buat_akun: ['Membuat', 'ph-user-plus', 'var(--c2)'], atur_ulang_sandi: ['Atur ulang sandi', 'ph-key', 'var(--c6)'], urutkan: ['Mengurutkan', 'ph-arrows-down-up', 'var(--c5)'] };
+  const NAMA_OBJEK = { profil_pengguna: 'akun pengguna', pengaturan: 'pengaturan', akun: 'akun', konten_situs: 'konten situs', berita: 'berita' };
   HALAMAN.log = async k => {
     const { data, error } = await sb.from('log_aktivitas').select('*').order('dibuat_pada', { ascending: false }).limit(150);
     if (error) throw error;
@@ -716,6 +763,15 @@
     (await sb.from('profil_pengguna').select('id,nama_lengkap,email')).data?.forEach(p => nama[p.id] = p.nama_lengkap || p.email);
     const ringkas = r => {
       if (r.objek === 'pengaturan') return `Pengaturan "${esc(r.objek_id)}"`;
+      if (r.objek === 'konten_situs' || r.objek === 'berita') {
+        if (r.aksi === 'urutkan') return `${esc(UI.NAMA_MODUL[r.objek_id] || r.objek_id || '')} (${r.rincian?.jumlah || 0} item)`;
+        const b = r.rincian?.baru || r.rincian?.lama || {};
+        const ket = r.aksi === 'update' && r.rincian?.lama && r.rincian?.baru
+          ? (r.rincian.lama.diarsipkan_pada !== r.rincian.baru.diarsipkan_pada ? (r.rincian.baru.diarsipkan_pada ? ' (diarsipkan)' : ' (dipulihkan)')
+            : r.rincian.lama.tampil !== r.rincian.baru.tampil ? (r.rincian.baru.tampil ? ' (ditampilkan)' : ' (disembunyikan)')
+            : r.rincian.lama.status !== r.rincian.baru.status ? ` (${esc(r.rincian.baru.status)})` : '') : '';
+        return `${r.objek === 'berita' ? 'Berita' : esc(UI.NAMA_MODUL[b.jenis] || 'Konten')}: ${esc(b.judul || '(tanpa judul)')}${ket}`;
+      }
       if (r.objek === 'akun') return `Akun ${esc(r.rincian?.nama || nama[r.objek_id] || '')}${r.rincian?.peran ? ` (${NAMA_PERAN[r.rincian.peran]})` : ''}`;
       const b = r.rincian?.baru || r.rincian?.lama || {};
       return `Akun ${esc(b.nama_lengkap || b.email || '')}${r.aksi === 'update' && r.rincian?.lama?.peran !== r.rincian?.baru?.peran ? ` (peran: ${NAMA_PERAN[r.rincian.lama.peran]} → ${NAMA_PERAN[r.rincian.baru.peran]})` : ''}${r.aksi === 'update' && r.rincian?.lama?.aktif !== r.rincian?.baru?.aktif ? ` (${r.rincian.baru.aktif ? 'diaktifkan' : 'dinonaktifkan'})` : ''}`;

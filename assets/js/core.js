@@ -94,12 +94,12 @@
   }
 
   /* ---------- Dialog ---------- */
-  function dialog({ judul, ikon = 'ph-info', tone = 'var(--primary)', isi = '', tombol = [] }) {
+  function dialog({ judul, ikon = 'ph-info', tone = 'var(--primary)', isi = '', tombol = [], lebar = false, saatBuka = null }) {
     return new Promise(resolve => {
       const back = document.createElement('div');
       back.className = 'modal-back';
       back.innerHTML = `
-        <div class="modal" role="dialog" aria-modal="true" aria-label="${esc(judul)}">
+        <div class="modal${lebar ? ' lebar' : ''}" role="dialog" aria-modal="true" aria-label="${esc(judul)}">
           <div class="modal-head"><div class="ic-box" style="--tone:${tone}"><i class="ph-duotone ${ikon}"></i></div><h3>${esc(judul)}</h3>
             <button class="icon-btn plain" data-x aria-label="Tutup"><i class="ph-duotone ph-x"></i></button></div>
           <div class="modal-body">${isi}</div>
@@ -121,7 +121,8 @@
         } else tutup(def.nilai ?? null);
       });
       document.body.appendChild(back);
-      const f = back.querySelector('input,select,textarea'); if (f) setTimeout(() => f.focus(), 50);
+      if (saatBuka) { try { saatBuka(back); } catch (e) { console.error(e); } }
+      const f = back.querySelector('input:not([type=hidden]):not([type=file]),select,textarea'); if (f) setTimeout(() => f.focus({ preventScroll: true }), 50);
     });
   }
   const konfirmasi = (judul, isi, labelYa = 'Ya, lanjutkan', bahaya = false) => dialog({
@@ -218,6 +219,140 @@
     setTimeout(selesai, 1500);
   }
 
+  /* =================================================================
+     FASE 2: unggah berkas ke Google Drive, gambar, teks berformat
+     ================================================================= */
+
+  // Alamat Apps Script: dari Pengaturan > Integrasi, bila kosong dari config.js
+  async function alamatUnggah() {
+    const p = await muatPengaturan().catch(() => ({}));
+    return (p.integrasi?.apps_script_url || CFG.appsScriptUrl || '').trim();
+  }
+
+  async function kirimKeJembatan(data) {
+    const url = await alamatUnggah();
+    if (!url) throw new Error('Alamat Apps Script belum diatur (Pengaturan > Integrasi).');
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Sesi Anda berakhir. Silakan masuk kembali.');
+    let res;
+    try {
+      // text/plain agar tidak memicu pemeriksaan CORS tambahan dari browser
+      res = await fetch(url, { method: 'POST', body: JSON.stringify({ ...data, token: session.access_token }) });
+    } catch (e) { throw new Error('Tidak dapat terhubung ke layanan unggah (Apps Script). Periksa koneksi atau alamat Apps Script.'); }
+    let j;
+    try { j = await res.json(); } catch (e) { throw new Error('Layanan unggah tidak memberi jawaban yang benar. Pastikan Apps Script diterapkan dengan akses "Siapa saja".'); }
+    if (!j.ok) throw new Error(j.error || 'Unggah gagal.');
+    return j;
+  }
+
+  // Perkecil gambar di browser sebelum diunggah (hemat kuota dan cepat dibuka di HP)
+  const bacaDataURL = blob => new Promise((ok, gagal) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = gagal; r.readAsDataURL(blob); });
+  async function kompresGambar(file, { maksSisi = 1600, kualitas = 0.82 } = {}) {
+    const t = file.type;
+    if (t === 'image/gif' || t === 'application/pdf') return file;
+    if (t === 'image/png' && file.size <= 500 * 1024) return file;          // logo transparan tetap PNG
+    const img = await new Promise((ok, gagal) => {
+      const u = URL.createObjectURL(file), i = new Image();
+      i.onload = () => { URL.revokeObjectURL(u); ok(i); };
+      i.onerror = () => { URL.revokeObjectURL(u); gagal(new Error('Gambar tidak dapat dibaca.')); };
+      i.src = u;
+    });
+    const skala = Math.min(1, maksSisi / Math.max(img.naturalWidth, img.naturalHeight));
+    if (skala === 1 && file.size <= 400 * 1024 && t === 'image/jpeg') return file;
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * skala); c.height = Math.round(img.naturalHeight * skala);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', kualitas));
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  }
+
+  /* Unggah satu berkas. bagian: nama subfolder (mis. 'galeri').
+     Hasil: { id, url, nama, ukuran }. Tercatat di tabel berkas_unggahan. */
+  async function unggahBerkas(file, { bagian = 'umum', keperluan = 'konten', maksSisi = 1600 } = {}) {
+    const izin = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    if (!izin.includes(file.type)) throw new Error('Jenis berkas tidak didukung. Gunakan JPG, PNG, WEBP, GIF, atau PDF.');
+    const siap = file.type.startsWith('image/') ? await kompresGambar(file, { maksSisi }) : file;
+    if (siap.size > 10 * 1024 * 1024) throw new Error('Ukuran berkas melebihi 10 MB.');
+    const hasil = await kirimKeJembatan({ aksi: 'unggah', keperluan, bagian, nama: siap.name, mime: siap.type, data: await bacaDataURL(siap) });
+    await sb.from('berkas_unggahan').insert({ drive_id: hasil.id, nama: hasil.nama, url: hasil.url, mime: hasil.mime, ukuran: hasil.ukuran, keperluan, bagian });
+    return hasil;
+  }
+  async function hapusBerkasDrive(driveId, keperluan = 'konten') {
+    await kirimKeJembatan({ aksi: 'hapus', keperluan, id: driveId });
+    await sb.from('berkas_unggahan').delete().eq('drive_id', driveId);
+  }
+
+  // Gambar Drive (lh3) dengan lebar tertentu agar ringan; tautan lain dibiarkan
+  function gambar(url, lebar) {
+    if (!url) return '';
+    const m = String(url).match(/^https:\/\/lh3\.googleusercontent\.com\/d\/([\w-]+)/);
+    if (m) return `https://lh3.googleusercontent.com/d/${m[1]}${lebar ? '=w' + lebar : ''}`;
+    const d = String(url).match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
+    if (d) return `https://lh3.googleusercontent.com/d/${d[1]}${lebar ? '=w' + lebar : ''}`;
+    return url;
+  }
+
+  // ID video YouTube dari berbagai bentuk tautan
+  function youtubeId(url) {
+    const m = String(url || '').match(/(?:youtu\.be\/|v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/);
+    return m ? m[1] : '';
+  }
+
+  // Ubah judul menjadi alamat halaman: "Wisuda Tahfizh 2026" -> "wisuda-tahfizh-2026"
+  const slugDari = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+
+  // Nomor WA ke format 62…
+  const nomorWA = s => { const n = String(s || '').replace(/[^\d]/g, ''); return n.startsWith('0') ? '62' + n.slice(1) : n; };
+
+  /* Teks berformat sederhana untuk berita dan profil:
+     ## Subjudul, ### Subjudul kecil, **tebal**, *miring*, [teks](https://…),
+     - daftar, 1. daftar bernomor, > kutipan, ![keterangan](https://gambar) */
+  function teksBerformat(src) {
+    const inline = t => esc(t)
+      .replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_, a, u) => `<img src="${gambar(u, 1200)}" alt="${a}" loading="lazy">`)
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<i>$2</i>')
+      .replace(/(^|[\s(])_([^_\s][^_]*)_/g, '$1<i>$2</i>');
+    return String(src || '').replace(/\r/g, '').split(/\n{2,}/).map(blok => {
+      const b = blok.trim(); if (!b) return '';
+      const baris = b.split('\n');
+      if (/^###\s/.test(b)) return `<h4>${inline(b.replace(/^###\s+/, ''))}</h4>`;
+      if (/^##\s/.test(b)) return `<h3>${inline(b.replace(/^##\s+/, ''))}</h3>`;
+      if (baris.every(l => /^\s*[-*]\s+/.test(l))) return `<ul>${baris.map(l => `<li>${inline(l.replace(/^\s*[-*]\s+/, ''))}</li>`).join('')}</ul>`;
+      if (baris.every(l => /^\s*\d+[.)]\s+/.test(l))) return `<ol>${baris.map(l => `<li>${inline(l.replace(/^\s*\d+[.)]\s+/, ''))}</li>`).join('')}</ol>`;
+      if (baris.every(l => /^>\s?/.test(l))) return `<blockquote>${baris.map(l => inline(l.replace(/^>\s?/, ''))).join('<br>')}</blockquote>`;
+      const g = b.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+      if (g) return `<figure><img src="${gambar(g[2], 1200)}" alt="${esc(g[1])}" loading="lazy">${g[1] ? `<figcaption>${esc(g[1])}</figcaption>` : ''}</figure>`;
+      return `<p>${baris.map(inline).join('<br>')}</p>`;
+    }).join('');
+  }
+
+  // Ikon tab browser mengikuti logo pondok di Pengaturan
+  function pasangFavicon(url) {
+    if (!url) return;
+    let l = document.querySelector('link[rel="icon"]');
+    if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.appendChild(l); }
+    l.href = gambar(url, 128);
+  }
+
+  // Warna pendukung yang dapat dipilih untuk kartu (mengikuti tema terang/gelap)
+  const WARNA = [['c1', 'Biru'], ['c2', 'Ungu'], ['c3', 'Oranye'], ['c4', 'Magenta'], ['c5', 'Toska'], ['c6', 'Emas'], ['c7', 'Merah'], ['c8', 'Abu-abu']];
+
+  // Ikon Phosphor pilihan untuk kartu konten
+  const IKON_PILIHAN = [
+    'book-open-text', 'book-bookmark', 'books', 'mosque', 'moon-stars', 'star-and-crescent', 'hands-praying', 'student', 'graduation-cap',
+    'chalkboard-teacher', 'exam', 'certificate', 'medal', 'trophy', 'crown', 'star', 'seal-check', 'shield-check', 'target', 'lightbulb',
+    'brain', 'heart', 'hand-heart', 'handshake', 'users-three', 'user-circle', 'house-line', 'buildings', 'bed', 'bowl-food',
+    'first-aid-kit', 'soccer-ball', 'basketball', 'barbell', 'bicycle', 'microphone-stage', 'megaphone', 'translate', 'globe-hemisphere-east',
+    'laptop', 'desktop', 'flask', 'calculator', 'plant', 'tree', 'sun', 'leaf', 'compass', 'path', 'flag', 'rocket-launch',
+    'calendar-check', 'clock', 'note-pencil', 'identification-card', 'clipboard-text', 'files', 'money', 'wallet', 'credit-card',
+    'magnifying-glass', 'megaphone-simple', 'check-circle', 'chat-circle-dots', 'phone-call', 'whatsapp-logo', 'map-pin', 'bus', 'car', 'wifi-high'
+  ];
+
   /* ---------- Tampilkan/sembunyikan kata sandi ---------- */
   document.addEventListener('click', e => {
     const b = e.target.closest('.toggle-pass');
@@ -232,6 +367,8 @@
   window.SPMB = {
     sb, CFG, fmt, esc, inisial, toast, dialog, konfirmasi, pesanGalat,
     muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen,
-    isiTanggalBawaan, setTheme, getTheme, themeSegHTML
+    isiTanggalBawaan, setTheme, getTheme, themeSegHTML,
+    alamatUnggah, kirimKeJembatan, kompresGambar, unggahBerkas, hapusBerkasDrive, gambar, youtubeId,
+    slugDari, nomorWA, teksBerformat, pasangFavicon, WARNA, IKON_PILIHAN
   };
 })();

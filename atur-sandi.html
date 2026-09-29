@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c7332f">
+<meta name="robots" content="noindex">
+<title>Buat Kata Sandi Baru · SPMB Imam Asy-Syathiby</title>
+<link rel="icon" href="assets/img/logo-pondok.png">
+<link rel="stylesheet" href="assets/vendor/phosphor/style.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="auth" style="grid-template-columns:minmax(0,1fr)">
+  <main class="auth-main">
+    <div class="auth-top"><div id="themeSeg"></div></div>
+    <form class="auth-box" id="formSandi" novalidate>
+      <div class="ic-box" style="--tone:var(--c5);margin-bottom:14px"><i class="ph-duotone ph-key"></i></div>
+      <h2>Buat kata sandi baru</h2>
+      <p>Gunakan minimal 8 karakter, gabungan huruf dan angka.</p>
+      <div id="pesan"><div class="note info"><span class="spinner"></span><div>Memeriksa tautan…</div></div></div>
+      <div class="field">
+        <label for="s1">Kata sandi baru <span class="req">*</span></label>
+        <div class="input-wrap"><input class="input" id="s1" type="password" autocomplete="new-password" required>
+          <button type="button" class="toggle-pass" aria-label="Tampilkan kata sandi"><i class="ph-duotone ph-eye"></i></button></div>
+      </div>
+      <div class="field">
+        <label for="s2">Ulangi kata sandi baru <span class="req">*</span></label>
+        <div class="input-wrap"><input class="input" id="s2" type="password" autocomplete="new-password" required>
+          <button type="button" class="toggle-pass" aria-label="Tampilkan kata sandi"><i class="ph-duotone ph-eye"></i></button></div>
+      </div>
+      <button class="btn block" id="btn" type="submit" disabled><i class="ph-duotone ph-floppy-disk"></i>Simpan kata sandi</button>
+    </form>
+  </main>
+</div>
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/core.js"></script>
+<script>
+(function () {
+  const { sb, esc, pesanGalat, toast, themeSegHTML } = window.SPMB;
+  document.getElementById('themeSeg').innerHTML = themeSegHTML; SPMB.setTheme(SPMB.getTheme());
+  const pesan = document.getElementById('pesan'), btn = document.getElementById('btn');
+  const tampil = (t, err = true) => pesan.innerHTML = `<div class="note ${err ? 'err' : 'info'}"><i class="ph-duotone ${err ? 'ph-warning-circle' : 'ph-check-circle'}"></i><div>${esc(t)}</div></div>`;
+
+  let siap = false;
+  const aktifkan = () => { if (siap) return; siap = true; btn.disabled = false; tampil('Tautan valid. Silakan buat kata sandi baru.', false); };
+  sb.auth.onAuthStateChange((ev, s) => { if (s && (ev === 'PASSWORD_RECOVERY' || ev === 'SIGNED_IN' || ev === 'INITIAL_SESSION')) aktifkan(); });
+  setTimeout(async () => {
+    const { data } = await sb.auth.getSession();
+    if (data.session) aktifkan();
+    else if (!siap) tampil('Tautan tidak valid atau sudah kedaluwarsa. Minta tautan baru dari halaman masuk.');
+  }, 1500);
+
+  document.getElementById('formSandi').addEventListener('submit', async e => {
+    e.preventDefault();
+    const a = document.getElementById('s1').value, b = document.getElementById('s2').value;
+    if (a.length < 8) return tampil('Kata sandi minimal 8 karakter.');
+    if (!/[A-Za-z]/.test(a) || !/\d/.test(a)) return tampil('Kata sandi harus mengandung huruf dan angka.');
+    if (a !== b) return tampil('Kedua kata sandi tidak sama.');
+    btn.disabled = true;
+    try {
+      const { error } = await sb.auth.updateUser({ password: a });
+      if (error) throw error;
+      toast('Kata sandi berhasil diperbarui.');
+      setTimeout(() => location.replace('dashboard.html'), 900);
+    } catch (err) { tampil(pesanGalat(err)); btn.disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c7332f">
+<meta name="robots" content="noindex">
+<title>Dashboard Panitia · SPMB Imam Asy-Syathiby</title>
+<link rel="icon" href="assets/img/logo-pondok.png">
+<link rel="stylesheet" href="assets/vendor/phosphor/style.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="app hidden" id="app">
+  <!-- Sidebar (desktop) / laci (HP) -->
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="brand-logo" id="brandLogo"><i class="ph-duotone ph-mosque"></i></div>
+      <div style="min-width:0"><b id="brandNama">Imam Asy-Syathiby</b><span id="brandSub">Dashboard SPMB</span></div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Menu utama"></nav>
+    <div class="side-user">
+      <div class="avatar" id="uAvatar">?</div>
+      <div class="meta"><b id="uNama">–</b><span id="uPeran">–</span></div>
+      <button class="icon-btn plain" id="btnKeluar" title="Keluar" aria-label="Keluar"><i class="ph-duotone ph-sign-out"></i></button>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn plain" id="menuBtn" aria-label="Buka menu"><i class="ph-duotone ph-list"></i></button>
+      <div class="title"><h1 id="pgJudul">Beranda</h1><span id="pgSub"></span></div>
+      <div id="themeSeg"></div>
+      <button class="icon-btn plain" id="btnLonceng" aria-label="Notifikasi"><i class="ph-duotone ph-bell"></i><span class="badge-dot hidden" id="badge">0</span></button>
+    </header>
+    <main class="content" id="konten"></main>
+  </div>
+</div>
+
+<!-- Layar memuat -->
+<div id="memuat" style="min-height:100vh;display:grid;place-items:center;color:var(--muted)">
+  <div style="text-align:center"><span class="spinner" style="width:32px;height:32px;color:var(--primary)"></span><p>Memuat dashboard…</p></div>
+</div>
+
+<!-- Navigasi bawah (HP) -->
+<nav class="bottom-nav hidden" id="bottomNav" aria-label="Navigasi bawah"></nav>
+<button class="fab hidden" id="fab" aria-label="Tambah"><i class="ph-duotone ph-plus"></i></button>
+
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/dashboard.js"></script>
+</body>
+</html>

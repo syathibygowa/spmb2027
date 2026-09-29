@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c7332f">
+<meta name="robots" content="noindex">
+<title>Masuk Panitia · SPMB Imam Asy-Syathiby</title>
+<link rel="icon" href="assets/img/logo-pondok.png">
+<link rel="stylesheet" href="assets/vendor/phosphor/style.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<div class="auth">
+  <section class="auth-hero">
+    <div class="brand">
+      <div class="brand-logo" id="brandLogo"><i class="ph-duotone ph-mosque"></i></div>
+      <div><b id="namaSingkat">Ponpes Imam Asy-Syathiby</b><span>Wahdah Islamiyah Gowa</span></div>
+    </div>
+    <div>
+      <h1>Dashboard Panitia SPMB <span id="ta">2027/2028</span></h1>
+      <p class="desc">Kelola pendaftaran, verifikasi, seleksi, pengumuman, dan daftar ulang santri baru dari satu tempat.</p>
+      <div class="chips">
+        <span class="chip"><i class="ph-duotone ph-shield-check"></i> Akses sesuai peran</span>
+        <span class="chip"><i class="ph-duotone ph-bell-ringing"></i> Notifikasi langsung</span>
+        <span class="chip"><i class="ph-duotone ph-printer"></i> Dokumen cetak F4</span>
+      </div>
+    </div>
+    <div class="desc" style="font-size:12.5px;opacity:.85" id="tagline">Generasi Qur'ani dan Berprestasi</div>
+  </section>
+
+  <main class="auth-main">
+    <div class="auth-top">
+      <a class="icon-btn" href="index.html" title="Ke beranda situs"><i class="ph-duotone ph-house"></i><span>Beranda</span></a>
+      <div id="themeSeg"></div>
+    </div>
+
+    <!-- Formulir masuk -->
+    <form class="auth-box" id="formMasuk" novalidate>
+      <h2>Masuk</h2>
+      <p>Khusus panitia: Superadmin, Admin, dan Penguji.</p>
+      <div id="pesan"></div>
+      <div class="field">
+        <label for="email">Email <span class="req">*</span></label>
+        <input class="input" id="email" type="email" autocomplete="username" inputmode="email" placeholder="nama@email.com" required>
+      </div>
+      <div class="field">
+        <label for="sandi">Kata sandi <span class="req">*</span></label>
+        <div class="input-wrap">
+          <input class="input" id="sandi" type="password" autocomplete="current-password" placeholder="Kata sandi Anda" required>
+          <button type="button" class="toggle-pass" aria-label="Tampilkan kata sandi"><i class="ph-duotone ph-eye"></i></button>
+        </div>
+      </div>
+      <div class="auth-links">
+        <span class="muted">Belum punya akun? Hubungi Superadmin.</span>
+        <a href="#" id="keLupa">Lupa kata sandi?</a>
+      </div>
+      <button class="btn block" id="btnMasuk" type="submit"><i class="ph-duotone ph-sign-in"></i>Masuk</button>
+    </form>
+
+    <!-- Formulir lupa kata sandi -->
+    <form class="auth-box hidden" id="formLupa" novalidate>
+      <h2>Lupa kata sandi</h2>
+      <p>Masukkan email akun Anda. Kami kirimkan tautan untuk membuat kata sandi baru.</p>
+      <div id="pesanLupa"></div>
+      <div class="field">
+        <label for="emailLupa">Email <span class="req">*</span></label>
+        <input class="input" id="emailLupa" type="email" autocomplete="username" inputmode="email" placeholder="nama@email.com" required>
+      </div>
+      <button class="btn block" id="btnLupa" type="submit"><i class="ph-duotone ph-paper-plane-tilt"></i>Kirim tautan</button>
+      <p style="text-align:center;margin-top:16px"><a href="#" id="keMasuk" style="font-weight:700;text-decoration:none"><i class="ph-duotone ph-arrow-left"></i> Kembali ke halaman masuk</a></p>
+    </form>
+
+    <div class="auth-foot" id="versi"></div>
+  </main>
+</div>
+
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/core.js"></script>
+<script>
+(function () {
+  const { sb, CFG, toast, pesanGalat, muatPengaturan, logoPondok, pasangLogo, themeSegHTML, esc } = window.SPMB;
+  document.getElementById('themeSeg').innerHTML = themeSegHTML;
+  SPMB.setTheme(SPMB.getTheme());
+  document.getElementById('versi').textContent = `Sistem SPMB · versi ${CFG.versi}`;
+
+  // Identitas dari pengaturan (sekaligus uji koneksi database)
+  muatPengaturan().then(p => {
+    const id = p.identitas || {};
+    if (id.nama_singkat) document.getElementById('namaSingkat').textContent = id.nama_singkat;
+    if (id.tahun_ajaran) document.getElementById('ta').textContent = id.tahun_ajaran;
+    if (id.tagline) document.getElementById('tagline').textContent = id.tagline;
+    pasangLogo(document.getElementById('brandLogo'), logoPondok(p));
+  }).catch(() => pasangLogo(document.getElementById('brandLogo'), logoPondok({})));
+
+  // Sudah masuk? langsung ke dashboard
+  sb.auth.getSession().then(({ data }) => { if (data.session) location.replace('dashboard.html'); });
+
+  const tampil = (el, pesan, jenis = 'err') => {
+    el.innerHTML = `<div class="note ${jenis === 'err' ? 'err' : 'info'}"><i class="ph-duotone ${jenis === 'err' ? 'ph-warning-circle' : 'ph-check-circle'}"></i><div>${esc(pesan)}</div></div>`;
+  };
+  const sibuk = (btn, ya, label) => { btn.disabled = ya; if (ya) { btn.dataset.l = btn.innerHTML; btn.innerHTML = `<span class="spinner"></span>${label}`; } else btn.innerHTML = btn.dataset.l; };
+  const emailValid = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+
+  // Pindah antarformulir
+  const fMasuk = document.getElementById('formMasuk'), fLupa = document.getElementById('formLupa');
+  document.getElementById('keLupa').onclick = e => { e.preventDefault(); fMasuk.classList.add('hidden'); fLupa.classList.remove('hidden'); document.getElementById('emailLupa').value = document.getElementById('email').value; };
+  document.getElementById('keMasuk').onclick = e => { e.preventDefault(); fLupa.classList.add('hidden'); fMasuk.classList.remove('hidden'); };
+
+  // Masuk
+  fMasuk.addEventListener('submit', async e => {
+    e.preventDefault();
+    const pesan = document.getElementById('pesan'); pesan.innerHTML = '';
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const sandi = document.getElementById('sandi').value;
+    if (!emailValid(email)) return tampil(pesan, 'Format email belum benar.');
+    if (!sandi) return tampil(pesan, 'Kata sandi wajib diisi.');
+    const btn = document.getElementById('btnMasuk'); sibuk(btn, true, 'Memeriksa…');
+    try {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: sandi });
+      if (error) throw error;
+      const { data: prof, error: e2 } = await sb.from('profil_pengguna').select('aktif,peran').eq('id', data.user.id).maybeSingle();
+      if (e2) throw e2;
+      if (!prof || !prof.aktif) {
+        await sb.auth.signOut();
+        return tampil(pesan, 'Akun Anda belum aktif atau telah dinonaktifkan. Hubungi Superadmin.');
+      }
+      toast('Berhasil masuk. Mengalihkan…');
+      location.replace('dashboard.html');
+    } catch (err) {
+      tampil(pesan, pesanGalat(err));
+    } finally { sibuk(btn, false); }
+  });
+
+  // Lupa kata sandi
+  fLupa.addEventListener('submit', async e => {
+    e.preventDefault();
+    const pesan = document.getElementById('pesanLupa'); pesan.innerHTML = '';
+    const email = document.getElementById('emailLupa').value.trim().toLowerCase();
+    if (!emailValid(email)) return tampil(pesan, 'Format email belum benar.');
+    const btn = document.getElementById('btnLupa'); sibuk(btn, true, 'Mengirim…');
+    try {
+      const alamat = location.origin + location.pathname.replace(/[^/]*$/, '') + 'atur-sandi.html';
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: alamat });
+      if (error) throw error;
+      tampil(pesan, 'Bila email tersebut terdaftar, tautan pembuatan kata sandi baru sudah dikirim. Periksa juga folder Spam.', 'ok');
+    } catch (err) {
+      tampil(pesan, pesanGalat(err));
+    } finally { sibuk(btn, false); }
+  });
+})();
+</script>
+</body>
+</html>

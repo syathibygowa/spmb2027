@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c7332f">
+<title>SPMB 2027/2028 · Ponpes Tahfizhul Qur'an Imam Asy-Syathiby Gowa</title>
+<meta name="description" content="Sistem Penerimaan Murid Baru Pondok Pesantren Tahfizhul Qur'an Imam Asy-Syathiby Wahdah Islamiyah Gowa, Tahun Ajaran 2027/2028.">
+<link rel="icon" href="assets/img/logo-pondok.png">
+<link rel="stylesheet" href="assets/vendor/phosphor/style.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body>
+<header class="pub-bar">
+  <div class="brand">
+    <div class="brand-logo" id="brandLogo"><i class="ph-duotone ph-mosque"></i></div>
+    <div style="min-width:0"><b id="nama">Ponpes Imam Asy-Syathiby</b><span id="sub">SPMB Tahun Ajaran 2027/2028</span></div>
+  </div>
+  <div id="themeSeg"></div>
+  <a class="icon-btn" href="masuk.html" title="Masuk panitia"><i class="ph-duotone ph-sign-in"></i><span class="hide-sm">Panitia</span></a>
+</header>
+
+<section class="pub-hero">
+  <div class="hero-card">
+    <span class="eyebrow"><i class="ph-duotone ph-sparkle"></i> <span id="tagline">Generasi Qur'ani dan Berprestasi</span></span>
+    <h1>Penerimaan Santri Baru <span id="ta">2027/2028</span></h1>
+    <p id="namaPanjang">Pondok Pesantren Tahfizhul Qur'an Imam Asy-Syathiby Wahdah Islamiyah Gowa</p>
+    <div class="hero-actions">
+      <span class="btn" aria-disabled="true"><i class="ph-duotone ph-hourglass-medium"></i>Pendaftaran segera dibuka</span>
+      <a class="btn ghost" id="btnVideo" href="https://youtu.be/vE_R9-lvUbY" target="_blank" rel="noopener"><i class="ph-duotone ph-play-circle"></i>Video profil</a>
+    </div>
+  </div>
+</section>
+
+<section class="pub-grid">
+  <div class="card"><div class="ic-box" style="--tone:var(--c1)"><i class="ph-duotone ph-book-open-text"></i></div><b>Program Tahfizh</b><span>Informasi program unggulan segera hadir.</span></div>
+  <div class="card"><div class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-calendar-check"></i></div><b>Jadwal SPMB</b><span>Jadwal gelombang pendaftaran akan diumumkan.</span></div>
+  <div class="card"><div class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-phone-call"></i></div><b>Hubungi Kami</b><span id="kontak">syathiby.gowa@gmail.com</span></div>
+</section>
+
+<footer class="pub-foot">
+  <div class="sosmed" id="sosmed"></div>
+  <div id="footNama">© Ponpes Tahfizhul Qur'an Imam Asy-Syathiby Wahdah Islamiyah Gowa</div>
+  <div style="font-size:12px;margin-top:4px" id="status"></div>
+</footer>
+
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/core.js"></script>
+<script>
+(function () {
+  const { muatPengaturan, logoPondok, pasangLogo, themeSegHTML, esc, fmt } = window.SPMB;
+  document.getElementById('themeSeg').innerHTML = themeSegHTML; SPMB.setTheme(SPMB.getTheme());
+  const set = (id, v) => { if (v) document.getElementById(id).textContent = v; };
+  muatPengaturan().then(p => {
+    const id = p.identitas || {};
+    set('nama', id.nama_singkat); set('ta', id.tahun_ajaran); set('tagline', id.tagline);
+    set('namaPanjang', id.nama_lembaga);
+    if (id.tahun_ajaran) set('sub', 'SPMB Tahun Ajaran ' + id.tahun_ajaran);
+    set('kontak', [id.telepon, id.email].filter(Boolean).join(' · '));
+    if (id.nama_lembaga) set('footNama', '© ' + new Date().getFullYear() + ' ' + id.nama_lembaga);
+    if (id.video_profil) document.getElementById('btnVideo').href = id.video_profil;
+    const ms = id.media_sosial || {};
+    const ikon = { youtube: ['ph-youtube-logo', '#e11d1d'], instagram: ['ph-instagram-logo', '#c2336b'], facebook: ['ph-facebook-logo', '#1877f2'], tiktok: ['ph-tiktok-logo', 'var(--text)'] };
+    document.getElementById('sosmed').innerHTML = Object.entries(ikon).filter(([k]) => ms[k]).map(([k, [ic, c]]) =>
+      `<a href="${esc(ms[k])}" target="_blank" rel="noopener" aria-label="${k}" style="color:${c}"><i class="ph-duotone ${ic}"></i></a>`).join('');
+    pasangLogo(document.getElementById('brandLogo'), logoPondok(p));
+    document.getElementById('status').textContent = `Terhubung ke database · ${fmt.hariTgl()}`;
+  }).catch(() => {
+    pasangLogo(document.getElementById('brandLogo'), logoPondok({}));
+    document.getElementById('status').textContent = 'Belum dapat terhubung ke database.';
+  });
+})();
+</script>
+</body>
+</html>

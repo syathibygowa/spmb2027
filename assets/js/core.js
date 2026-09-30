@@ -132,6 +132,160 @@
     tombol: [{ label: 'Batal', kelas: 'ghost', nilai: false }, { label: labelYa, kelas: bahaya ? 'danger' : '', nilai: true }]
   });
 
+  /* ---------- Isian tanggal dan jam seragam ----------
+     Isian <input type="date|time|datetime-local"> bawaan peramban tampil
+     mengikuti bahasa peramban (mis. mm/dd/yyyy dan AM/PM di peramban
+     berbahasa Inggris). Semua isian tersebut otomatis dibungkus menjadi
+     isian teks dd/mm/yyyy + kalender Indonesia, dan jam 24 jam (HH.MM).
+     Isian asli tetap ada (tersembunyi) dan menyimpan nilai ISO, sehingga
+     kode lain tetap membaca/mengisi .value seperti biasa. */
+  const HARI_PENDEK = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+  const nilaiAsli = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  const isoKeTeks = iso => /^\d{4}-\d{2}-\d{2}/.test(iso || '') ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '';
+  const jamKeTeks = j => /^\d{2}:\d{2}/.test(j || '') ? j.slice(0, 5).replace(':', '.') : '';
+  function teksKeIso(t) {
+    const m = String(t || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); if (!m) return null;
+    const d = +m[1], b = +m[2], y = +m[3], x = new Date(y, b - 1, d);
+    return x.getFullYear() === y && x.getMonth() === b - 1 && x.getDate() === d && y >= 1900 ? `${y}-${pad(b)}-${pad(d)}` : null;
+  }
+  function teksKeJam(t) { const m = String(t || '').match(/^(\d{2})[.:](\d{2})$/); return m && +m[1] < 24 && +m[2] < 60 ? `${m[1]}:${m[2]}` : null; }
+  const topengTgl = v => { const d = v.replace(/\D/g, '').slice(0, 8); return d.length > 4 ? `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}` : d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d; };
+  const topengJam = v => { const d = v.replace(/\D/g, '').slice(0, 4); return d.length > 2 ? `${d.slice(0, 2)}.${d.slice(2)}` : d; };
+  let kalenderTerbuka = null;
+  const tutupKalender = () => { if (kalenderTerbuka) { kalenderTerbuka.remove(); kalenderTerbuka = null; } };
+  document.addEventListener('mousedown', e => { if (kalenderTerbuka && !kalenderTerbuka.contains(e.target) && !e.target.closest('.btn-kalender')) tutupKalender(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && kalenderTerbuka) { e.stopPropagation(); tutupKalender(); } }, true);
+  window.addEventListener('resize', tutupKalender);
+
+  function rapikanIsianWaktu(inp) {
+    if (inp.dataset.rapi || !['date', 'time', 'datetime-local'].includes(inp.type)) return;
+    inp.dataset.rapi = '1';
+    const jenis = inp.type, adaTgl = jenis !== 'time', adaJam = jenis !== 'date';
+    const bungkus = document.createElement('span');
+    bungkus.className = `isian-waktu jenis-${jenis}`;
+    inp.parentNode.insertBefore(bungkus, inp);
+    const kelas = inp.className.replace(/\b(asli-waktu)\b/g, '');
+    const label = inp.getAttribute('aria-label') || (inp.id && document.querySelector(`label[for="${inp.id}"]`)?.textContent.trim()) || '';
+    const buat = (k, ph, ml, lbl) => Object.assign(document.createElement('input'), { type: 'text', className: `${kelas} ${k}`, placeholder: ph, maxLength: ml, autocomplete: 'off', inputMode: 'numeric', title: ph === 'dd/mm/yyyy' ? 'Format tanggal: dd/mm/yyyy' : 'Format jam 24 jam: HH.MM' , ariaLabel: lbl });
+    let tTgl, tJam, tombol;
+    if (adaTgl) {
+      const sub = document.createElement('span'); sub.className = 'isian-tgl';
+      tTgl = buat('teks-tgl', 'dd/mm/yyyy', 10, (label ? label + ' ' : '') + '(dd/mm/yyyy)');
+      tombol = Object.assign(document.createElement('button'), { type: 'button', className: 'btn-kalender', title: 'Pilih dari kalender', innerHTML: '<i class="ph-duotone ph-calendar-dots"></i>' });
+      tombol.setAttribute('aria-label', 'Pilih tanggal dari kalender');
+      sub.append(tTgl, tombol); bungkus.append(sub);
+      if (inp.id) { const l = document.querySelector(`label[for="${inp.id}"]`); tTgl.id = inp.id + '__teks'; if (l) l.htmlFor = tTgl.id; }
+    }
+    if (adaJam) {
+      tJam = buat('teks-jam', 'HH.MM', 5, (label ? label + ' ' : '') + '(jam, HH.MM)');
+      bungkus.append(tJam);
+      if (!adaTgl && inp.id) { const l = document.querySelector(`label[for="${inp.id}"]`); tJam.id = inp.id + '__teks'; if (l) l.htmlFor = tJam.id; }
+    }
+    bungkus.append(inp);
+    inp.classList.add('asli-waktu'); inp.tabIndex = -1; inp.setAttribute('aria-hidden', 'true');
+
+    const tampil = () => {
+      const v = nilaiAsli.get.call(inp) || '';
+      if (tTgl) tTgl.value = isoKeTeks(v.slice(0, 10));
+      if (tJam) tJam.value = jamKeTeks(jenis === 'time' ? v : v.slice(11, 16));
+      bungkus.classList.remove('belum');
+    };
+    const kunci = () => { [tTgl, tJam, tombol].forEach(x => { if (x) { x.disabled = inp.disabled; if (x !== tombol) x.readOnly = inp.readOnly; } }); if (tombol) tombol.disabled = inp.disabled || inp.readOnly; };
+    Object.defineProperty(inp, 'value', { configurable: true, get() { return nilaiAsli.get.call(this); }, set(v) { nilaiAsli.set.call(this, v); tampil(); } });
+    new MutationObserver(kunci).observe(inp, { attributes: true, attributeFilter: ['disabled', 'readonly'] });
+    const kirim = (v) => {
+      if (v === nilaiAsli.get.call(inp)) return;
+      nilaiAsli.set.call(inp, v);
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      inp.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    // Nilai ISO dari teks; null = belum lengkap/tidak sah
+    const hitung = () => {
+      const d = tTgl ? (tTgl.value ? teksKeIso(tTgl.value) : '') : '', j = tJam ? (tJam.value ? teksKeJam(tJam.value) : '') : '';
+      if (jenis === 'date') return d;
+      if (jenis === 'time') return j;
+      if (!tTgl.value && !tJam.value) return '';
+      return d && j ? `${d}T${j}` : d && !tJam.value ? `${d}T00:00` : null;
+    };
+    const perbarui = () => { const v = hitung(); bungkus.classList.toggle('belum', v === null); if (v !== null) kirim(v); };
+    const keluar = () => setTimeout(() => {
+      if (bungkus.contains(document.activeElement) || kalenderTerbuka?.dataset.untuk === inp.dataset.rapiId) return;
+      const v = hitung();
+      [tTgl, tJam].forEach(x => x && x.classList.toggle('bad', v === null));
+      if (v === null) kirim('');
+      else if (jenis === 'datetime-local' && v && !tJam.value) tJam.value = '00.00';
+      inp.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    }, 0);
+    [tTgl, tJam].forEach(x => {
+      if (!x) return;
+      x.addEventListener('input', () => { const p0 = x.value; x.value = x === tTgl ? topengTgl(x.value) : topengJam(x.value); if (x.value !== p0 && document.activeElement === x) x.setSelectionRange(x.value.length, x.value.length); x.classList.remove('bad'); perbarui(); });
+      x.addEventListener('blur', keluar);
+    });
+    if (tombol) tombol.addEventListener('click', () => kalenderTerbuka?.dataset.untuk === inp.dataset.rapiId ? tutupKalender() : bukaKalender());
+    inp.dataset.rapiId = Math.random().toString(36).slice(2);
+
+    function bukaKalender() {
+      tutupKalender();
+      const pop = document.createElement('div');
+      pop.className = 'kalender-pop'; pop.dataset.untuk = inp.dataset.rapiId;
+      pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Kalender');
+      const kini = fmt.isoTgl(), dipilih = teksKeIso(tTgl.value) || (nilaiAsli.get.call(inp) || '').slice(0, 10);
+      const min = (inp.min || '').slice(0, 10), max = (inp.max || '').slice(0, 10);
+      let acuan = dipilih || (max && max < kini ? max : min && min > kini ? min : kini);
+      let th = +acuan.slice(0, 4), bl = +acuan.slice(5, 7) - 1;
+      const thAwal = min ? +min.slice(0, 4) : new Date().getFullYear() - 80, thAkhir = max ? +max.slice(0, 4) : new Date().getFullYear() + 10;
+      const gambar = () => {
+        const awal = (new Date(th, bl, 1).getDay() + 6) % 7, jml = new Date(th, bl + 1, 0).getDate();
+        let sel = ''; for (let i = 0; i < awal; i++) sel += '<span></span>';
+        for (let d = 1; d <= jml; d++) {
+          const iso = `${th}-${pad(bl + 1)}-${pad(d)}`, mati = (min && iso < min) || (max && iso > max);
+          sel += `<button type="button" data-iso="${iso}" class="${iso === kini ? 'hari-ini' : ''}${iso === dipilih ? ' dipilih' : ''}" ${mati ? 'disabled' : ''}>${d}</button>`;
+        }
+        pop.innerHTML = `<div class="kal-kepala">
+            <button type="button" class="kal-geser" data-geser="-1" aria-label="Bulan sebelumnya"><i class="ph-duotone ph-caret-left"></i></button>
+            <select class="kal-bulan" aria-label="Bulan">${BULAN.map((b, i) => `<option value="${i}" ${i === bl ? 'selected' : ''}>${b}</option>`).join('')}</select>
+            <select class="kal-tahun" aria-label="Tahun">${Array.from({ length: thAkhir - thAwal + 1 }, (_, i) => thAkhir - i).map(y => `<option ${y === th ? 'selected' : ''}>${y}</option>`).join('')}</select>
+            <button type="button" class="kal-geser" data-geser="1" aria-label="Bulan berikutnya"><i class="ph-duotone ph-caret-right"></i></button></div>
+          <div class="kal-hari">${HARI_PENDEK.map(h => `<span>${h}</span>`).join('')}</div>
+          <div class="kal-tgl">${sel}</div>
+          <div class="kal-kaki"><button type="button" data-aksi="kini" ${(min && kini < min) || (max && kini > max) ? 'disabled' : ''}>Hari ini</button>${inp.required ? '' : '<button type="button" data-aksi="hapus">Kosongkan</button>'}</div>`;
+      };
+      const pilih = iso => {
+        tTgl.value = isoKeTeks(iso); tTgl.classList.remove('bad');
+        if (tJam && !tJam.value) tJam.value = jenis === 'datetime-local' ? fmt.isoJam().replace(':', '.') : '';
+        perbarui(); tutupKalender(); tTgl.focus(); tTgl.blur();
+      };
+      pop.addEventListener('click', e => {
+        const g = e.target.closest('[data-geser]');
+        if (g) { bl += +g.dataset.geser; if (bl < 0) { bl = 11; th--; } if (bl > 11) { bl = 0; th++; } th = Math.min(thAkhir, Math.max(thAwal, th)); gambar(); return; }
+        const t = e.target.closest('[data-iso]'); if (t) return pilih(t.dataset.iso);
+        const a = e.target.closest('[data-aksi]');
+        if (a?.dataset.aksi === 'kini') pilih(kini);
+        if (a?.dataset.aksi === 'hapus') { tTgl.value = ''; if (tJam) tJam.value = ''; perbarui(); tutupKalender(); tTgl.focus(); tTgl.blur(); }
+      });
+      pop.addEventListener('change', e => { if (e.target.matches('.kal-bulan')) bl = +e.target.value; if (e.target.matches('.kal-tahun')) th = +e.target.value; gambar(); });
+      gambar();
+      document.body.appendChild(pop); kalenderTerbuka = pop;
+      const r = tTgl.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+      if (innerWidth < 520) { pop.classList.add('bawah'); }
+      else {
+        pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+        pop.style.top = (r.bottom + h + 8 > innerHeight && r.top > h + 8 ? r.top - h - 6 : r.bottom + 6) + 'px';
+      }
+      pop.querySelector('.dipilih,.hari-ini,[data-iso]:not([disabled])')?.focus({ preventScroll: true });
+    }
+    kunci(); tampil();
+  }
+  const PILIH_WAKTU = 'input[type="date"],input[type="time"],input[type="datetime-local"]';
+  const rapikanSemuaWaktu = (root = document) => root.querySelectorAll?.(PILIH_WAKTU).forEach(rapikanIsianWaktu);
+  new MutationObserver(ms => {
+    for (const m of ms) for (const n of m.addedNodes) {
+      if (n.nodeType !== 1) continue;
+      if (n.matches(PILIH_WAKTU)) rapikanIsianWaktu(n); else rapikanSemuaWaktu(n);
+    }
+  }).observe(document.documentElement, { childList: true, subtree: true });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => rapikanSemuaWaktu()); else rapikanSemuaWaktu();
+
   /* ---------- Pesan galat dalam Bahasa Indonesia ---------- */
   function pesanGalat(err) {
     const m = String(err?.message || err || '');
@@ -190,13 +344,12 @@
       </div>`;
   }
 
-  /* Cetak dokumen F4. isi: HTML badan dokumen.
+  /* Dokumen F4 (kop, judul, isi, tanda tangan sejajar). Dipakai untuk cetak dan PDF
+     agar hasil keduanya sama persis. isi: HTML badan dokumen.
      ttd: array 1–2 kolom tanda tangan {jabatan, nama, nip}, diletakkan sejajar kiri–kanan. */
-  async function cetakDokumen({ judul, nomor = '', meta = '', isi = '', ttd = [], tempat = 'Gowa' }) {
-    const p = await muatPengaturan().catch(() => ({}));
+  function htmlDokumen({ judul, nomor = '', meta = '', isi = '', ttd = [], tempat = 'Gowa' }, p) {
     const kolomTtd = ttd.length === 1 ? [{}, ttd[0]] : ttd; // satu penanda tangan: di kanan
-    const area = document.getElementById('printArea') || Object.assign(document.createElement('div'), { id: 'printArea' });
-    area.innerHTML = `
+    return `
       <div class="doc">
         ${kopHTML(p.kop_surat || {})}
         <div class="doc-title">${esc(judul)}</div>
@@ -208,6 +361,11 @@
         </div>` : ''}
         <div class="foot">Dicetak dari Sistem SPMB ${esc(p.identitas?.tahun_ajaran || '')} pada ${fmt.hariTgl(new Date())} pukul ${fmt.jam(new Date())} WITA</div>
       </div>`;
+  }
+  async function cetakDokumen(opsi) {
+    const p = await muatPengaturan().catch(() => ({}));
+    const area = document.getElementById('printArea') || Object.assign(document.createElement('div'), { id: 'printArea' });
+    area.innerHTML = htmlDokumen(opsi, p);
     if (!area.parentNode) document.body.appendChild(area);
     document.body.classList.add('printing');
     const selesai = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', selesai); };
@@ -219,6 +377,145 @@
     })));
     window.print();
     setTimeout(selesai, 1500);
+  }
+
+  /* ---------- PDF langsung dari peramban (tanpa Google Docs) ----------
+     Dokumen yang sama dengan cetak disusun di bidang tak terlihat selebar isi F4
+     (215,9 − 2×20 mm), dipotret beresolusi tinggi (html2canvas), lalu disusun ke
+     halaman F4 bermargin 2 cm (jsPDF). Halaman dipotong di antara baris tabel. */
+  const muatSkrip = src => new Promise((ok, gagal) => {
+    if (document.querySelector(`script[data-src="${src}"]`)) return ok();
+    const sc = Object.assign(document.createElement('script'), { src, async: true });
+    sc.dataset.src = src; sc.onload = ok; sc.onerror = () => { sc.remove(); gagal(new Error('Pustaka PDF tidak dapat dimuat. Periksa koneksi internet.')); };
+    document.head.appendChild(sc);
+  });
+  let pustakaPdf;
+  const siapkanPustakaPdf = () => pustakaPdf || (pustakaPdf = Promise.all([muatSkrip('assets/vendor/pdf/html2canvas.min.js'), muatSkrip('assets/vendor/pdf/jspdf.umd.min.js')]).catch(e => { pustakaPdf = null; throw e; }));
+  const cacheGambarPdf = {};
+  const blobKeDataURL = blob => new Promise((ok, gagal) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = gagal; r.readAsDataURL(blob); });
+  async function gambarKeDataURL(src) {
+    if (!src || src.startsWith('data:')) return src;
+    if (cacheGambarPdf[src]) return cacheGambarPdf[src];
+    try { const r = await fetch(src, { mode: 'cors' }); if (!r.ok) throw 0; return (cacheGambarPdf[src] = await blobKeDataURL(await r.blob())); }
+    catch (e) {
+      // Gambar kop di Google Drive kadang tidak mengizinkan akses langsung: ambil lewat Apps Script
+      const h = await kirimKeJembatan({ aksi: 'gambar_kop', url: src }, { publik: true });
+      return (cacheGambarPdf[src] = h.data);
+    }
+  }
+  async function buatPdfDokumen(opsi) {
+    const [p] = await Promise.all([muatPengaturan().catch(() => ({})), siapkanPustakaPdf()]);
+    const kanvas = document.createElement('div');
+    kanvas.className = 'pdf-kanvas';
+    kanvas.innerHTML = htmlDokumen(opsi, p);
+    document.body.appendChild(kanvas);
+    try {
+      for (const img of kanvas.querySelectorAll('img')) {
+        try { img.src = await gambarKeDataURL(img.getAttribute('src')); } catch (e) { img.style.visibility = 'hidden'; }
+      }
+      await Promise.all([...kanvas.querySelectorAll('img')].map(img => img.complete ? 0 : new Promise(r => { img.onload = img.onerror = r; })));
+      if (document.fonts?.ready) await document.fonts.ready;
+      const SKALA = 2.5;
+      const kanvasGambar = await window.html2canvas(kanvas, { scale: SKALA, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 1280, windowHeight: 1800 });
+      // Titik potong yang aman: bagian bawah baris tabel, paragraf, dan blok
+      const atas = kanvas.getBoundingClientRect().top;
+      const aman = [...kanvas.querySelectorAll('tr, p, .doc-meta, .doc-no, .doc-title, .kop-preview, .sign, .foot, table, .catatan-kotak, div[style*="height"]')]
+        .map(el => el.getBoundingClientRect().bottom - atas).filter(y => y > 0).sort((a, b) => a - b);
+      const pxPerMm = kanvas.offsetWidth / 175.9;
+      const tinggiHal = 290.2 * pxPerMm, total = kanvas.scrollHeight;
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'mm', format: [215.9, 330.2], orientation: 'portrait', compress: true });
+      let mulai = 0, hal = 0;
+      while (mulai < total - 1) {
+        let akhir = Math.min(total, mulai + tinggiHal);
+        if (akhir < total) { const cocok = aman.filter(y => y > mulai + 40 && y <= akhir); if (cocok.length) akhir = cocok[cocok.length - 1] + 1; }
+        const potong = document.createElement('canvas');
+        potong.width = kanvasGambar.width; potong.height = Math.round((akhir - mulai) * SKALA);
+        const ctx = potong.getContext('2d', { alpha: false }); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, potong.width, potong.height);
+        ctx.drawImage(kanvasGambar, 0, Math.round(mulai * SKALA), potong.width, potong.height, 0, 0, potong.width, potong.height);
+        // latar putih murni (piksel hampir putih dibulatkan) agar tidak tampak abu-abu di layar
+        const px = ctx.getImageData(0, 0, potong.width, potong.height), d = px.data;
+        for (let i = 0; i < d.length; i += 4) { if (d[i] > 248 && d[i + 1] > 248 && d[i + 2] > 248) { d[i] = d[i + 1] = d[i + 2] = 255; } d[i + 3] = 255; }
+        ctx.putImageData(px, 0, 0);
+        if (hal++) pdf.addPage([215.9, 330.2], 'portrait');
+        pdf.addImage(potong.toDataURL('image/png'), 'PNG', 20, 20, 175.9, (akhir - mulai) / pxPerMm, undefined, 'FAST');
+        mulai = akhir;
+      }
+      pdf.setProperties({ title: opsi.judul + (opsi.nomor ? ' ' + opsi.nomor : ''), creator: 'Sistem SPMB ' + (p.identitas?.nama_singkat || '') });
+      return pdf.output('datauristring').replace(/^data:application\/pdf;[^,]*,/, 'data:application/pdf;base64,');
+    } finally { kanvas.remove(); }
+  }
+  async function unduhPdfDokumen(opsi, namaFile) {
+    const data = await buatPdfDokumen(opsi);
+    simpanPdf(data, namaFile);
+    return data;
+  }
+
+  /* ---------- Grafik sederhana (HTML + CSS, tanpa pustaka) ----------
+     Warna: --gr-satu (satu seri/besaran), --gr-putra dan --gr-putri (identitas).
+     Setiap batang punya keterangan saat disentuh/diarahkan (data-tip) dan
+     setiap grafik dapat dibuka sebagai tabel. */
+  const angka = n => new Intl.NumberFormat('id-ID').format(n || 0);
+  const grafik = {
+    // Batang tegak, satu seri (mis. pendaftar harian). data: [{label, nilai, tip}]
+    batang(data, { warna = 'var(--gr-satu)', labelTiap = 5, satuan = 'pendaftar' } = {}) {
+      const maks = Math.max(1, ...data.map(d => d.nilai));
+      const puncak = Math.max(...data.map(d => d.nilai));
+      return `<div class="gr-batang" style="--gr-w:${warna}">
+        <div class="gr-sumbu"><span>${angka(maks)}</span><span>0</span></div>
+        <div class="gr-area">${data.map((d, i) => `<div class="gr-kolom" tabindex="0" data-tip="${esc(d.tip || `${d.label}: ${angka(d.nilai)} ${satuan}`)}">
+            <i style="height:${d.nilai ? Math.max(3, d.nilai / maks * 100) : 0}%"></i>${d.nilai === puncak && puncak > 0 && data.filter(x => x.nilai === puncak).length === 1 ? `<b>${angka(d.nilai)}</b>` : ''}</div>`).join('')}</div>
+        <div class="gr-label">${data.map((d, i) => `<span>${i % labelTiap === 0 || i === data.length - 1 ? esc(d.label) : ''}</span>`).join('')}</div>
+      </div>`;
+    },
+    // Batang mendatar dengan nilai tertulis (mis. asal daerah). data: [{label, nilai}]
+    mendatar(data, { warna = 'var(--gr-satu)', satuan = 'pendaftar' } = {}) {
+      if (!data.length) return '<p class="gr-kosong">Belum ada data.</p>';
+      const maks = Math.max(1, ...data.map(d => d.nilai));
+      return `<ul class="gr-mendatar" style="--gr-w:${warna}">${data.map(d => `<li tabindex="0" data-tip="${esc(`${d.label}: ${angka(d.nilai)} ${satuan}`)}">
+        <span class="gr-nama">${esc(d.label)}</span><span class="gr-jalur"><i style="width:${Math.max(2, d.nilai / maks * 100)}%"></i></span><b>${angka(d.nilai)}</b></li>`).join('')}</ul>`;
+    },
+    // Batang keterisian kuota
+    kemajuan(terisi, kuota, warna = 'var(--gr-satu)') {
+      const persen = kuota ? Math.min(100, Math.round(terisi / kuota * 100)) : 0;
+      return `<span class="gr-kemajuan" style="--gr-w:${warna}" role="progressbar" aria-valuenow="${persen}" aria-valuemin="0" aria-valuemax="100"><i style="width:${persen}%"></i></span>`;
+    },
+    // Tabel data untuk setiap grafik (aksesibilitas)
+    tabel(kolom, baris) {
+      return `<details class="gr-tabel"><summary><i class="ph-duotone ph-table"></i>Lihat sebagai tabel</summary>
+        <table><thead><tr>${kolom.map(k => `<th>${esc(k)}</th>`).join('')}</tr></thead>
+        <tbody>${baris.map(b => `<tr>${b.map((x, i) => `<td${i ? ' class="c"' : ''}>${esc(typeof x === 'number' ? angka(x) : x)}</td>`).join('')}</tr>`).join('')}</tbody></table></details>`;
+    }
+  };
+
+  /* ---------- Isi Bukti Pendaftaran (dipakai formulir, dashboard, cetak, dan PDF) ----------
+     p: data pendaftar (kolom seperti tabel pendaftar) + gelombang (nama), jenisBerkas: ['pas_foto', ...] */
+  function dokumenBukti(p, jenisBerkas, peng) {
+    const kp = peng.ketua_panitia || {}, ta = peng.identitas?.tahun_ajaran || '';
+    const label = Object.fromEntries((peng.spmb?.berkas || []).map(b => [b.kunci, b.label]));
+    const t = (rows, lebar) => `<table><colgroup>${lebar.map(w => `<col style="width:${w}%">`).join('')}</colgroup>${rows}</table>`;
+    const r = (a, b) => `<tr><td>${a}</td><td>${esc(b == null || b === '' ? '–' : String(b))}</td></tr>`;
+    const wa = n => n ? '+' + String(n).replace(/^\+/, '') : '–';
+    const alamat = [p.alamat_jalan, p.dusun, `RT ${p.rt || '–'}/RW ${p.rw || '–'}`, p.desa, p.kecamatan ? `Kec. ${p.kecamatan}` : '', p.kabupaten, p.provinsi, p.kode_pos].filter(Boolean).join(', ');
+    const hafalan = +p.hafalan_juz >= 1 ? `${String(+p.hafalan_juz).replace('.', ',')} juz` : +p.hafalan_surah > 0 ? `${p.hafalan_surah} surah pendek (kurang dari 1 juz)` : 'Belum ada hafalan';
+    const tglLahir = p.tanggal_lahir ? fmt.tglPanjang(new Date(p.tanggal_lahir + 'T00:00:00')) : '–';
+    const urut = [...new Set(jenisBerkas || [])].sort((a, b) => Object.keys(label).indexOf(a) - Object.keys(label).indexOf(b));
+    return {
+      judul: 'Bukti Pendaftaran Santri Baru', nomor: p.no_registrasi,
+      meta: `Tahun Ajaran ${esc(ta)} · ${esc(p.gelombang || '')} · Tanggal daftar: ${fmt.tglJam(p.dibuat_pada)} WITA${p.uji ? ' · <b>DATA UJI COBA</b>' : ''}`,
+      isi: `<span class="dok-rapat"></span>${t(`<thead><tr><th>Data calon santri</th><th>Keterangan</th></tr></thead><tbody>
+          ${r('Nama lengkap', p.nama_lengkap)}${r('NISN / NIK', `${p.nisn} / ${p.nik}`)}
+          ${r('Tempat, tanggal lahir', `${p.tempat_lahir}, ${tglLahir}`)}
+          ${r('Jenjang / bagian', `${p.jenjang} / ${p.bagian === 'putra' ? 'Putra' : 'Putri'}`)}${r('Asal daerah', `${p.asal_kabupaten || '–'}, ${p.asal_provinsi || '–'}`)}
+          ${r('Alamat domisili', alamat)}${r('Sekolah asal', p.asal_sekolah)}
+          ${r('Nama ayah / ibu', `${p.nama_ayah || '–'} / ${p.nama_ibu || '–'}`)}${r('WhatsApp / email', `${wa(p.no_wa)} / ${String(p.email || '').toLowerCase()}`)}
+          ${r('Hafalan Al-Qur\'an', hafalan)}</tbody>`, [34, 66])}
+        <div style="height:6px"></div>
+        ${urut.length ? t(`<thead><tr><th>No</th><th>Berkas yang diunggah</th><th>Status</th></tr></thead><tbody>
+          ${urut.map((j, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(label[j] || j)}</td><td>Menunggu verifikasi</td></tr>`).join('')}</tbody>`, [8, 62, 30]) : ''}
+        <p style="font-size:9pt;margin:6px 0 0">Catatan: simpan bukti ini. Status dan jadwal tes dapat dilihat di halaman Cek Status situs SPMB dengan nomor registrasi dan tanggal lahir santri.</p>`,
+      ttd: [{ jabatan: 'Calon santri / wali,', nama: p.nama_lengkap }, { jabatan: 'Ketua Panitia SPMB,', nama: kp.nama, nip: kp.niy ? 'NIY. ' + kp.niy : '' }]
+    };
   }
 
   /* =================================================================
@@ -308,7 +605,8 @@
     return kirimKeJembatan({ aksi: 'unggah', keperluan: 'pendaftar', token_unggah: token, jenis, nama: siap.name, mime: siap.type, data: await bacaDataURL(siap) }, { publik: true });
   }
   // Setelah formulir terkirim: rapikan folder berkas dan kirim email konfirmasi
-  const konfirmasiPendaftaran = token => kirimKeJembatan({ aksi: 'konfirmasi', token_unggah: token }, { publik: true });
+  // pdf (opsional): Bukti Pendaftaran yang dibuat peramban, dilampirkan ke email apa adanya
+  const konfirmasiPendaftaran = (token, pdf = null) => kirimKeJembatan({ aksi: 'konfirmasi', token_unggah: token, ...(pdf ? { pdf } : {}) }, { publik: true });
   // Admin melihat berkas pendaftar (privat di Drive). Hasil: { nama, mime, data: dataURL }
   const lihatBerkasPendaftar = driveId => kirimKeJembatan({ aksi: 'lihat', id: driveId });
   // Bukti Pendaftaran PDF dari Apps Script: pendaftar memakai token formulirnya, panitia memakai id pendaftar
@@ -326,13 +624,14 @@
     setTimeout(() => URL.revokeObjectURL(url), 60000);
   }
   // Admin menambah/mengganti berkas milik pendaftar (tersimpan di folder santri, privat)
-  async function unggahBerkasAdmin(file, { no, jenis }) {
+  // santri + label: nama berkas di Drive menjadi "Nama Santri - Jenis Berkas - Nomor urut"
+  async function unggahBerkasAdmin(file, { no, jenis, santri = '', label = '' }) {
     const t = (file.type || '').toLowerCase();
     if (/heic|heif/.test(t) || /\.(heic|heif)$/i.test(file.name)) throw new Error('Foto format HEIC belum didukung. Gunakan JPG atau PNG.');
     if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(t)) throw new Error('Gunakan foto (JPG/PNG) atau PDF.');
     const siap = t.startsWith('image/') ? await kompresGambar(file, { maksSisi: 1600, kualitas: 0.8 }) : file;
     if (siap.size > 10 * 1024 * 1024) throw new Error('Ukuran berkas melebihi 10 MB.');
-    return kirimKeJembatan({ aksi: 'unggah', keperluan: 'pendaftar_admin', bagian: no, nama: `${jenis}-${siap.name}`, mime: siap.type, data: await bacaDataURL(siap) });
+    return kirimKeJembatan({ aksi: 'unggah', keperluan: 'pendaftar_admin', bagian: no, santri, label, nama: `${jenis}-${siap.name}`, mime: siap.type, data: await bacaDataURL(siap) });
   }
   // Superadmin membuang banyak berkas pendaftar ke Sampah Drive (misalnya data uji)
   const hapusBerkasPendaftar = ids => ids.length ? kirimKeJembatan({ aksi: 'hapus', keperluan: 'pendaftar_admin', ids }) : Promise.resolve({ jumlah: 0 });
@@ -419,7 +718,7 @@
 
   window.SPMB = {
     sb, CFG, fmt, esc, inisial, toast, dialog, konfirmasi, pesanGalat,
-    muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen,
+    muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen, htmlDokumen, buatPdfDokumen, unduhPdfDokumen, dokumenBukti, grafik,
     isiTanggalBawaan, setTheme, getTheme, themeSegHTML,
     alamatUnggah, kirimKeJembatan, kompresGambar, unggahBerkas, hapusBerkasDrive, gambar, youtubeId,
     unggahBerkasPendaftar, konfirmasiPendaftaran, lihatBerkasPendaftar, hapusBerkasPendaftar,

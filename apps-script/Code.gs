@@ -1,5 +1,5 @@
 /* =====================================================================
-   SPMB 2027/2028 · JEMBATAN UNGGAH (Google Apps Script) · versi 3.1
+   SPMB 2027/2028 · JEMBATAN UNGGAH (Google Apps Script) · versi 3.2
    Pondok Pesantren Tahfizhul Qur'an Imam Asy-Syathiby Wahdah Islamiyah Gowa
 
    Tugas:
@@ -11,8 +11,11 @@
                       Pendaftaran (PDF ukuran F4).
    4. Lihat berkas  : Admin/Superadmin melihat berkas pendaftar yang
                       tersimpan privat di Drive.
-   4b. Bukti PDF    : Bukti Pendaftaran (PDF F4) untuk diunduh pendaftar
-                      (dengan token unggahnya) atau panitia (sesi masuk).
+   4b. Bukti PDF    : Bukti Pendaftaran utama dibuat di peramban (sama dengan
+                      hasil cetak) lalu dikirim ke sini untuk lampiran email.
+                      Pembuatan lewat Google Docs hanya cadangan.
+   4c. Nama berkas  : berkas santri di Drive diberi nama
+                      "Nama Santri - Jenis Berkas - Nomor urut".
    5. Penjaga       : menyapa Supabase setiap hari agar tidak dijeda.
 
    Keamanan: berkas pendaftar TIDAK dibagikan ke publik. Berkas ini TIDAK
@@ -25,10 +28,11 @@ const PENGATURAN = {
   FOLDER_INDUK: '1CDoSwzcKma-GfGoR50ocI8EpSsvrl30w',                // folder "SPMB 2027"
   ALAMAT_SITUS: 'https://syathibygowa.github.io/spmb2027',
   ZONA_WAKTU: 'Asia/Makassar',
-  VERSI: '3.1 (Fase 3)'
+  VERSI: '3.2 (Fase 3)'
 };
 
 const FOLDER_PENDAFTAR = 'Berkas Pendaftar';
+const EKSTENSI = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' };
 
 // Unggahan dengan sesi panitia
 const KEPERLUAN = {
@@ -65,6 +69,7 @@ function doPost(e) {
       case 'konfirmasi': return jawab(konfirmasi(req));
       case 'lihat':      return jawab(lihat(req));
       case 'bukti':      return jawab(bukti(req));
+      case 'gambar_kop': return jawab(gambarKop(req));
       case 'periksa':    return jawab({ ok: true, peran: periksaPeran(req.token), versi: PENGATURAN.VERSI, kuota_email: MailApp.getRemainingDailyQuota() });
       default:           return jawab({ ok: false, error: 'Perintah tidak dikenal.' });
     }
@@ -92,7 +97,10 @@ function unggah(req) {
   } else {
     folder = subfolder(subfolder(folderInduk(), k.folder), bersihkan(req.bagian || 'umum'));
   }
-  const nama = cap() + '-' + bersihkan(req.nama || 'berkas');
+  let nama = cap() + '-' + bersihkan(req.nama || 'berkas');
+  if (req.keperluan === 'pendaftar_admin' && req.santri && req.label) {
+    nama = namaBebas(namaBerkasSantri(req.santri, req.label, req.bagian), folder, EKSTENSI[berkas.mime] || '');
+  }
   const file = folder.createFile(Utilities.newBlob(berkas.bytes, berkas.mime, nama));
   if (k.publik) file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   const id = file.getId();
@@ -118,7 +126,7 @@ function unggahPendaftar(req) {
 
   const berkas = bacaBerkas(req, BATAS_PENDAFTAR.jenis, BATAS_PENDAFTAR.maksGambarMB, BATAS_PENDAFTAR.maksPdfMB);
   const folder = denganKunci(function () { return subfolder(subfolder(folderPendaftar(), '_Draf'), cek.folder); });
-  const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' }[berkas.mime];
+  const ext = EKSTENSI[berkas.mime];
   const nama = jenis + '-' + cap() + ext;
   const file = folder.createFile(Utilities.newBlob(berkas.bytes, berkas.mime, nama));   // privat, tidak dibagikan
   const id = file.getId(), url = file.getUrl();
@@ -159,12 +167,17 @@ function konfirmasi(req) {
     }
   });
 
-  // b. Bukti Pendaftaran PDF (dipakai untuk lampiran email dan unduhan di formulir)
   const peng = pengaturanPublik();
-  let pdf = null;
-  try { pdf = buktiPdf(p, d.berkas, peng); } catch (e) { Logger.log('PDF gagal dibuat: ' + e); }
 
-  // c. Email (sekali saja)
+  // b. Nama berkas di Drive: "Nama Santri - Jenis Berkas - Nomor urut"
+  try { gantiNamaBerkas(token, p, d.berkas, peng); } catch (e) { Logger.log('Ganti nama berkas gagal: ' + e); }
+
+  // c. Bukti Pendaftaran PDF: utamakan yang dibuat peramban (sama persis dengan hasil cetak)
+  let pdf = null, dariPeramban = false;
+  if (req.pdf) { try { pdf = pdfDariPeramban(req.pdf, p.no_registrasi); dariPeramban = true; } catch (e) { Logger.log('PDF peramban ditolak: ' + e); } }
+  if (!pdf) { try { pdf = buktiPdf(p, d.berkas, peng); } catch (e) { Logger.log('PDF gagal dibuat: ' + e); } }
+
+  // d. Email (sekali saja)
   let email = false, pesan = '';
   if (d.sudah_email) {
     pesan = 'Email konfirmasi sudah pernah dikirim.';
@@ -177,7 +190,7 @@ function konfirmasi(req) {
     rpc('tandai_email_terkirim', { p_token: token });
     email = true;
   }
-  return { ok: true, email: email, pesan: pesan, no_registrasi: p.no_registrasi, pdf: pdfDataURL(pdf) };
+  return { ok: true, email: email, pesan: pesan, no_registrasi: p.no_registrasi, pdf: dariPeramban ? null : pdfDataURL(pdf) };
 }
 
 function kirimEmailKonfirmasi(p, pdf, peng) {
@@ -339,6 +352,55 @@ function tabelRapi(t, proporsi, lebar) {
       if (r === 0) sel.setBackgroundColor('#EFEFEF');
     }
   }
+}
+
+
+/* ---------- Nama berkas santri ---------- */
+function bersihNama(t) { return String(t || '').replace(/\s*\([^)]*\)\s*/g, ' ').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim(); }
+function urutNomor(no) { const m = String(no || '').match(/(\d+)$/); return m ? m[1] : bersihNama(no); }
+function namaBerkasSantri(nama, label, no) {
+  return [bersihNama(nama).slice(0, 60), bersihNama(label).slice(0, 40), urutNomor(no)].filter(String).join(' - ');
+}
+// Tambah " (2)", " (3)" bila nama yang sama sudah ada di folder
+function namaBebas(dasar, folder, ext) {
+  let n = 1, nama = dasar + ext;
+  while (folder.getFilesByName(nama).hasNext() && n < 50) { n++; nama = dasar + ' (' + n + ')' + ext; }
+  return nama;
+}
+function gantiNamaBerkas(token, p, berkas, peng) {
+  const label = {};
+  ((peng.spmb || {}).berkas || []).forEach(function (b) { label[b.kunci] = b.label; });
+  const hitung = {}, hasil = [];
+  (berkas || []).forEach(function (b) {
+    try {
+      const file = DriveApp.getFileById(b.drive_id);
+      const ext = (file.getName().match(/\.[a-z0-9]{2,5}$/i) || [''])[0].toLowerCase();
+      hitung[b.jenis] = (hitung[b.jenis] || 0) + 1;
+      const nama = namaBerkasSantri(p.nama_lengkap, label[b.jenis] || b.jenis, p.no_registrasi) + (hitung[b.jenis] > 1 ? ' (' + hitung[b.jenis] + ')' : '') + ext;
+      if (file.getName() !== nama) file.setName(nama);
+      hasil.push({ drive_id: b.drive_id, nama: nama });
+    } catch (e) { Logger.log('Berkas ' + b.drive_id + ': ' + e); }
+  });
+  if (hasil.length) rpc('perbarui_nama_berkas', { p_token: token, p_daftar: hasil });
+}
+// PDF yang dibuat peramban: periksa bahwa benar PDF dan tidak terlalu besar
+function pdfDariPeramban(dataURL, no) {
+  const bytes = Utilities.base64Decode(String(dataURL).replace(/^data:[^,]*,/, ''));
+  if (bytes.length < 500 || bytes.length > 4 * 1024 * 1024) throw new Error('Ukuran PDF tidak wajar.');
+  if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4]) !== '%PDF-') throw new Error('Bukan berkas PDF.');
+  return Utilities.newBlob(bytes, 'application/pdf', 'Bukti Pendaftaran ' + no + '.pdf');
+}
+// Logo kop surat untuk PDF di peramban (hanya gambar kop/logo yang terdaftar di pengaturan)
+function gambarKop(req) {
+  const peng = pengaturanPublik(), kop = peng.kop_surat || {}, id = peng.identitas || {};
+  const url = String(req.url || '');
+  if ([kop.logo_kiri, kop.logo_kanan, kop.gambar_kop, id.logo].filter(Boolean).indexOf(url) < 0) throw new Error('Gambar tidak dikenal.');
+  const ambil = url.indexOf('lh3.googleusercontent.com') >= 0 ? url.replace(/=w\d+$/, '') + '=w600' : url;
+  const res = UrlFetchApp.fetch(ambil, { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('Gambar kop tidak dapat diambil.');
+  const blob = res.getBlob();
+  if (blob.getBytes().length > 2 * 1024 * 1024) throw new Error('Gambar kop terlalu besar.');
+  return { ok: true, data: 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes()) };
 }
 
 

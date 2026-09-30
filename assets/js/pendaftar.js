@@ -8,7 +8,7 @@
    ===================================================================== */
 (function () {
   'use strict';
-  const { sb, CFG, fmt, esc, toast, dialog, konfirmasi, pesanGalat, cetakDokumen, muatPengaturan,
+  const { sb, CFG, fmt, esc, toast, dialog, konfirmasi, pesanGalat, cetakDokumen, unduhPdfDokumen, dokumenBukti, muatPengaturan,
           lihatBerkasPendaftar, hapusBerkasPendaftar, unggahBerkasAdmin, ambilBuktiPdf, simpanPdf, nomorWA } = window.SPMB;
   const $ = (s, r = document) => r.querySelector(s);
   const UI = window.SPMB_UI;
@@ -67,6 +67,12 @@
 
   async function halDaftar(k, api) {
     const { S, setFab } = api;
+    // Saringan dari tautan (mis. kartu statistik di Beranda): #/pendaftar?st=@berkas&uji=1&gel=2
+    const qs = new URLSearchParams(location.hash.split('?')[1] || '');
+    if ([...qs.keys()].length) {
+      Object.assign(SARING, { st: qs.get('st') || '', uji: qs.get('uji') === '1', gel: qs.get('gel') || '', q: '', jb: '', hal: 0 });
+      history.replaceState(null, '', '#/pendaftar');
+    }
     const { data: gels } = await sb.from('gelombang').select('id,nama,urutan').is('diarsipkan_pada', null).order('urutan');
     const opsiStatus = `<option value="">Semua status</option>
       <optgroup label="Perlu tindakan"><option value="@berkas">Menunggu verifikasi berkas</option><option value="@bayar">Menunggu verifikasi pembayaran</option></optgroup>
@@ -86,6 +92,7 @@
         <button class="btn sm ghost" id="btnSegarkan" title="Muat ulang"><i class="ph-duotone ph-arrows-clockwise" style="color:var(--c5)"></i><span class="hide-sm">Muat ulang</span></button>
         <button class="btn sm ghost" id="btnCsv"><i class="ph-duotone ph-file-csv" style="color:var(--ok)"></i>Unduh Excel</button>
         <button class="btn sm ghost" id="btnCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak daftar</button>
+        <button class="btn sm ghost" id="btnPdf"><i class="ph-duotone ph-file-pdf" style="color:var(--c7)"></i>PDF</button>
         <a class="btn sm" id="btnTambah" href="daftar.html" target="_blank" rel="noopener"><i class="ph-duotone ph-user-plus"></i>Tambah pendaftar</a>
       </div>
       <div class="table-wrap"><table class="tbl tbl-pendaftar"><thead><tr>
@@ -176,12 +183,11 @@
     const judulSaring = () => [SARING.gel ? $('#fGel').selectedOptions[0].text : 'Semua gelombang', SARING.jb ? $('#fJB').selectedOptions[0].text : 'SMP dan SMA',
       SARING.st ? $('#fSt').selectedOptions[0].text : 'Semua status aktif', SARING.uji ? 'Data uji coba' : ''].filter(Boolean).join(' · ');
 
-    $('#btnCetak').onclick = async () => {
-      try {
+    const opsiDaftar = async () => {
         const data = await ambilSemua('no_registrasi,nama_lengkap,jenjang,bagian,asal_kabupaten,asal_sekolah,no_wa,status');
-        if (!data.length) return toast('Tidak ada data untuk dicetak.', 'warn');
+        if (!data.length) { toast('Tidak ada data untuk dicetak.', 'warn'); return null; }
         const kp = S.pengaturan.ketua_panitia || {};
-        cetakDokumen({
+        return ({
           judul: 'Daftar Calon Santri Baru', nomor: '',
           meta: `Tahun Ajaran ${esc(S.pengaturan.identitas?.tahun_ajaran || '')} · ${esc(judulSaring())} · Jumlah: ${fmt.angka(data.length)} orang`,
           isi: `<table><colgroup><col style="width:5%"><col style="width:17%"><col style="width:24%"><col style="width:10%"><col style="width:16%"><col style="width:13%"><col style="width:15%"></colgroup>
@@ -190,7 +196,12 @@
               <td>${esc(p.asal_kabupaten || '–')}</td><td>+${esc(p.no_wa)}</td><td>${esc((STATUS[p.status] || [p.status])[0])}</td></tr>`).join('')}</tbody></table>`,
           ttd: [{ jabatan: 'Ketua Panitia SPMB,', nama: kp.nama, nip: kp.niy ? 'NIY. ' + kp.niy : '' }]
         });
-      } catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+    $('#btnCetak').onclick = async () => { try { const o = await opsiDaftar(); if (o) cetakDokumen(o); } catch (err) { toast(pesanGalat(err), 'err'); } };
+    $('#btnPdf').onclick = async e => {
+      const b = e.currentTarget; b.disabled = true;
+      try { const o = await opsiDaftar(); if (o) { await unduhPdfDokumen(o, `Daftar Calon Santri ${fmt.tgl(new Date()).replace(/\//g, '-')}.pdf`); toast('Daftar calon santri PDF diunduh.'); } }
+      catch (err) { toast(pesanGalat(err), 'err'); } finally { b.disabled = false; }
     };
     $('#btnCsv').onclick = async () => {
       try {
@@ -211,7 +222,7 @@
         const sel = v => { const x = String(v ?? ''); return /[;"\n]/.test(x) && !x.startsWith('="') ? `"${x.replace(/"/g, '""')}"` : x; };
         const csv = '﻿' + [kolom.map(c => c[0]).join(';'), ...data.map(p => kolom.map(([, f]) => sel(typeof f === 'function' ? f(p) : p[f])).join(';'))].join('\r\n');
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-        const a = Object.assign(document.createElement('a'), { href: url, download: `Data Pendaftar SPMB ${fmt.isoTgl()}${SARING.uji ? ' (uji)' : ''}.csv` });
+        const a = Object.assign(document.createElement('a'), { href: url, download: `Data Pendaftar SPMB ${fmt.tgl(new Date()).replace(/\//g, "-")}${SARING.uji ? ' (uji)' : ''}.csv` });
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
         toast(`${fmt.angka(data.length)} baris diunduh. Buka dengan Excel atau Google Sheets.`);
       } catch (err) { toast(pesanGalat(err), 'err'); }
@@ -447,7 +458,7 @@
       const jenisAda = [...new Set(B.map(b => b.jenis))];
       const urutan = [...(cfg.berkas || []).map(b => b.kunci), ...jenisAda.filter(j => !labelBerkas[j])];
       el.innerHTML = `
-        <p class="muted" style="margin:0 0 12px;font-size:13.5px"><i class="ph-duotone ph-lock-simple"></i> Berkas tersimpan privat di Google Drive (folder santri). Unggah dari panitia dapat berupa foto atau PDF, maksimal 10 MB. Berkas yang dihapus masuk Sampah Drive dan dapat dipulihkan dalam 30 hari.</p>
+        <p class="muted" style="margin:0 0 12px;font-size:13.5px"><i class="ph-duotone ph-lock-simple"></i> Berkas tersimpan privat di Google Drive (folder santri). Berkas yang diunggah panitia langsung berstatus <b>diterima</b>; berkas dari pendaftar perlu diperiksa. Foto atau PDF, maksimal 10 MB. Berkas yang dihapus masuk Sampah Drive dan dapat dipulihkan dalam 30 hari.</p>
         <div class="berkas-admin">${urutan.map(j => {
           const daftar = B.filter(b => b.jenis === j), def = (cfg.berkas || []).find(b => b.kunci === j) || {};
           return `<div class="card berkas-grup">
@@ -482,11 +493,12 @@
         const jenis = inp.dataset.unggah || lama.jenis; inp.value = '';
         const tunggu = toast(`Mengunggah ${file.name}…`, 'info', 60000);
         try {
-          const h = await unggahBerkasAdmin(file, { no: P.no_registrasi, jenis });
-          const { error } = await sb.from('berkas_pendaftar').insert({ pendaftar_id: P.id, jenis, drive_id: h.id, nama: h.nama, url: h.lihat || h.url, mime: h.mime, ukuran: h.ukuran, diunggah_oleh: S.user.id, status: 'menunggu' });
+          const h = await unggahBerkasAdmin(file, { no: P.no_registrasi, jenis, santri: P.nama_lengkap, label: labelBerkas[jenis] || jenis });
+          // Diunggah panitia = sudah diperiksa kelayakannya, langsung diterima
+          const { error } = await sb.from('berkas_pendaftar').insert({ pendaftar_id: P.id, jenis, drive_id: h.id, nama: h.nama, url: h.lihat || h.url, mime: h.mime, ukuran: h.ukuran, diunggah_oleh: S.user.id, status: 'diterima' });
           if (error) { await hapusBerkasPendaftar([h.id]).catch(() => {}); throw error; }
           if (lama) await hapusBerkas(lama);
-          tunggu?.remove?.(); toast(lama ? 'Berkas diganti.' : 'Berkas diunggah.');
+          tunggu?.remove?.(); toast(lama ? 'Berkas diganti dan langsung berstatus diterima.' : 'Berkas diunggah dan langsung berstatus diterima.');
           segarkan('berkas');
         } catch (err) { tunggu?.remove?.(); toast(galatDB(err), 'err', 8000); }
       };
@@ -692,6 +704,7 @@
         isi: `<div class="menu-tindakan">
           <button data-aksi="${batal ? 'pulihkan' : 'batalkan'}"><i class="ph-duotone ${batal ? 'ph-arrow-counter-clockwise' : 'ph-prohibit'}" style="color:${batal ? 'var(--ok)' : 'var(--c3)'}"></i>
             <span><b>${batal ? 'Pulihkan pendaftaran' : 'Batalkan pendaftaran (reset)'}</b><small>${batal ? 'Kembalikan ke status Terdaftar.' : 'Data tetap tersimpan, tetapi NISN/NIK boleh didaftarkan ulang dan tidak dihitung kuota.'}</small></span></button>
+          <button data-aksi="data_pdf"><i class="ph-duotone ph-file-pdf" style="color:var(--c7)"></i><span><b>Unduh formulir data (PDF)</b><small>Formulir Data Calon Santri ukuran F4, sama dengan hasil cetak.</small></span></button>
           <button data-aksi="salin_wa"><i class="ph-duotone ph-copy" style="color:var(--c1)"></i><span><b>Salin nomor WhatsApp</b><small>+${esc(P.no_wa)}</small></span></button>
           <button data-aksi="hapus" class="bahaya"><i class="ph-duotone ph-trash" style="color:var(--danger)"></i><span><b>Hapus permanen</b><small>Data, riwayat, dan semua berkas dihapus. Tidak dapat dibatalkan.</small></span></button>
         </div>`,
@@ -699,7 +712,7 @@
         saatBuka: root => root.querySelector('.menu-tindakan').onclick = e => {
           const b = e.target.closest('[data-aksi]'); if (!b) return;
           root.closest('.modal-back').querySelector('[data-x]').click();
-          ({ batalkan, pulihkan, hapus: hapusPermanen, salin_wa: () => navigator.clipboard?.writeText('+' + P.no_wa).then(() => toast('Nomor disalin.')) })[b.dataset.aksi]();
+          ({ batalkan, pulihkan, hapus: hapusPermanen, data_pdf: unduhDataPdf, salin_wa: () => navigator.clipboard?.writeText('+' + P.no_wa).then(() => toast('Nomor disalin.')) })[b.dataset.aksi]();
         }
       });
     }
@@ -734,19 +747,28 @@
     /* ---------- Bukti PDF dan cetak data ---------- */
     async function unduhBukti() {
       const b = $('#btnBukti'); b.disabled = true; const isiLama = b.innerHTML; b.innerHTML = '<span class="spinner" style="width:14px;height:14px"></span> Menyiapkan…';
-      try { const h = await ambilBuktiPdf({ id: P.id }); simpanPdf(h.pdf, `Bukti Pendaftaran ${P.no_registrasi}.pdf`); toast('Bukti Pendaftaran PDF diunduh.'); }
-      catch (err) { toast(`${pesanGalat(err)} Anda tetap dapat memakai tombol Cetak data.`, 'err', 8000); }
+      const nama = `Bukti Pendaftaran ${P.no_registrasi}.pdf`;
+      try {
+        try { await unduhPdfDokumen(dokumenBukti({ ...P, gelombang: G?.nama || '' }, B.map(x => x.jenis), S.pengaturan), nama); }
+        catch (e) { console.warn('PDF peramban gagal, memakai Apps Script', e); const h = await ambilBuktiPdf({ id: P.id }); simpanPdf(h.pdf, nama); }
+        toast('Bukti Pendaftaran PDF diunduh.');
+      } catch (err) { toast(`${pesanGalat(err)} Anda tetap dapat memakai tombol Cetak data.`, 'err', 8000); }
       finally { b.disabled = false; b.innerHTML = isiLama; }
     }
-    function cetakData() {
+    async function unduhDataPdf() {
+      try { await unduhPdfDokumen(opsiData(), `Formulir Data ${P.no_registrasi} - ${P.nama_lengkap}.pdf`); toast('Formulir data PDF diunduh.'); }
+      catch (err) { toast(pesanGalat(err), 'err', 8000); }
+    }
+    function cetakData() { cetakDokumen(opsiData()); }
+    function opsiData() {
       const kp = S.pengaturan.ketua_panitia || {};
       const r = (a, b) => `<tr><td>${a}</td><td>${esc(b == null || b === '' ? '–' : String(b))}</td></tr>`;
       const bagianTabel = (judul, baris) => `<table><colgroup><col style="width:34%"><col style="width:66%"></colgroup><thead><tr><th colspan="2">${judul}</th></tr></thead><tbody>${baris}</tbody></table><div style="height:4px"></div>`;
       const alamat = [P.alamat_jalan, P.dusun, `RT ${P.rt || '–'}/RW ${P.rw || '–'}`, P.desa, P.kecamatan ? `Kec. ${P.kecamatan}` : '', P.kabupaten, P.provinsi, P.kode_pos].filter(Boolean).join(', ');
-      cetakDokumen({
+      return ({
         judul: 'Formulir Data Calon Santri', nomor: P.no_registrasi,
         meta: `Tahun Ajaran ${esc(S.pengaturan.identitas?.tahun_ajaran || '')} · ${esc(G?.nama || '')} · ${esc(P.jenjang)} ${bagianL(P.bagian)} · Status: ${esc(STATUS[P.status]?.[0] || P.status)}${P.uji ? ' · <b>DATA UJI COBA</b>' : ''}`,
-        isi: '<style>@media print{.doc table{font-size:9.5pt}.doc th,.doc td{padding:2pt 5pt}.doc .sign{margin-top:6mm}.doc .foot{margin-top:3mm}.doc .sign .space{height:16mm}.doc .doc-title{margin-top:10px}}</style>' + bagianTabel('A. Identitas calon santri', r('Nama lengkap', P.nama_lengkap) + r('NISN / NIK', `${P.nisn} / ${P.nik}`) + r('Tempat, tanggal lahir', `${P.tempat_lahir}, ${tglPanjangIso(P.tanggal_lahir)}`)
+        isi: '<span class="dok-rapat"></span>' + bagianTabel('A. Identitas calon santri', r('Nama lengkap', P.nama_lengkap) + r('NISN / NIK', `${P.nisn} / ${P.nik}`) + r('Tempat, tanggal lahir', `${P.tempat_lahir}, ${tglPanjangIso(P.tanggal_lahir)}`)
             + r('Asal daerah', `${P.asal_kabupaten}, ${P.asal_provinsi}`) + r('Alamat domisili', alamat) + r('Sekolah asal', `${P.asal_sekolah}${P.npsn_sekolah ? ` (NPSN ${P.npsn_sekolah})` : ''}`))
           + bagianTabel('B. Orang tua dan kontak', r('Ayah', `${P.nama_ayah || '–'} · ${P.pekerjaan_ayah || '–'}`) + r('Ibu', `${P.nama_ibu || '–'} · ${P.pekerjaan_ibu || '–'}`)
             + r('WhatsApp / email', `+${P.no_wa} / ${P.email}`) + r('Kontak darurat', P.darurat_nama ? `${P.darurat_nama} (${P.darurat_hubungan || '–'}) · +${P.darurat_no || '–'}` : ''))

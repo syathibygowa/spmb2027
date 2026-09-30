@@ -178,7 +178,11 @@
         <div class="clock"><span><i class="ph-duotone ph-calendar-blank"></i><span id="hariIni">${fmt.hariTgl()}</span></span>
           <span><i class="ph-duotone ph-clock"></i><span id="jamKini">${fmt.jam(new Date())}</span> WITA</span></div>
       </div>
-      <div class="stats" id="stats"></div>
+      ${isAdmin ? `<div class="bilah-stat"><b><i class="ph-duotone ph-chart-line-up" style="color:var(--c5)"></i>Statistik pendaftar</b><div class="spacer"></div>
+        <select class="select" id="statGel" aria-label="Gelombang"><option value="">Semua gelombang</option></select>
+        <label class="check uji-saklar"><input type="checkbox" id="statUji">Data uji</label></div>` : ''}
+      <div class="stats${isAdmin ? ' stats-pendaftar' : ''}" id="stats"></div>
+      ${isAdmin ? '<div class="grafik-kisi" id="grafik"></div>' : ''}
       ${isSuper ? '<div id="lengkapi"></div>' : ''}
       <div class="grid-2">
         <div class="card">
@@ -214,24 +218,58 @@
     }, 15000);
 
     // Statistik langsung
+    const G = SPMB.grafik;
+    const kartuStat = (kartu, tautan) => kartu.map(([l, n, ic, t, h]) => `
+        <${h ? `a href="${h}"` : 'div'} class="stat" style="--tone:${t}"><span class="live">LIVE</span>
+          <div class="ic-box"><i class="ph-duotone ${ic}"></i></div><b>${fmt.angka(n)}</b><span>${l}</span></${h ? 'a' : 'div'}>`).join('');
+    if (isAdmin) {
+      const { data: gels } = await sb.from('gelombang').select('id,nama').is('diarsipkan_pada', null).order('urutan');
+      $('#statGel').innerHTML += (gels || []).map(g => `<option value="${g.id}">${esc(g.nama)}</option>`).join('');
+      $('#statGel').onchange = () => muatStat(); $('#statUji').onchange = () => muatStat();
+    }
     const muatStat = async () => {
-      const kartu = [];
-      if (isAdmin) {
-        const { data: semua } = await sb.from('profil_pengguna').select('peran,aktif');
-        const aktif = (semua || []).filter(x => x.aktif);
-        kartu.push(['Akun panitia aktif', aktif.length, 'ph-users-three', 'var(--c1)'],
-                   ['Admin', aktif.filter(x => x.peran === 'admin').length, 'ph-user-gear', 'var(--c2)'],
-                   ['Penguji', aktif.filter(x => x.peran === 'penguji').length, 'ph-chalkboard-teacher', 'var(--c5)']);
-      } else {
-        kartu.push(['Bidang tes Anda', (p.bidang_penguji || []).length, 'ph-exam', 'var(--c5)'],
-                   ['Sesi tes ditugaskan', 0, 'ph-calendar-check', 'var(--c2)']);
-      }
-      kartu.push(['Notifikasi belum dibaca', S.unread, 'ph-bell-ringing', 'var(--c3)']);
       const el = $('#stats'); if (!el) return;
-      el.style.gridTemplateColumns = kartu.length === 3 ? 'repeat(3,minmax(0,1fr))' : '';
-      el.innerHTML = kartu.map(([l, n, ic, t]) => `
-        <div class="stat" style="--tone:${t}"><span class="live">LIVE</span>
-          <div class="ic-box"><i class="ph-duotone ${ic}"></i></div><b>${fmt.angka(n)}</b><span>${l}</span></div>`).join('');
+      if (!isAdmin) {
+        el.style.gridTemplateColumns = 'repeat(3,minmax(0,1fr))';
+        el.innerHTML = kartuStat([['Bidang tes Anda', (p.bidang_penguji || []).length, 'ph-exam', 'var(--c5)'],
+          ['Sesi tes ditugaskan', 0, 'ph-calendar-check', 'var(--c2)'], ['Notifikasi belum dibaca', S.unread, 'ph-bell-ringing', 'var(--c3)', '#/notifikasi']]);
+        return;
+      }
+      const gel = $('#statGel').value, uji = $('#statUji').checked;
+      const { data: d, error } = await sb.rpc('statistik_dashboard', { p_gelombang: gel ? +gel : null, p_uji: uji });
+      if (error || !d || !$('#stats')) return;
+      const q = x => `#/pendaftar?st=${encodeURIComponent(x)}${uji ? '&uji=1' : ''}${gel ? '&gel=' + gel : ''}`;
+      el.innerHTML = kartuStat([
+        ['Total pendaftar', d.total, 'ph-users-three', 'var(--c1)', q('')],
+        ['Mendaftar hari ini', d.hari_ini, 'ph-calendar-plus', 'var(--c2)', q('@hari')],
+        ['Menunggu cek berkas', d.menunggu_berkas, 'ph-file-magnifying-glass', 'var(--c6)', q('@berkas')],
+        ['Menunggu cek bayar', d.menunggu_bayar, 'ph-receipt', 'var(--c3)', q('@bayar')],
+        ['Berkas kurang', d.berkas_kurang, 'ph-file-x', 'var(--c7)', q('berkas_kurang')],
+        ['Terverifikasi lengkap', d.terverifikasi, 'ph-seal-check', 'var(--ok)', q('pembayaran_dikonfirmasi')]]);
+      // Grafik
+      const harian = (d.harian || []).map(h => ({ label: fmt.tgl(new Date(h.tanggal + 'T00:00:00')).slice(0, 5), nilai: h.jumlah, tip: `${fmt.tglPanjang(new Date(h.tanggal + 'T00:00:00'))}: ${fmt.angka(h.jumlah)} pendaftar` }));
+      const jb = ['SMP', 'SMA'].map(j => ['putra', 'putri'].map(b => ({ j, b, n: (d.per_jenjang || []).find(x => x.jenjang === j && x.bagian === b)?.jumlah || 0 })));
+      const maksJB = Math.max(1, ...jb.flat().map(x => x.n));
+      const kuota = (d.kuota || []).filter(k => k.kuota != null);
+      const kartu = (ic, t, judul, sub, isi, lebar) => `<div class="card grafik-kartu${lebar ? ' lebar' : ''}"><div class="card-head"><div class="ic-box" style="--tone:${t}"><i class="ph-duotone ${ic}"></i></div><div><h3>${judul}</h3><p>${sub}</p></div></div>${isi}</div>`;
+      $('#grafik').innerHTML =
+        kartu('ph-chart-bar', 'var(--c5)', 'Pendaftar 30 hari terakhir', `Total ${fmt.angka(harian.reduce((a, x) => a + x.nilai, 0))} pendaftar dalam 30 hari`,
+          G.batang(harian) + G.tabel(['Tanggal', 'Pendaftar'], (d.harian || []).map(h => [fmt.tgl(new Date(h.tanggal + 'T00:00:00')), h.jumlah])), true) +
+        kartu('ph-gender-intersex', 'var(--c4)', 'Jenjang dan putra/putri', 'Jumlah pendaftar per kelompok',
+          `<div class="gr-legenda"><span><i style="--c:var(--gr-putra)"></i>Putra</span><span><i style="--c:var(--gr-putri)"></i>Putri</span></div>
+           <div class="gr-kelompok">${jb.map(grp => `<div class="gr-grup"><div class="gr-pasang">${grp.map(x => `<div class="gr-kolom" tabindex="0" data-tip="${x.j} ${x.b === 'putra' ? 'Putra' : 'Putri'}: ${fmt.angka(x.n)} pendaftar">
+             <b>${fmt.angka(x.n)}</b><i style="height:${x.n ? Math.max(3, x.n / maksJB * 100) : 0}%;background:var(--gr-${x.b})"></i></div>`).join('')}</div><span>${grp[0].j}</span></div>`).join('')}</div>` +
+          G.tabel(['Kelompok', 'Putra', 'Putri'], jb.map(grp => [grp[0].j, grp[0].n, grp[1].n]))) +
+        kartu('ph-gauge', 'var(--c2)', 'Keterisian kuota', kuota.length ? 'Gelombang yang masih aktif' : 'Kuota belum diatur (tanpa batas)',
+          kuota.length ? `<ul class="kuota-daftar">${kuota.map(k => { const persen = Math.round(k.terisi / Math.max(1, k.kuota) * 100);
+            return `<li><div><b>${esc(k.gelombang)} · ${k.jenjang} ${k.bagian === 'putra' ? 'Putra' : 'Putri'}</b><span>${fmt.angka(k.terisi)} / ${fmt.angka(k.kuota)}${persen >= 90 ? ' <i class="ph-duotone ph-warning" style="color:var(--warn)"></i> hampir penuh' : ''}</span></div>${G.kemajuan(k.terisi, k.kuota, `var(--gr-${k.bagian})`)}</li>`; }).join('')}</ul>`
+            + G.tabel(['Kelompok', 'Terisi', 'Kuota'], kuota.map(k => [`${k.gelombang} ${k.jenjang} ${k.bagian}`, k.terisi, k.kuota])) : '<p class="gr-kosong">Atur kuota di Pengaturan SPMB → Gelombang.</p>') +
+        kartu('ph-map-pin-area', 'var(--c1)', 'Asal kabupaten/kota', '10 terbanyak',
+          G.mendatar((d.per_kabupaten || []).map(x => ({ label: x.nama, nilai: x.jumlah }))) + G.tabel(['Kabupaten/kota', 'Pendaftar'], (d.per_kabupaten || []).map(x => [x.nama, x.jumlah]))) +
+        kartu('ph-globe-hemisphere-east', 'var(--c3)', 'Asal provinsi', '10 terbanyak',
+          G.mendatar((d.per_provinsi || []).map(x => ({ label: x.nama, nilai: x.jumlah }))) + G.tabel(['Provinsi', 'Pendaftar'], (d.per_provinsi || []).map(x => [x.nama, x.jumlah]))) +
+        kartu('ph-megaphone', 'var(--c6)', 'Sumber informasi SPMB', 'Satu pendaftar dapat memilih lebih dari satu',
+          G.mendatar([...(d.per_sumber || [])].sort((a, b) => b.jumlah - a.jumlah).map(x => ({ label: x.nama, nilai: x.jumlah })), { satuan: 'pilihan' }) + G.tabel(['Sumber', 'Jumlah'], (d.per_sumber || []).map(x => [x.nama, x.jumlah])));
     };
     await muatStat();
     S.statTimer = setInterval(muatStat, 30000);
@@ -776,7 +814,7 @@
       box.innerHTML = '<div class="note info"><span class="spinner" style="width:18px;height:18px"></span><div>Menghubungi Apps Script…</div></div>';
       try {
         const j = await SPMB.kirimKeJembatan({ aksi: 'periksa' });
-        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>.${j.kuota_email != null ? ` Sisa kuota email hari ini: <b>${j.kuota_email}</b>.` : ''}${/^([12]\.|3\.0)/.test(j.versi) ? '<br><b>Perhatian:</b> ini masih versi lama. Terapkan Apps Script versi 3.1 (Fase 3 Langkah 5).' : ''}</div></div>`;
+        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>.${j.kuota_email != null ? ` Sisa kuota email hari ini: <b>${j.kuota_email}</b>.` : ''}${/^([12]\.|3\.[01]\b)/.test(j.versi) ? '<br><b>Perhatian:</b> ini masih versi lama. Terapkan Apps Script versi 3.2 (Fase 3 Langkah 6).' : ''}</div></div>`;
       } catch (err) {
         box.innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div><b>Belum terhubung.</b> ${esc(pesanGalat(err))}</div></div>`;
       }

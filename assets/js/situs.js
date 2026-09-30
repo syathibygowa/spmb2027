@@ -82,13 +82,19 @@
     g.data.forEach(x => {
       const tambah = (judul, mulai, selesai, isi) => mulai && S.konten.jadwal.push({ id: `${x.id}-${S.konten.jadwal.length}`, judul, isi: isi || '', tampil: x.tampil, data: { gelombang: x.nama, mulai, selesai: selesai || mulai } });
       const bu = wita(x.buka), tu = wita(x.tutup), pg = wita(x.pengumuman);
-      tambah('Pendaftaran online', bu.tgl, tu.tgl, x.tutup ? `Ditutup ${tanggalId(tu.tgl)} pukul ${tu.jam} WITA` : '');
+      tambah('Pendaftaran online', bu.tgl, tu.tgl, x.tutup ? `Ditutup ${tanggalId(tu.tgl)} pukul ${tu.jam.replace(':', '.')} WITA` : '');
       tambah('Tes seleksi', x.tes_mulai, x.tes_selesai);
-      tambah('Pengumuman hasil seleksi', pg.tgl, '', pg.jam ? `Pukul ${pg.jam} WITA` : '');
+      tambah('Pengumuman hasil seleksi', pg.tgl, '', pg.jam ? `Pukul ${pg.jam.replace(':', '.')} WITA` : '');
       tambah('Daftar ulang', x.daftar_ulang_mulai, x.daftar_ulang_selesai);
       (x.kegiatan || []).forEach(k => tambah(k.judul, k.mulai, k.selesai, k.keterangan));
     });
     S.rekening = r.data.filter(x => x.peruntukan !== 'daftar_ulang');
+    // Hitung mundur hero otomatis: sampai gelombang ditutup, atau sampai gelombang berikutnya dibuka
+    const aktif = g.data.filter(x => x.formulir_dibuka && x.tampil && x.buka && x.tutup);
+    const buka = aktif.find(x => new Date(x.buka) <= kini && kini < new Date(x.tutup));
+    const nanti = aktif.filter(x => new Date(x.buka) > kini).sort((a, c) => new Date(a.buka) - new Date(c.buka))[0];
+    S.hitung = buka ? { akhir: buka.tutup, label: `Pendaftaran ${buka.nama} ditutup dalam`, buka: true }
+      : nanti ? { akhir: nanti.buka, label: `Pendaftaran ${nanti.nama} dibuka dalam`, buka: false } : null;
   }
   const lencanaTersembunyi = x => S.pratinjau && x && x.tampil === false ? '<span class="lencana-sembunyi"><i class="ph-duotone ph-eye-slash"></i>Disembunyikan</span>' : '';
 
@@ -101,6 +107,7 @@
     ['biaya', 'Biaya', 'index.html#biaya', 'ph-wallet', 'var(--c3)'],
     ['jadwal', 'Jadwal', 'index.html#jadwal', 'ph-calendar-dots', 'var(--c2)'],
     ['berita', 'Berita', 'berita.html', 'ph-newspaper', 'var(--c5)'],
+    ['cek-status', 'Cek Status', 'cek-status.html', 'ph-magnifying-glass', 'var(--c4)'],
     ['kontak', 'Kontak', 'kontak.html', 'ph-phone-call', 'var(--ok)']
   ];
 
@@ -129,6 +136,7 @@
     const lainnya = [
       ...['keunggulan', 'program', 'prestasi', 'flyer', 'biaya', 'jadwal', 'alur', 'galeri', 'faq']
         .map(k => [(S.p.beranda?.bagian || []).find(b => b.kunci === k)?.judul || k, `index.html#${idBagian(k)}`, IKON[k][0], IKON[k][1]]),
+      ['Cek Status', 'cek-status.html', 'ph-magnifying-glass', 'var(--c4)'],
       ['Kontak dan Lokasi', 'kontak.html', 'ph-map-pin', 'var(--ok)'],
       ['Masuk Panitia', 'masuk.html', 'ph-sign-in', 'var(--c8)']
     ];
@@ -156,7 +164,7 @@
         <a href="profil.html" class="${HAL === 'profil' ? 'aktif' : ''}" style="--tone:var(--c1)"><span class="pill-ic"><i class="ph-duotone ph-identification-badge"></i></span>Profil</a>
         <a href="${tautanDaftar()}" class="daftar${HAL === 'daftar' ? ' aktif' : ''}"><span class="pill-ic"><i class="ph-duotone ph-note-pencil"></i></span>Daftar</a>
         <a href="berita.html" class="${HAL === 'berita' ? 'aktif' : ''}" style="--tone:var(--c5)"><span class="pill-ic"><i class="ph-duotone ph-newspaper"></i></span>Berita</a>
-        <button type="button" id="btnLainnya" class="${HAL === 'kontak' ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
+        <button type="button" id="btnLainnya" class="${['kontak', 'cek-status'].includes(HAL) ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
       </nav>
 
       <div class="lembar-back hidden" id="lembarLainnya">
@@ -224,7 +232,7 @@
      BERANDA (landing page)
      ================================================================= */
   const RENDER = {
-    statistik: () => `<div class="kosong-sek"><i class="ph-duotone ph-chart-bar"></i><b>Statistik pendaftar tampil saat pendaftaran online dibuka.</b></div>`,
+    statistik: () => `<div id="statPublik">${statistikPublikHTML()}</div>`,
 
     video: () => {
       const vids = (S.konten.video || []).filter(v => youtubeId(v.data.youtube));
@@ -491,7 +499,9 @@
 
   function heroHTML() {
     const h = S.p.beranda?.hero || {}, id = S.p.identitas || {};
-    const akhir = h.hitung_mundur ? new Date(h.hitung_mundur) : null;
+    // Utamakan jadwal gelombang (Pengaturan SPMB); isian manual di Konten Situs hanya cadangan
+    const akhir = S.hitung ? new Date(S.hitung.akhir) : h.hitung_mundur ? new Date(h.hitung_mundur) : null;
+    const labelHM = S.hitung ? S.hitung.label : (h.label_hitung_mundur || 'Pendaftaran ditutup dalam');
     const adaHM = akhir && akhir > new Date();
     const foto = (h.gambar_daftar?.length ? h.gambar_daftar : (h.gambar ? [h.gambar] : [])).filter(Boolean);
     return `<section class="hero-situs hero-tengah${foto.length ? ' berfoto' : ''}" id="atas">
@@ -502,9 +512,9 @@
         <p>${esc(h.subjudul || id.nama_lembaga || '')}</p>
         <div class="hero-actions">
           <a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>${esc(h.tombol_utama || 'Daftar Sekarang')}</a>
-          <a class="btn ghost" href="index.html#jadwal"><i class="ph-duotone ph-megaphone"></i>${esc(h.tombol_kedua || 'Cek Pengumuman')}</a>
+          <a class="btn ghost" href="cek-status.html"><i class="ph-duotone ph-magnifying-glass"></i>${esc(h.tombol_kedua || 'Cek Pengumuman')}</a>
         </div>
-        ${adaHM ? `<div class="hitung" data-akhir="${akhir.toISOString()}"><small><i class="ph-duotone ph-hourglass-medium"></i>${esc(h.label_hitung_mundur || 'Pendaftaran ditutup dalam')}</small>
+        ${adaHM ? `<div class="hitung" data-akhir="${akhir.toISOString()}"><small><i class="ph-duotone ph-hourglass-medium"></i>${esc(labelHM)}</small>
           <div>${['hari', 'jam', 'menit', 'detik'].map((u, i) => `${i ? '<em>:</em>' : ''}<span><b data-u="${u}">00</b>${u}</span>`).join('')}</div></div>` : ''}
       </div>
       ${foto.length > 1 ? `<div class="hero-titik">${foto.map((_, i) => `<button type="button" data-hs="${i}" class="${i ? '' : 'on'}" aria-label="Foto ${i + 1}"></button>`).join('')}</div>` : ''}
@@ -529,6 +539,35 @@
     pasangPutarOtomatis(main);
     jalankanSliderHero();
     jalankanHitungMundur();
+    // Statistik publik diperbarui tiap menit selama halaman terbuka
+    if ($('#statPublik')) setInterval(async () => {
+      if (document.hidden) return;
+      const { data } = await sb.rpc('statistik_publik'); if (!data) return;
+      S.statPublik = data; const el = $('#statPublik'); if (el) el.innerHTML = statistikPublikHTML();
+    }, 60000);
+  }
+
+  // Bagian Statistik di landing page (angka ringkas tanpa data pribadi)
+  function statistikPublikHTML() {
+    const d = S.statPublik, G = SPMB.grafik;
+    if (!d) return kosong('Statistik pendaftar belum dapat dimuat.', 'ph-chart-bar');
+    if (!d.total) return kosong(d.gelombang?.dibuka ? 'Jadilah pendaftar pertama tahun ini!' : 'Statistik pendaftar tampil setelah pendaftaran online dibuka.', 'ph-chart-bar');
+    const jb = d.per_jenjang || [], kuota = d.gelombang?.kuota || [];
+    const tile = x => { const k = kuota.find(q => q.jenjang === x.jenjang && q.bagian === x.bagian);
+      return `<div class="sp-tile" style="--gr-w:var(--gr-${x.bagian})"><span class="ic-box" style="--tone:var(--gr-${x.bagian})"><i class="ph-duotone ${x.bagian === 'putra' ? 'ph-gender-male' : 'ph-gender-female'}"></i></span>
+        <div><small>${x.jenjang} ${x.bagian === 'putra' ? 'Putra' : 'Putri'}</small><b>${fmt.angka(x.jumlah)}</b>
+        ${k ? `${G.kemajuan(k.terisi, k.kuota, `var(--gr-${x.bagian})`)}<em>${k.terisi >= k.kuota ? 'Kuota penuh' : `Sisa ${fmt.angka(k.kuota - k.terisi)} dari ${fmt.angka(k.kuota)} kursi`}</em>` : '<em>pendaftar</em>'}</div></div>`; };
+    const harian = (d.harian || []).map(h => ({ label: fmt.tgl(new Date(h.tanggal + 'T00:00:00')).slice(0, 5), nilai: h.jumlah, tip: `${fmt.tglPanjang(new Date(h.tanggal + 'T00:00:00'))}: ${fmt.angka(h.jumlah)} pendaftar` }));
+    return `<div class="sp-kisi">
+      <div class="kartu sp-utama"><span class="live-pill"><i></i>LIVE</span>
+        <small>Calon santri telah mendaftar</small><b class="sp-angka">${fmt.angka(d.total)}</b>
+        <p>${d.hari_ini ? `<b>${fmt.angka(d.hari_ini)}</b> mendaftar hari ini · ` : ''}berasal dari <b>${fmt.angka(d.jumlah_kabupaten)}</b> kabupaten/kota di <b>${fmt.angka(d.jumlah_provinsi)}</b> provinsi</p>
+        <div class="sp-tren"><small>Pendaftar 14 hari terakhir</small>${G.batang(harian, { labelTiap: 13 })}</div>
+      </div>
+      <div class="sp-tiles">${jb.map(tile).join('')}</div>
+      <div class="kartu sp-asal"><h3><i class="ph-duotone ph-map-pin-area" style="color:var(--c1)"></i>Asal pendaftar terbanyak</h3>${G.mendatar((d.teratas || []).map(x => ({ label: x.nama, nilai: x.jumlah })))}
+        <p class="muted kecil">Diperbarui ${fmt.jam(new Date(d.diperbarui))} WITA${d.gelombang ? ` · ${esc(d.gelombang.nama)}` : ''}</p></div>
+    </div>`;
   }
 
   // Foto latar bagian pembuka berganti tiap 5 detik (crossfade)
@@ -557,7 +596,7 @@
       let s = Math.max(0, Math.floor((akhir - Date.now()) / 1000));
       const v = { hari: Math.floor(s / 86400), jam: Math.floor(s % 86400 / 3600), menit: Math.floor(s % 3600 / 60), detik: s % 60 };
       Object.entries(v).forEach(([u, n]) => { const b = el.querySelector(`[data-u="${u}"]`); if (b) b.textContent = u === 'hari' ? n : pad(n); });
-      if (!s) clearInterval(iv);
+      if (!s) { clearInterval(iv); if (akhir - Date.now() > -5000) setTimeout(() => location.reload(), 2500); }
     };
     const iv = setInterval(t, 1000); t();
   }
@@ -852,6 +891,7 @@
       profil: ['pimpinan', 'kontak_panitia'], berita: ['kontak_panitia'], kontak: ['kontak_panitia', 'faq'] }[HAL] || ['kontak_panitia'];
     const tugas = [muatKonten(jenis)];
     if (HAL === 'beranda') tugas.push(muatSpmb());
+    if (HAL === 'beranda') tugas.push(sb.rpc('statistik_publik').then(({ data }) => { S.statPublik = data; }, () => {}));
     if (HAL === 'beranda') tugas.push(queryBerita().order('terbit_pada', { ascending: false }).limit(3).then(({ data }) => { S.beritaTerbaru = data || []; }));
     await Promise.all(tugas);
     pasangKerangka();

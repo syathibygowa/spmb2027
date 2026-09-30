@@ -35,7 +35,7 @@
   };
 
   window.SPMB_HAL.daftar = async api => {
-    const { sb, fmt, esc, toast, konfirmasi, pesanGalat, cetakDokumen, unggahBerkasPendaftar, konfirmasiPendaftaran, ambilBuktiPdf, simpanPdf } = window.SPMB;
+    const { sb, fmt, esc, toast, konfirmasi, pesanGalat, cetakDokumen, buatPdfDokumen, dokumenBukti, unggahBerkasPendaftar, konfirmasiPendaftaran, ambilBuktiPdf, simpanPdf } = window.SPMB;
     const $ = (s, r = document) => r.querySelector(s);
     const S = api.S;
     const cfg = S.p.spmb || {};
@@ -830,12 +830,15 @@
       $('#konfirmasiWA')?.addEventListener('click', () => toast('WhatsApp dibuka. Tekan kirim pada pesan yang sudah terisi.', 'info'));
       const tombolPdf = $('#unduhPdf'), ket = $('#pdfKet');
       const siapUnduh = () => { tombolPdf.disabled = false; ket.textContent = 'Berkas PDF ukuran F4 · siap diunduh'; };
+      // PDF dibuat di peramban dari tata letak yang sama dengan cetak; cadangan: dibuat Apps Script
+      const opsiBukti = opsiBuktiDari(d, hasil);
+      const buatPdf = async () => pdfData || (pdfData = await buatPdfDokumen(opsiBukti));
       tombolPdf.onclick = async () => {
         try {
           if (!pdfData) {
-            if (!token) throw new Error('Sesi formulir tidak ditemukan.');
             tombolPdf.disabled = true; ket.innerHTML = '<span class="spinner" style="width:12px;height:12px"></span> Menyiapkan berkas PDF…';
-            pdfData = (await ambilBuktiPdf({ token })).pdf;
+            try { await buatPdf(); }
+            catch (e) { if (!token) throw e; pdfData = (await ambilBuktiPdf({ token })).pdf; }
             if (!pdfData) throw new Error('PDF belum dapat dibuat.');
           }
           simpanPdf(pdfData, namaPdf); siapUnduh();
@@ -845,39 +848,29 @@
           toast(`${pesanGalat(err)} Gunakan tombol "Cetak bukti langsung", lalu pilih Simpan sebagai PDF.`, 'err', 8000);
         }
       };
-      if (!dariArsip && token) {
-        konfirmasiPendaftaran(token).then(k => {
-          if (k.pdf) pdfData = k.pdf;
+      if (!dariArsip && token) (async () => {
+        let pdfPeramban = null;
+        try { pdfPeramban = await buatPdf(); siapUnduh(); } catch (e) { console.warn('PDF peramban gagal, memakai cadangan Apps Script', e); }
+        await konfirmasiPendaftaran(token, pdfPeramban).then(k => {
+          if (!pdfData && k.pdf) pdfData = k.pdf;
           siapUnduh();
           $('#statusEmail').innerHTML = k.email ? `<i class="ph-duotone ph-envelope-simple-open" style="color:var(--ok)"></i> Email konfirmasi dan bukti pendaftaran juga terkirim ke <b>${esc((d.email || '').trim().toLowerCase())}</b>. Periksa juga folder Spam.`
             : `<i class="ph-duotone ph-info"></i> ${esc(k.pesan || 'Email konfirmasi tidak terkirim.')} Simpan bukti dengan tombol di atas.`;
         }).catch(() => { siapUnduh(); $('#statusEmail').innerHTML = '<i class="ph-duotone ph-info"></i> Email konfirmasi belum terkirim. Pendaftaran tetap tersimpan; simpan bukti dengan tombol di atas.'; });
-      }
+      })();
     }
 
-    function cetakBukti(d, hasil) {
-      const kp = S.p.ketua_panitia || {};
-      const t = (rows, lebar) => `<table><colgroup>${lebar.map(w => `<col style="width:${w}%">`).join('')}</colgroup>${rows}</table>`;
-      const r = (a, b) => `<tr><td>${a}</td><td>${esc(b || '–')}</td></tr>`;
-      const alamat = [d.alamat_jalan, d.dusun, `RT ${d.rt || '–'}/RW ${d.rw || '–'}`, d.desa, `Kec. ${d.kecamatan}`, d.kabupaten, d.provinsi, d.kode_pos].filter(Boolean).join(', ');
-      const berkasL = (cfg.berkas || []).filter(b => (terakhirBerkas(hasil) || st.berkas)[b.kunci]);
-      cetakDokumen({
-        judul: 'Bukti Pendaftaran Santri Baru', nomor: hasil.no_registrasi,
-        meta: `Tahun Ajaran ${esc(ta)} · ${esc(hasil.gelombang || gel?.nama || '')} · Tanggal daftar: ${fmt.tglJam(hasil.dibuat_pada)} WITA${hasil.uji ? ' · <b>DATA UJI COBA</b>' : ''}`,
-        isi: `${t(`<thead><tr><th>Data calon santri</th><th>Keterangan</th></tr></thead><tbody>
-            ${r('Nama lengkap', hasil.nama_lengkap || d.nama_lengkap)}${r('NISN / NIK', `${d.nisn} / ${d.nik}`)}
-            ${r('Tempat, tanggal lahir', `${d.tempat_lahir}, ${fmt.tglPanjang(new Date(d.tanggal_lahir + 'T00:00:00'))}`)}
-            ${r('Jenjang / bagian', `${d.jenjang} / ${d.bagian === 'putra' ? 'Putra' : 'Putri'}`)}${r('Asal daerah', `${d.asal_kabupaten}, ${d.asal_provinsi}`)}
-            ${r('Alamat domisili', alamat)}${r('Sekolah asal', d.asal_sekolah)}
-            ${r('Nama ayah / ibu', `${d.nama_ayah} / ${d.nama_ibu}`)}${r('WhatsApp / email', `+${normalWA(d.no_wa)} / ${(d.email || '').trim().toLowerCase()}`)}
-            ${r('Hafalan Al-Qur\'an', teksHafalan(d))}</tbody>`, [34, 66])}
-          <div style="height:6px"></div>
-          ${berkasL.length ? t(`<thead><tr><th>No</th><th>Berkas yang diunggah</th><th>Status</th></tr></thead><tbody>
-            ${berkasL.map((b, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(b.label)}</td><td>Menunggu verifikasi</td></tr>`).join('')}</tbody>`, [8, 62, 30]) : ''}
-          <p style="font-size:9pt;margin:6px 0 0">Catatan: simpan bukti ini. Status dan jadwal tes dapat dilihat di halaman Cek Status situs SPMB dengan nomor registrasi dan tanggal lahir santri.</p>`,
-        ttd: [{ jabatan: 'Calon santri / wali,', nama: hasil.nama_lengkap || d.nama_lengkap }, { jabatan: 'Ketua Panitia SPMB,', nama: kp.nama, nip: kp.niy ? 'NIY. ' + kp.niy : '' }]
-      });
+    // Data pendaftar untuk Bukti Pendaftaran (isi yang sama untuk cetak, PDF, dan dashboard)
+    function opsiBuktiDari(d, hasil) {
+      const berkasAda = terakhirBerkas(hasil) || st.berkas;
+      return dokumenBukti({
+        ...d, no_registrasi: hasil.no_registrasi, nama_lengkap: hasil.nama_lengkap || d.nama_lengkap, dibuat_pada: hasil.dibuat_pada, uji: hasil.uji,
+        gelombang: hasil.gelombang || gel?.nama || '', no_wa: normalWA(d.no_wa), email: (d.email || '').trim().toLowerCase(),
+        hafalan_juz: d.hafalan_jenis ? (d.hafalan_jenis === 'juz' ? juzAngka(d.hafalan_juz) : 0) : d.hafalan_juz,
+        hafalan_surah: d.hafalan_jenis === 'surah' ? +d.hafalan_surah || 0 : 0
+      }, Object.keys(berkasAda || {}), S.p);
     }
+    function cetakBukti(d, hasil) { cetakDokumen(opsiBuktiDari(d, hasil)); }
     const terakhirBerkas = hasil => { try { const x = JSON.parse(localStorage.getItem(KUNCI_TERAKHIR) || 'null'); return x?.hasil?.no_registrasi === hasil.no_registrasi ? x.berkas : null; } catch (e) { return null; } };
 
     // Pendaftaran terakhir dari perangkat ini: tautan untuk mengunduh ulang buktinya

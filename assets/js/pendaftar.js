@@ -643,12 +643,15 @@
     async function bukaWA(awal) {
       const T = S.pengaturan.templat_wa || (await muatPengaturan(true)).templat_wa || {};
       const kunci = Object.keys(IKON_WA).filter(x => T[x]).concat(Object.keys(T).filter(x => !IKON_WA[x]));
-      const pilih = awal && T[awal] ? awal : P.verif_berkas === 'perbaikan' ? 'berkas_kurang' : P.verif_bayar === 'diterima' && T.bayar_ok ? 'bayar_ok' : 'diterima';
+      const pilih = awal && T[awal] ? awal : P.status === 'ikut_tes' && T.jadwal_tes ? 'jadwal_tes' : P.verif_berkas === 'perbaikan' ? 'berkas_kurang' : P.verif_bayar === 'diterima' && T.bayar_ok ? 'bayar_ok' : 'diterima';
       const id_ = S.pengaturan.identitas || {};
       const situs = alamatSitus();
+      // Jadwal tes dari sesi yang diikuti (Fase 4); bila belum dijadwalkan, pakai tanggal tes gelombang
+      const { data: ikut } = await sb.from('peserta_sesi').select('sesi_tes(*)').eq('pendaftar_id', P.id);
+      const jadwalSesi = UI.teksJadwalTes ? UI.teksJadwalTes((ikut || []).map(x => x.sesi_tes)) : '';
       const data = {
         nama: P.nama_lengkap, no_registrasi: P.no_registrasi, jenjang: `${P.jenjang} ${bagianL(P.bagian)}`, gelombang: G?.nama || '',
-        catatan: P.catatan_berkas || P.catatan_bayar || '', jadwal_tes: G?.tes_mulai ? (G.tes_selesai && G.tes_selesai !== G.tes_mulai ? `${tglPanjangIso(G.tes_mulai)} – ${tglPanjangIso(G.tes_selesai)}` : tglPanjangIso(G.tes_mulai)) : '',
+        catatan: P.catatan_berkas || P.catatan_bayar || '', jadwal_tes: jadwalSesi || (G?.tes_mulai ? (G.tes_selesai && G.tes_selesai !== G.tes_mulai ? `${tglPanjangIso(G.tes_mulai)} – ${tglPanjangIso(G.tes_selesai)}` : tglPanjangIso(G.tes_mulai)) : ''),
         tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(P.no_registrasi)}`, tautan_pengumuman: `${situs}/cek-status.html?no=${encodeURIComponent(P.no_registrasi)}`,
         tautan_daftar_ulang: `${situs}/daftar-ulang.html?no=${encodeURIComponent(P.no_registrasi)}`, nama_lembaga: id_.nama_lembaga || '', tahun_ajaran: id_.tahun_ajaran || ''
       };

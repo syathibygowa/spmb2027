@@ -1,7 +1,7 @@
 /* =====================================================================
-   DASHBOARD PANITIA SPMB (Fase 3)
-   Menu: Beranda, Notifikasi, Pendaftar, Konten Situs, Pengaturan SPMB, Pengguna, Pengaturan, Log Aktivitas, Profil
-   Halaman Konten Situs ada di berkas konten.js, Pengaturan SPMB di spmb.js, Pendaftar di pendaftar.js
+   DASHBOARD PANITIA SPMB (Fase 4)
+   Menu: Beranda, Notifikasi, Pendaftar, Seleksi, Penilaian, Konten Situs, Pengaturan SPMB, Pengguna, Pengaturan, Log Aktivitas, Profil
+   Halaman Konten Situs ada di berkas konten.js, Pengaturan SPMB di spmb.js, Pendaftar di pendaftar.js, Seleksi dan Penilaian di seleksi.js
    ===================================================================== */
 (function () {
   'use strict';
@@ -23,6 +23,8 @@
     { id: 'beranda',    label: 'Beranda',       ikon: 'ph-squares-four',            tone: 'var(--c1)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Ringkasan dan statistik langsung' },
     { id: 'notifikasi', label: 'Notifikasi',    ikon: 'ph-bell-ringing',            tone: 'var(--c3)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Pemberitahuan untuk akun Anda' },
     { id: 'pendaftar',  label: 'Pendaftar',     ikon: 'ph-identification-card',     tone: 'var(--c4)', peran: ['superadmin', 'admin'], sub: 'Data calon santri, verifikasi berkas dan pembayaran' },
+    { id: 'seleksi',    label: 'Seleksi',       ikon: 'ph-exam',                    tone: 'var(--c2)', peran: ['superadmin', 'admin'], sub: 'Sesi tes, penguji, kartu peserta, dan validasi nilai' },
+    { id: 'penilaian',  label: 'Penilaian',     ikon: 'ph-pencil-simple-line',      tone: 'var(--c5)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Isi nilai peserta di sesi yang ditugaskan kepada Anda' },
     { id: 'konten',     label: 'Konten Situs',  ikon: 'ph-browsers',                tone: 'var(--c7)', peran: ['superadmin'], sub: 'Isi landing page, profil, berita, dan berkas' },
     { id: 'spmb',       label: 'Pengaturan SPMB', ikon: 'ph-flag-banner',          tone: 'var(--c3)', peran: ['superadmin'], sub: 'Gelombang, kuota, biaya, rekening, formulir, dan templat WhatsApp' },
     { id: 'pengguna',   label: 'Pengguna',      ikon: 'ph-users-three',             tone: 'var(--c2)', peran: ['superadmin'], sub: 'Akun Admin dan Penguji' },
@@ -32,8 +34,7 @@
   ];
   // Menu fase berikutnya, ditampilkan sebagai penanda saja
   const SEGERA = [
-    ['Seleksi', 'ph-exam', 'Fase 4'], ['Pengumuman', 'ph-megaphone', 'Fase 4'],
-    ['Daftar Ulang', 'ph-clipboard-text', 'Fase 5']
+    ['Pengumuman', 'ph-megaphone', 'Fase 4'], ['Daftar Ulang', 'ph-clipboard-text', 'Fase 4']
   ];
 
   const S = { user: null, profil: null, pengaturan: {}, unread: 0, notifTerbaru: [], kanal: null, jamTimer: null, statTimer: null, param: '' };
@@ -116,7 +117,7 @@
     });
 
     // Navigasi bawah HP: maksimal 4 menu + "Lainnya"
-    const pilihan = (S.profil.peran === 'penguji' ? ['beranda', 'notifikasi', 'profil'] : ['beranda', 'pendaftar', 'notifikasi'])
+    const pilihan = (S.profil.peran === 'penguji' ? ['beranda', 'penilaian', 'notifikasi'] : ['beranda', 'pendaftar', 'notifikasi'])
       .map(id => MENU.find(m => m.id === id));
     $('#bottomNav').innerHTML = pilihan.map(m => `
       <a href="#/${m.id}" data-menu="${m.id}" style="--tone:${m.tone}">
@@ -182,6 +183,8 @@
         <select class="select" id="statGel" aria-label="Gelombang"><option value="">Semua gelombang</option></select>
         <label class="check uji-saklar"><input type="checkbox" id="statUji">Data uji</label></div>` : ''}
       <div class="stats${isAdmin ? ' stats-pendaftar' : ''}" id="stats"></div>
+      ${isAdmin ? '<div class="bilah-stat"><b><i class="ph-duotone ph-exam" style="color:var(--c2)"></i>Seleksi</b></div><div class="stats stats-pendaftar" id="statsSeleksi"></div>' : ''}
+      <div id="sesiSaya"></div>
       ${isAdmin ? '<div class="grafik-kisi" id="grafik"></div>' : ''}
       ${isSuper ? '<div id="lengkapi"></div>' : ''}
       <div class="grid-2">
@@ -189,7 +192,10 @@
           <div class="card-head"><div class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-lightning"></i></div><div><h3>Aksi cepat</h3><p>Menu yang sering dipakai</p></div></div>
           <div class="quick">
             <a href="#/notifikasi"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-bell-ringing"></i></span>Notifikasi</a>
-            ${isAdmin ? `<a href="#/pendaftar"><span class="ic-box" style="--tone:var(--c4);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-identification-card"></i></span>Data pendaftar</a>
+            <a href="#/penilaian"><span class="ic-box" style="--tone:var(--c5);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-simple-line"></i></span>Isi nilai</a>
+            ${isAdmin ? `<a href="#/seleksi"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-calendar-check"></i></span>Sesi tes</a>
+            <a href="#/seleksi?tab=nilai"><span class="ic-box" style="--tone:var(--c6);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-list-checks"></i></span>Validasi nilai</a>
+            <a href="#/pendaftar"><span class="ic-box" style="--tone:var(--c4);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-identification-card"></i></span>Data pendaftar</a>
             <a href="daftar.html" target="_blank"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-user-plus"></i></span>Input pendaftar</a>` : ''}
             ${isSuper ? `<a href="#/konten"><span class="ic-box" style="--tone:var(--c7);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-browsers"></i></span>Konten situs</a>
             <a href="#/konten?m=berita"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-line"></i></span>Tulis berita</a>
@@ -205,7 +211,7 @@
         <div class="card">
           <div class="card-head"><div class="ic-box" style="--tone:var(--c6)"><i class="ph-duotone ph-rocket-launch"></i></div><div><h3>Tahap pengembangan</h3><p>Menu baru muncul sesuai fase</p></div></div>
           <ul class="roadmap-mini">
-            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'done'], ['Landing page dan konten situs', 'done'], ['Pendaftaran online', 'on'], ['Seleksi dan pengumuman', ''], ['Daftar ulang', ''], ['Laporan dan cadangan', '']]
+            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'done'], ['Landing page dan konten situs', 'done'], ['Pendaftaran online', 'done'], ['Seleksi, pengumuman, dan daftar ulang', 'on'], ['Daftar ulang lanjutan', ''], ['Laporan dan cadangan', '']]
               .map(([t, s], i) => `<li class="${s}"><span class="n">${s === 'done' ? '✓' : i}</span>Fase ${i} · ${t}${s === 'on' ? ' <span class="pill" style="--tone:var(--c1);margin-left:auto">Sedang berjalan</span>' : ''}</li>`).join('')}
           </ul>
         </div>
@@ -230,9 +236,15 @@
     const muatStat = async () => {
       const el = $('#stats'); if (!el) return;
       if (!isAdmin) {
-        el.style.gridTemplateColumns = 'repeat(3,minmax(0,1fr))';
-        el.innerHTML = kartuStat([['Bidang tes Anda', (p.bidang_penguji || []).length, 'ph-exam', 'var(--c5)'],
-          ['Sesi tes ditugaskan', 0, 'ph-calendar-check', 'var(--c2)'], ['Notifikasi belum dibaca', S.unread, 'ph-bell-ringing', 'var(--c3)', '#/notifikasi']]);
+        const { data: t } = await sb.rpc('statistik_penguji');
+        if (!$('#stats')) return;
+        el.classList.add('stats-seleksi');
+        el.innerHTML = kartuStat([
+          ['Sesi tes ditugaskan', t?.sesi || 0, 'ph-calendar-check', 'var(--c2)', '#/penilaian'],
+          ['Sesi hari ini', t?.sesi_hari_ini || 0, 'ph-lightning', 'var(--c7)', '#/penilaian'],
+          [`Nilai terisi dari ${fmt.angka(t?.tugas_nilai || 0)}`, t?.sudah_dinilai || 0, 'ph-pencil-simple-line', 'var(--c5)', '#/penilaian'],
+          ['Dikembalikan Admin', t?.dikembalikan || 0, 'ph-arrow-u-up-left', 'var(--c3)', '#/penilaian'],
+          ['Notifikasi belum dibaca', S.unread, 'ph-bell-ringing', 'var(--c1)', '#/notifikasi']]);
         return;
       }
       const gel = $('#statGel').value, uji = $('#statUji').checked;
@@ -246,15 +258,23 @@
         ['Menunggu cek bayar', d.menunggu_bayar, 'ph-receipt', 'var(--c3)', q('@bayar')],
         ['Berkas kurang', d.berkas_kurang, 'ph-file-x', 'var(--c7)', q('berkas_kurang')],
         ['Terverifikasi lengkap', d.terverifikasi, 'ph-seal-check', 'var(--ok)', q('pembayaran_dikonfirmasi')]]);
+      const qs = t => `#/seleksi?tab=${t}`;
+      if ($('#statsSeleksi')) $('#statsSeleksi').innerHTML = kartuStat([
+        ['Dijadwalkan tes', d.terjadwal || 0, 'ph-calendar-check', 'var(--c2)', qs('sesi')],
+        ['Sudah dinilai', d.sudah_tes || 0, 'ph-exam', 'var(--c5)', qs('nilai')],
+        ['Nilai menunggu validasi', d.nilai_menunggu || 0, 'ph-hourglass-medium', 'var(--c6)', qs('nilai')],
+        ['Nilai lengkap', d.nilai_lengkap || 0, 'ph-list-checks', 'var(--c1)', qs('nilai')],
+        ['Lulus', d.lulus || 0, 'ph-confetti', 'var(--ok)', q('lulus')],
+        ['Cadangan', d.cadangan || 0, 'ph-hourglass-medium', 'var(--c3)', q('cadangan')]]);
       // Grafik
-      const harian = (d.harian || []).map(h => ({ label: fmt.tgl(new Date(h.tanggal + 'T00:00:00')).slice(0, 5), nilai: h.jumlah, tip: `${fmt.tglPanjang(new Date(h.tanggal + 'T00:00:00'))}: ${fmt.angka(h.jumlah)} pendaftar` }));
+      const harian = (d.harian || []).map(h => ({ label: fmt.tgl(new Date(String(h.tanggal).slice(0, 10) + 'T00:00:00')).slice(0, 5), nilai: h.jumlah, tip: `${fmt.tglPanjang(new Date(String(h.tanggal).slice(0, 10) + 'T00:00:00'))}: ${fmt.angka(h.jumlah)} pendaftar` }));
       const jb = ['SMP', 'SMA'].map(j => ['putra', 'putri'].map(b => ({ j, b, n: (d.per_jenjang || []).find(x => x.jenjang === j && x.bagian === b)?.jumlah || 0 })));
       const maksJB = Math.max(1, ...jb.flat().map(x => x.n));
       const kuota = (d.kuota || []).filter(k => k.kuota != null);
       const kartu = (ic, t, judul, sub, isi, lebar) => `<div class="card grafik-kartu${lebar ? ' lebar' : ''}"><div class="card-head"><div class="ic-box" style="--tone:${t}"><i class="ph-duotone ${ic}"></i></div><div><h3>${judul}</h3><p>${sub}</p></div></div>${isi}</div>`;
       $('#grafik').innerHTML =
         kartu('ph-chart-bar', 'var(--c5)', 'Pendaftar 30 hari terakhir', `Total ${fmt.angka(harian.reduce((a, x) => a + x.nilai, 0))} pendaftar dalam 30 hari`,
-          G.batang(harian) + G.tabel(['Tanggal', 'Pendaftar'], (d.harian || []).map(h => [fmt.tgl(new Date(h.tanggal + 'T00:00:00')), h.jumlah])), true) +
+          G.batang(harian) + G.tabel(['Tanggal', 'Pendaftar'], (d.harian || []).map(h => [fmt.tgl(new Date(String(h.tanggal).slice(0, 10) + 'T00:00:00')), h.jumlah])), true) +
         kartu('ph-gender-intersex', 'var(--c4)', 'Jenjang dan putra/putri', 'Jumlah pendaftar per kelompok',
           `<div class="gr-legenda"><span><i style="--c:var(--gr-putra)"></i>Putra</span><span><i style="--c:var(--gr-putri)"></i>Putri</span></div>
            <div class="gr-kelompok">${jb.map(grp => `<div class="gr-grup"><div class="gr-pasang">${grp.map(x => `<div class="gr-kolom" tabindex="0" data-tip="${x.j} ${x.b === 'putra' ? 'Putra' : 'Putri'}: ${fmt.angka(x.n)} pendaftar">
@@ -273,6 +293,17 @@
     };
     await muatStat();
     S.statTimer = setInterval(muatStat, 30000);
+
+    // Sesi tes terdekat yang ditugaskan kepada akun ini
+    sb.rpc('peserta_saya', { p_sesi: null }).then(({ data }) => {
+      const el = $('#sesiSaya'); if (!el || !data?.length) return;
+      const kini = fmt.isoTgl(), dekat = data.filter(x => x.sesi.tanggal >= kini).slice(0, 4);
+      if (!dekat.length) return;
+      el.innerHTML = `<div class="card" style="margin-bottom:16px"><div class="card-head"><div class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-chalkboard-teacher"></i></div>
+        <div><h3>Sesi tes Anda</h3><p>Jadwal menguji yang terdekat</p></div><a class="btn sm ghost" href="#/penilaian" style="margin-left:auto">Buka Penilaian</a></div>
+        <div class="quick">${dekat.map(x => `<a href="#/penilaian?sesi=${x.sesi.id}"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ${x.sesi.mode === 'online' ? 'ph-video-camera' : 'ph-map-pin'}"></i></span>
+          <span><b>${esc(x.sesi.nama)}</b><br><small class="muted">${fmt.tgl(new Date(x.sesi.tanggal + 'T00:00:00'))} · ${String(x.sesi.jam_mulai).slice(0, 5).replace(':', '.')} WITA · ${x.peserta.length} peserta</small></span></a>`).join('')}</div></div>`;
+    });
     HALAMAN.beranda.segarkanStat = muatStat;
 
     // Yang perlu dilengkapi Superadmin
@@ -440,6 +471,12 @@
      PENDAFTAR DAN VERIFIKASI (Admin, Superadmin) · isi di pendaftar.js
      ================================================================= */
   HALAMAN.pendaftar = k => window.SPMB_MODUL.pendaftar(k, { S, setFab, param: S.param });
+
+  /* =================================================================
+     SELEKSI (Admin, Superadmin) dan PENILAIAN (semua panitia) · isi di seleksi.js
+     ================================================================= */
+  HALAMAN.seleksi = k => window.SPMB_MODUL.seleksi(k, { S, setFab, param: S.param });
+  HALAMAN.penilaian = k => window.SPMB_MODUL.penilaian(k, { S, setFab, param: S.param });
 
   /* =================================================================
      PENGGUNA (Superadmin)
@@ -625,12 +662,13 @@
         <button role="tab" data-tab="identitas"><i class="ph-duotone ph-buildings" style="color:var(--c1)"></i>Identitas lembaga</button>
         <button role="tab" data-tab="kop"><i class="ph-duotone ph-identification-card" style="color:var(--c5)"></i>Kop surat</button>
         <button role="tab" data-tab="ketua"><i class="ph-duotone ph-seal-check" style="color:var(--c6)"></i>Ketua Panitia</button>
+        <button role="tab" data-tab="ttd"><i class="ph-duotone ph-signature" style="color:var(--c4)"></i>Penanda tangan</button>
         <button role="tab" data-tab="integrasi"><i class="ph-duotone ph-plugs-connected" style="color:var(--c2)"></i>Integrasi</button>
       </div>
       <div id="isiTab"></div>`;
     const buka = tab => {
       k.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-      (({ identitas: tabIdentitas, kop: tabKop, ketua: tabKetua, integrasi: tabIntegrasi })[tab] || tabIdentitas)($('#isiTab'));
+      (({ identitas: tabIdentitas, kop: tabKop, ketua: tabKetua, ttd: tabTtd, integrasi: tabIntegrasi })[tab] || tabIdentitas)($('#isiTab'));
     };
     k.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { history.replaceState(null, '', '#/pengaturan?tab=' + b.dataset.tab); buka(b.dataset.tab); });
     buka(tabAwal);
@@ -783,6 +821,54 @@
         await sb.rpc('kirim_notifikasi_ke_pengguna', { p_penerima: nilai.pengguna_id, p_judul: 'Anda ditunjuk sebagai Ketua Panitia', p_pesan: 'Nama Anda akan tercantum sebagai penanda tangan dokumen SPMB.', p_jenis: 'penting', p_tautan: '#/profil' });
         toast('Ketua Panitia disimpan.');
       } catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+  }
+
+  const DOK_TTD = [
+    ['kartu_tes', 'Kartu Peserta Tes'], ['rekap_nilai', 'Rekap Nilai Seleksi'], ['berita_acara', 'Berita Acara Penetapan Hasil'],
+    ['sk', 'SK Penetapan Hasil Seleksi'], ['skl', 'Surat Keterangan Lulus'], ['bukti_du', 'Bukti Daftar Ulang'],
+    ['kuitansi', 'Kuitansi Pembayaran'], ['rekap_pendaftar', 'Rekap Pendaftar dan Santri Baru']];
+  const PILIH_TTD = [['tanpa', 'Tanpa (hanya Ketua Panitia)'], ['direktur', 'Direktur'], ['kepala_smp', 'Kepala SMP'], ['kepala_sma', 'Kepala SMA'], ['kepala_jenjang', 'Kepala sesuai jenjang santri']];
+  function tabTtd(el) {
+    const pt = S.pengaturan.penandatangan || {}, pej = pt.pejabat || {}, dok = pt.dokumen || {};
+    const kp = S.pengaturan.ketua_panitia || {};
+    const orang = (k, bawaan) => { const x = pej[k] || {}; return `
+      <div class="card ttd-pejabat"><h4 class="sub-form" style="margin-top:0"><i class="ph-duotone ph-user-circle" style="color:var(--c4)"></i>${esc(bawaan)}</h4>
+        ${inp(k + '_jabatan', 'Jabatan (seperti tertulis di dokumen)', x.jabatan || bawaan)}
+        ${inp(k + '_nama', 'Nama lengkap bergelar', x.nama, 'placeholder="Kosong = garis titik-titik"')}
+        ${inp(k + '_niy', 'NIY / NIP', x.niy)}</div>`; };
+    el.innerHTML = `
+      <form id="fTtd" novalidate>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-head"><div class="ic-box" style="--tone:var(--c4)"><i class="ph-duotone ph-signature"></i></div><div><h3>Penanda tangan dokumen</h3>
+            <p>Kolom kanan selalu Ketua Panitia (${esc(kp.nama || 'belum ditunjuk')}). Kolom kiri dipilih per jenis dokumen di bawah.</p></div></div>
+          <div class="ttd-kisi">${orang('direktur', 'Direktur')}${orang('kepala_smp', 'Kepala SMP')}${orang('kepala_sma', 'Kepala SMA')}</div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="ic-box" style="--tone:var(--c1)"><i class="ph-duotone ph-files"></i></div><div><h3>Kolom kiri tiap dokumen</h3><p>Kedua tanda tangan tampil sejajar di bagian bawah dokumen</p></div></div>
+          <div class="table-wrap"><table class="tbl"><thead><tr><th>Dokumen</th><th>Penanda tangan kiri</th></tr></thead><tbody>
+            ${DOK_TTD.map(([k, l]) => `<tr><td>${esc(l)}</td><td><select class="select" name="dok_${k}">${PILIH_TTD.map(([v, t]) => `<option value="${v}" ${(dok[k] || 'tanpa') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></td></tr>`).join('')}
+          </tbody></table></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
+            <button class="btn ghost" type="button" id="btnUjiTtd"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak contoh</button>
+            <button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan penanda tangan</button></div>
+        </div>
+      </form>`;
+    const f = $('#fTtd');
+    const baca = () => ({
+      pejabat: Object.fromEntries(['direktur', 'kepala_smp', 'kepala_sma'].map(k => [k, { jabatan: f.elements[k + '_jabatan'].value.trim(), nama: f.elements[k + '_nama'].value.trim(), niy: f.elements[k + '_niy'].value.trim() }])),
+      dokumen: Object.fromEntries(DOK_TTD.map(([k]) => [k, f.elements['dok_' + k].value]))
+    });
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const nilai = baca();
+      if (Object.values(nilai.pejabat).some(x => x.jabatan.length < 3)) return toast('Jabatan pejabat wajib diisi.', 'err');
+      try { await simpanPengaturan('penandatangan', { ...pt, ...nilai }); toast('Penanda tangan disimpan.'); } catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+    $('#btnUjiTtd').onclick = () => {
+      const p = { ...S.pengaturan, penandatangan: { ...pt, ...baca() } };
+      cetakDokumen({ judul: 'Contoh Penanda Tangan', meta: 'Kolom kiri mengikuti pilihan untuk <b>SK Penetapan Hasil Seleksi</b>.',
+        isi: '<p>Contoh isi dokumen.</p>', ttd: SPMB.penandaTangan('sk', p, 'SMP') });
     };
   }
 

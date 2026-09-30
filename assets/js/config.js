@@ -19,5 +19,5 @@ window.SPMB_CONFIG = {
   // Dapat diganti tanpa mengubah kode melalui Dashboard > Pengaturan > Integrasi.
   appsScriptUrl: 'https://script.google.com/macros/s/AKfycbweviNVLuJRPENFDaC6fK2Lr83qsFh6DMHij5nx9-m67j5GAEdQFQ6WggWxpic6X4vBiw/exec',
 
-  versi: '3.2.0 (Fase 3)'
+  versi: '4.0.0 (Fase 4)'
 };

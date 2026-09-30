@@ -362,10 +362,10 @@
         <div class="foot">Dicetak dari Sistem SPMB ${esc(p.identitas?.tahun_ajaran || '')} pada ${fmt.hariTgl(new Date())} pukul ${fmt.jam(new Date())} WITA</div>
       </div>`;
   }
-  async function cetakDokumen(opsi) {
-    const p = await muatPengaturan().catch(() => ({}));
+  // Cetak HTML apa pun (satu atau beberapa .doc / kartu) lewat area cetak F4
+  async function cetakHtml(html) {
     const area = document.getElementById('printArea') || Object.assign(document.createElement('div'), { id: 'printArea' });
-    area.innerHTML = htmlDokumen(opsi, p);
+    area.innerHTML = html;
     if (!area.parentNode) document.body.appendChild(area);
     document.body.classList.add('printing');
     const selesai = () => { document.body.classList.remove('printing'); window.removeEventListener('afterprint', selesai); };
@@ -377,6 +377,29 @@
     })));
     window.print();
     setTimeout(selesai, 1500);
+  }
+  async function cetakDokumen(opsi) {
+    const p = await muatPengaturan().catch(() => ({}));
+    return cetakHtml(htmlDokumen(opsi, p));
+  }
+  // Beberapa dokumen F4 sekaligus, masing-masing mulai di halaman baru
+  async function cetakBanyakDokumen(daftarOpsi) {
+    const p = await muatPengaturan().catch(() => ({}));
+    return cetakHtml(daftarOpsi.map((o, i) => (i ? '<div class="halaman-baru"></div>' : '') + htmlDokumen(o, p)).join(''));
+  }
+
+  /* Penanda tangan dokumen (Pengaturan > Penanda tangan): kolom kiri sesuai pilihan
+     per jenis dokumen (Direktur, Kepala SMP/SMA, kepala sesuai jenjang, atau tanpa),
+     kolom kanan selalu Ketua Panitia. Hasil: larik ttd untuk htmlDokumen. */
+  function penandaTangan(kunciDok, p, jenjang = '') {
+    const pt = p?.penandatangan || {}, pej = pt.pejabat || {}, kp = p?.ketua_panitia || {};
+    const pilih = (pt.dokumen || {})[kunciDok] || 'tanpa';
+    let k = pilih;
+    if (pilih === 'kepala_jenjang') k = jenjang === 'SMA' ? 'kepala_sma' : jenjang === 'SMP' ? 'kepala_smp' : 'direktur';
+    const ketua = { jabatan: 'Ketua Panitia SPMB,', nama: kp.nama, nip: kp.niy ? 'NIY. ' + kp.niy : '' };
+    const x = pej[k];
+    if (!x || k === 'tanpa') return [ketua];
+    return [{ jabatan: `Mengetahui, ${x.jabatan || ''},`.replace(', ,', ','), nama: x.nama, nip: x.niy ? 'NIY. ' + x.niy : '' }, ketua];
   }
 
   /* ---------- PDF langsung dari peramban (tanpa Google Docs) ----------
@@ -404,10 +427,19 @@
     }
   }
   async function buatPdfDokumen(opsi) {
+    const p = await muatPengaturan().catch(() => ({}));
+    return buatPdfHtml(htmlDokumen(opsi, p), { judul: opsi.judul + (opsi.nomor ? ' ' + opsi.nomor : '') });
+  }
+  async function buatPdfBanyak(daftarOpsi, judul) {
+    const p = await muatPengaturan().catch(() => ({}));
+    return buatPdfHtml(daftarOpsi.map((o, i) => (i ? '<div class="halaman-baru"></div>' : '') + htmlDokumen(o, p)).join(''), { judul });
+  }
+  // PDF F4 dari HTML apa pun. .halaman-baru memaksa halaman baru; .kartu-tes dan baris tabel menjadi titik potong aman.
+  async function buatPdfHtml(html, { judul = 'Dokumen SPMB' } = {}) {
     const [p] = await Promise.all([muatPengaturan().catch(() => ({})), siapkanPustakaPdf()]);
     const kanvas = document.createElement('div');
     kanvas.className = 'pdf-kanvas';
-    kanvas.innerHTML = htmlDokumen(opsi, p);
+    kanvas.innerHTML = html;
     document.body.appendChild(kanvas);
     try {
       for (const img of kanvas.querySelectorAll('img')) {
@@ -419,8 +451,9 @@
       const kanvasGambar = await window.html2canvas(kanvas, { scale: SKALA, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 1280, windowHeight: 1800 });
       // Titik potong yang aman: bagian bawah baris tabel, paragraf, dan blok
       const atas = kanvas.getBoundingClientRect().top;
-      const aman = [...kanvas.querySelectorAll('tr, p, .doc-meta, .doc-no, .doc-title, .kop-preview, .sign, .foot, table, .catatan-kotak, div[style*="height"]')]
+      const aman = [...kanvas.querySelectorAll('tr, p, .doc-meta, .doc-no, .doc-title, .kop-preview, .sign, .foot, table, .catatan-kotak, div[style*="height"], .kartu-tes, .kt-potong, .doc')]
         .map(el => el.getBoundingClientRect().bottom - atas).filter(y => y > 0).sort((a, b) => a - b);
+      const paksa = [...kanvas.querySelectorAll('.halaman-baru')].map(el => el.getBoundingClientRect().top - atas).sort((a, b) => a - b);
       const pxPerMm = kanvas.offsetWidth / 175.9;
       const tinggiHal = 290.2 * pxPerMm, total = kanvas.scrollHeight;
       const { jsPDF } = window.jspdf;
@@ -428,7 +461,9 @@
       let mulai = 0, hal = 0;
       while (mulai < total - 1) {
         let akhir = Math.min(total, mulai + tinggiHal);
-        if (akhir < total) { const cocok = aman.filter(y => y > mulai + 40 && y <= akhir); if (cocok.length) akhir = cocok[cocok.length - 1] + 1; }
+        const henti = paksa.find(y => y > mulai + 1 && y < akhir);
+        if (henti) akhir = henti;
+        else if (akhir < total) { const cocok = aman.filter(y => y > mulai + 40 && y <= akhir); if (cocok.length) akhir = cocok[cocok.length - 1] + 1; }
         const potong = document.createElement('canvas');
         potong.width = kanvasGambar.width; potong.height = Math.round((akhir - mulai) * SKALA);
         const ctx = potong.getContext('2d', { alpha: false }); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, potong.width, potong.height);
@@ -441,7 +476,7 @@
         pdf.addImage(potong.toDataURL('image/png'), 'PNG', 20, 20, 175.9, (akhir - mulai) / pxPerMm, undefined, 'FAST');
         mulai = akhir;
       }
-      pdf.setProperties({ title: opsi.judul + (opsi.nomor ? ' ' + opsi.nomor : ''), creator: 'Sistem SPMB ' + (p.identitas?.nama_singkat || '') });
+      pdf.setProperties({ title: judul, creator: 'Sistem SPMB ' + (p.identitas?.nama_singkat || '') });
       return pdf.output('datauristring').replace(/^data:application\/pdf;[^,]*,/, 'data:application/pdf;base64,');
     } finally { kanvas.remove(); }
   }
@@ -719,6 +754,7 @@
   window.SPMB = {
     sb, CFG, fmt, esc, inisial, toast, dialog, konfirmasi, pesanGalat,
     muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen, htmlDokumen, buatPdfDokumen, unduhPdfDokumen, dokumenBukti, grafik,
+    cetakHtml, cetakBanyakDokumen, buatPdfHtml, buatPdfBanyak, penandaTangan,
     isiTanggalBawaan, setTheme, getTheme, themeSegHTML,
     alamatUnggah, kirimKeJembatan, kompresGambar, unggahBerkas, hapusBerkasDrive, gambar, youtubeId,
     unggahBerkasPendaftar, konfirmasiPendaftaran, lihatBerkasPendaftar, hapusBerkasPendaftar,

@@ -2,7 +2,7 @@
    CEK STATUS PENDAFTARAN (Fase 3 · Langkah 6) · halaman cek-status.html
    Masuk dengan nomor registrasi + tanggal lahir santri (5 kali salah →
    dikunci 15 menit oleh server). Menampilkan status, tahapan, catatan
-   perbaikan, berkas, jadwal tes, pengumuman, dan daftar ulang.
+   perbaikan, berkas, jadwal sesi tes (Fase 4), pengumuman, dan daftar ulang.
    Hasil seleksi baru terlihat setelah waktu pengumuman.
    Dimuat sebelum situs.js; situs.js memanggil SPMB_HAL['cek-status']().
    ===================================================================== */
@@ -41,6 +41,9 @@
     const tglId = iso => iso ? fmt.tglPanjang(new Date(String(iso).slice(0, 10) + 'T00:00:00')) : '';
     const tsId = ts => { if (!ts) return ''; const s = new Date(ts).toLocaleString('sv-SE', { timeZone: 'Asia/Makassar' }); return `${tglId(s.slice(0, 10))} pukul ${s.slice(11, 16).replace(':', '.')} WITA`; };
     const rentang = (a, b) => !a ? '' : !b || a === b ? tglId(a) : `${tglId(a)} – ${tglId(b)}`;
+    const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const hariTgl = iso => iso ? `${HARI[new Date(String(iso).slice(0, 10) + 'T00:00:00').getDay()]}, ${tglId(iso)}` : '';
+    const BIDANG = { tahfizh: 'Tahfizh', tertulis: 'Tes Tertulis', wawancara: 'Wawancara' };
     const waTautan = pesan => `https://wa.me/${noWA}?text=${encodeURIComponent(pesan)}`;
     document.title = `Cek Status · ${S.p.identitas?.nama_singkat || 'SPMB'}`;
 
@@ -92,7 +95,7 @@
           d.verif_berkas === 'diterima' ? 'selesai' : d.verif_berkas === 'perbaikan' ? 'masalah' : 'berjalan'],
         ['Konfirmasi pembayaran', d.verif_bayar === 'diterima' ? 'Pembayaran diterima' : d.verif_bayar === 'ditolak' ? 'Perlu dicek ulang' : 'Menunggu konfirmasi',
           d.verif_bayar === 'diterima' ? 'selesai' : d.verif_bayar === 'ditolak' ? 'masalah' : 'berjalan'],
-        ['Tes seleksi', rentang(d.tes_mulai, d.tes_selesai) || 'Jadwal menyusul', SELESAI_TES.includes(d.status) ? 'selesai' : ['pembayaran_dikonfirmasi', 'ikut_tes'].includes(d.status) ? 'berjalan' : ''],
+        ['Tes seleksi', (d.sesi_tes || []).length ? rentang(d.sesi_tes[0].tanggal, d.sesi_tes[d.sesi_tes.length - 1].tanggal) : rentang(d.tes_mulai, d.tes_selesai) || 'Jadwal menyusul', SELESAI_TES.includes(d.status) ? 'selesai' : ['pembayaran_dikonfirmasi', 'ikut_tes'].includes(d.status) ? 'berjalan' : ''],
         ['Pengumuman hasil', d.pengumuman ? tsId(d.pengumuman) : 'Jadwal menyusul', diumumkan ? 'selesai' : SELESAI_TES.includes(d.status) ? 'berjalan' : ''],
         ['Daftar ulang', rentang(d.daftar_ulang_mulai, d.daftar_ulang_selesai) || 'Jadwal menyusul', d.status === 'daftar_ulang_selesai' ? 'selesai' : ['lulus', 'daftar_ulang_menunggu'].includes(d.status) ? 'berjalan' : '']
       ];
@@ -124,6 +127,15 @@
           <ol class="tahap-daftar">${tahap.map(([j, k, st]) => `<li class="${st}"><span class="titik"><i class="ph-duotone ${st === 'selesai' ? 'ph-check' : st === 'masalah' ? 'ph-exclamation-mark' : st === 'berjalan' ? 'ph-circle-notch' : 'ph-circle'}"></i></span>
             <div><b>${j}</b><small>${esc(k)}</small></div></li>`).join('')}</ol>
         </div>
+        ${(d.sesi_tes || []).length && !['dibatalkan', 'mengundurkan_diri'].includes(d.status) ? `<div class="kartu cek-berkas-k">
+          <h3><i class="ph-duotone ph-calendar-check" style="color:var(--c2)"></i>Jadwal tes seleksi</h3>
+          <ul class="cek-sesi">${d.sesi_tes.map(s => { const on = s.mode === 'online';
+            return `<li><span class="ic-box" style="--tone:${on ? 'var(--c2)' : 'var(--c3)'}"><i class="ph-duotone ${on ? 'ph-video-camera' : 'ph-map-pin'}"></i></span>
+              <div><b>${esc((s.bidang || []).map(b => BIDANG[b] || b).join(', '))}</b>
+                <small>${esc(hariTgl(s.tanggal))} · pukul ${esc(String(s.jam_mulai).slice(0, 5).replace(':', '.'))}${s.jam_selesai ? '–' + esc(String(s.jam_selesai).slice(0, 5).replace(':', '.')) : ''} WITA</small>
+                <small>${on ? 'Daring' : 'Tatap muka'}: ${esc(s.tempat || (on ? 'tautan menyusul' : 'tempat menyusul'))}</small>
+                ${on && s.tautan ? `<a class="btn sm" href="${esc(s.tautan)}" target="_blank" rel="noopener" style="margin-top:6px"><i class="ph-duotone ph-video-camera"></i>Buka tautan tes</a>` : ''}
+                ${s.catatan ? `<small class="cek-sesi-cat">${esc(s.catatan).replace(/\n/g, '<br>')}</small>` : ''}</div></li>`; }).join('')}</ul></div>` : ''}
         ${(d.berkas || []).length ? `<div class="kartu cek-berkas-k">
           <h3><i class="ph-duotone ph-files" style="color:var(--c4)"></i>Berkas yang diunggah</h3>
           <ul class="cek-berkas">${d.berkas.map(b => `<li><span>${esc(label[b.jenis] || b.jenis)}${b.status === 'ditolak' && b.catatan ? `<small>${esc(b.catatan)}</small>` : ''}</span>

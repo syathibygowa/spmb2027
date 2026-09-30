@@ -1684,3 +1684,160 @@ a.stat b{color:var(--tone)}
 .cek-aksi{justify-content:center;margin-top:16px}
 .btn.block{width:100%;justify-content:center}
 @media (max-width:640px){.cek-data{grid-template-columns:minmax(0,1fr)}.cek-status-kepala h2{font-size:20px}}
+
+/* =====================================================================
+   FASE 4 · SELEKSI DAN PENILAIAN
+   ===================================================================== */
+.stats-seleksi{grid-template-columns:repeat(5,minmax(0,1fr))}
+.tombol-pill{border:0;cursor:pointer;font:inherit;font-size:12px}
+.tombol-pill:hover{filter:brightness(.95)}
+.kecil{font-size:12.5px}
+.daftar-rapat{margin:0;padding-left:22px;display:grid;gap:4px;font-size:13.5px;max-height:50vh;overflow:auto}
+.avatar.kecil{width:30px;height:30px;font-size:11px}
+
+/* Kartu sesi */
+.sesi-daftar{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.sesi-kartu{display:flex;flex-direction:column;gap:10px;text-decoration:none;color:var(--text);transition:.15s;position:relative;overflow:hidden}
+.sesi-kartu:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--c2) 45%,var(--border))}
+.sesi-kartu.redup{opacity:.72}
+.sesi-kepala{display:flex;align-items:center;gap:12px}
+.sesi-kepala .teks{flex:1;min-width:0}
+.sesi-kepala .teks b{display:block;font-size:15px}
+.sesi-kepala .teks h2{margin:0;font-size:19px}
+.sesi-kepala .teks small{display:block;color:var(--muted);font-size:12.5px}
+.sesi-kepala .pill-baris{margin-top:6px}
+.sesi-tgl{flex:none;width:48px;height:52px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:color-mix(in srgb,var(--c2) 14%,transparent);color:var(--c2)}
+.sesi-tgl b{font-size:20px;line-height:1}
+.sesi-tgl small{font-size:11px;font-weight:800;text-transform:uppercase}
+.sesi-tgl.besar{width:62px;height:66px}
+.sesi-tgl.besar b{font-size:26px}
+.pill-baris{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.sesi-tempat{display:inline-flex;align-items:center;gap:4px;overflow-wrap:anywhere}
+.sesi-penguji{display:grid;gap:5px;padding:10px 12px;border-radius:12px;background:var(--surface-2)}
+.sesi-penguji-baris{display:flex;align-items:center;gap:8px;font-size:13px}
+.sesi-penguji-baris .pill{min-width:112px}
+.sesi-kaki{display:flex;align-items:center;gap:14px;font-size:13px;flex-wrap:wrap}
+.sesi-kaki span{display:inline-flex;align-items:center;gap:5px}
+.sesi-kaki .buka{margin-left:auto;font-weight:700;color:var(--primary)}
+.sesi-bar{position:absolute;left:0;right:0;bottom:0;height:4px;border-radius:0}
+.sesi-detail{margin-bottom:16px}
+.sesi-info{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:14px}
+.sesi-info>div{display:grid;grid-template-columns:auto 1fr;column-gap:10px;align-items:start;padding:10px 12px;border-radius:12px;background:var(--surface-2)}
+.sesi-info>div.penuh{grid-column:1/-1}
+.sesi-info i{grid-row:span 2;font-size:22px;margin-top:2px}
+.sesi-info span{font-size:12px;color:var(--muted);font-weight:600}
+.sesi-info b{font-size:13.5px;overflow-wrap:anywhere}
+.sesi-info .gr-kemajuan,.sesi-info #pBar{grid-column:2;margin-top:6px;display:block}
+
+/* Penguji */
+.penguji-kisi{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.penguji-bidang{border:1.5px solid color-mix(in srgb,var(--tone) 30%,var(--border));border-radius:12px;padding:10px 12px}
+.penguji-bidang .judul{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--tone);margin-bottom:6px}
+.penguji-orang{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13.5px}
+.penguji-orang span:nth-child(2){flex:1}
+
+/* Tabel peserta dan nilai */
+.hadir-pilih{display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.hadir-pilih button{border:0;background:var(--surface);color:var(--muted);padding:6px 10px;cursor:pointer;font:inherit;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.hadir-pilih button+button{border-left:1px solid var(--border)}
+.hadir-pilih button[data-hadir$="|1"][aria-pressed="true"]{background:var(--ok);color:#fff}
+.hadir-pilih button[data-hadir$="|0"][aria-pressed="true"]{background:var(--danger);color:#fff}
+.hadir-pilih button:disabled{cursor:not-allowed;opacity:.6}
+.nilai-sel{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-weight:800;font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--tone) 14%,transparent);color:var(--tone);font-size:13.5px}
+.nilai-sel.tombol{border:0;cursor:pointer;font-family:inherit}
+.nilai-sel.tombol:hover{box-shadow:0 0 0 2px color-mix(in srgb,var(--tone) 40%,transparent)}
+.nilai-kosong{border:1.5px dashed var(--border);background:transparent;color:var(--muted);border-radius:999px;padding:3px 10px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.nilai-kosong:hover{border-color:var(--primary);color:var(--primary)}
+.aksi-sel{white-space:nowrap}
+.tbl-nilai td,.tbl-peserta-sesi td{vertical-align:middle}
+.kecil-angka{width:84px;text-align:center;margin:0 auto}
+
+/* Dialog tambah peserta */
+.pilih-peserta{display:grid;gap:6px;max-height:52vh;overflow:auto;padding-right:2px}
+.pilih-baris{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer;font-size:13.5px}
+.pilih-baris:has(input:checked){border-color:var(--c2);background:color-mix(in srgb,var(--c2) 8%,var(--surface))}
+.pilih-baris.nonaktif{opacity:.6;cursor:not-allowed}
+.pilih-baris input{width:18px;height:18px;accent-color:var(--c2)}
+
+/* WhatsApp berurutan */
+.wa-urut .chips-select{margin-bottom:10px}
+.wa-urut-kepala{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.wa-urut-kepala b{font-variant-numeric:tabular-nums;min-width:56px}
+.wa-penerima{padding:10px 12px;border-radius:12px;background:var(--surface-2);margin-bottom:10px;font-size:13.5px}
+.wa-penerima>div{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px}
+
+/* Menu Penilaian */
+.sesi-pilih{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.sesi-pilih button{display:grid;grid-template-columns:1fr auto;column-gap:10px;text-align:left;border-radius:14px;padding:9px 14px;flex:none}
+.sesi-pilih button small{grid-column:1;font-weight:600;font-size:11.5px;opacity:.85}
+.sesi-pilih button .count-mini{grid-row:1/span 2;grid-column:2;align-self:center;font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,currentColor 14%,transparent)}
+.sesi-pilih button[aria-selected="true"] small span{color:inherit!important}
+.nilai-daftar{display:grid;gap:12px}
+.nilai-kartu{padding:14px 16px}
+.nilai-kepala{display:flex;align-items:center;gap:12px}
+.nilai-kepala .teks{flex:1;min-width:0}
+.nilai-kepala .teks b{font-size:15px}
+.nilai-kepala .teks small{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.nilai-bidang{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+.nilai-slot{display:grid;gap:2px;text-align:left;padding:10px 12px;border-radius:12px;border:1.5px solid color-mix(in srgb,var(--tone) 35%,var(--border));background:color-mix(in srgb,var(--tone) 6%,var(--surface));color:var(--text);font:inherit;cursor:pointer;transition:.15s}
+.nilai-slot:hover:not(:disabled){box-shadow:0 0 0 3px color-mix(in srgb,var(--tone) 25%,transparent)}
+.nilai-slot:disabled{cursor:default}
+.nilai-slot .lbl{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:var(--tone)}
+.nilai-slot b{font-size:24px;line-height:1.15;font-variant-numeric:tabular-nums}
+.nilai-slot b.kosong{font-size:15px;color:var(--primary)}
+.nilai-slot small{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.nilai-slot em{font-size:12px;color:var(--c7);font-style:normal;font-weight:600}
+.input.nilai-besar{font-size:22px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+@media (max-width:1024px){.stats-seleksi{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:720px){
+  .stats-seleksi{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sesi-daftar{grid-template-columns:minmax(0,1fr)}
+  .sesi-penguji-baris .pill{min-width:0}
+  .nilai-kepala{flex-wrap:wrap}
+  .nilai-kepala .hadir-pilih{margin-left:42px}
+  .pilih-baris{grid-template-columns:auto 1fr}
+  .pilih-baris .pill{grid-column:2;justify-self:start}
+}
+
+/* ---------- Kartu Peserta Tes: 2 kartu per halaman F4 (cetak dan PDF) ---------- */
+.halaman-baru{break-before:page;height:0}
+#printArea .kartu-tes,.pdf-kanvas .kartu-tes{height:137mm;box-sizing:border-box;border:.8pt solid #000;padding:5mm 6mm;display:flex;flex-direction:column;gap:2.4mm;break-inside:avoid;color:#000;background:#fff;font:9.5pt/1.35 "Plus Jakarta Sans",Arial,sans-serif}
+#printArea .kt-potong,.pdf-kanvas .kt-potong{height:9mm;display:flex;align-items:center;gap:3mm;font-size:7.5pt;color:#555;letter-spacing:.05em}
+#printArea .kt-potong::before,#printArea .kt-potong::after,.pdf-kanvas .kt-potong::before,.pdf-kanvas .kt-potong::after{content:"";flex:1;border-top:.6pt dashed #777}
+.kt-kop{display:grid;grid-template-columns:15mm 1fr 15mm;gap:3mm;align-items:center;text-align:center;border-bottom:1.6pt double #000;padding-bottom:2mm}
+.kt-kop img{width:15mm;height:15mm;object-fit:contain}
+.kt-kop.gambar{display:block;border:0;padding:0}
+.kt-kop.gambar img{width:100%;height:auto;max-height:24mm}
+.kt-kop .k1{font-size:8pt}
+.kt-kop .k2{font-size:9.5pt;font-weight:800;line-height:1.2}
+.kt-kop .k3{font-size:7pt}
+.kt-judul{text-align:center;font-weight:800;font-size:11.5pt;text-transform:uppercase;letter-spacing:.02em}
+.kt-judul small{display:block;font-size:8.5pt;font-weight:600;text-transform:none;letter-spacing:0}
+.kt-isi{display:grid;grid-template-columns:24mm 1fr;gap:4mm;align-items:start}
+.kt-foto{width:24mm;height:32mm;border:.6pt dashed #555;display:grid;place-items:center;text-align:center;font-size:7.5pt;color:#666}
+.kartu-tes table{border-collapse:collapse;width:100%}
+.kartu-tes .kt-data td{border:0;padding:.6mm 1mm;vertical-align:top;font-size:9.5pt}
+.kartu-tes .kt-data td:first-child{color:#333}
+.kartu-tes .kt-data td:first-child::after{content:" :";float:right}
+.kartu-tes .kt-no{font-weight:800;font-size:11pt;letter-spacing:.02em}
+.kartu-tes .kt-jadwal th,.kartu-tes .kt-jadwal td{border:.5pt solid #000;padding:1mm 1.5mm;font-size:8.5pt;vertical-align:top;text-align:left;font-weight:400}
+.kartu-tes .kt-jadwal th{font-weight:700;text-align:center}
+.kt-bawah{display:grid;grid-template-columns:1fr 1.25fr;gap:4mm;margin-top:auto;align-items:end}
+.kt-ketentuan{font-size:7.5pt;line-height:1.35}
+.kt-ketentuan ol{margin:.5mm 0 0;padding-left:4mm}
+.kt-ttd{display:grid;grid-template-columns:1fr 1fr;gap:4mm;text-align:center;font-size:8.5pt}
+.kt-ttd .spasi{height:13mm}
+.kt-ttd b{text-decoration:underline}
+@media print{ #printArea .kartu-cetak{display:block} }
+.ttd-kisi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ttd-pejabat{box-shadow:none;background:var(--surface-2);padding:14px}
+@media (max-width:1024px){.ttd-kisi{grid-template-columns:minmax(0,1fr)}}
+.cek-sesi{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.cek-sesi li{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--surface-2)}
+.cek-sesi b{display:block;font-size:14.5px}
+.cek-sesi small{display:block;color:var(--muted);font-size:13px}
+.cek-sesi .cek-sesi-cat{margin-top:4px;color:var(--text)}
+/* Tombol dialog tidak meluber di layar sempit (dialog Fase 4 memiliki 3–5 tombol) */
+.modal-foot{flex-wrap:wrap}
+@media (max-width:720px){.modal-foot .btn{flex:1 1 auto;justify-content:center}}
+.ttd-kisi .card{margin:0}

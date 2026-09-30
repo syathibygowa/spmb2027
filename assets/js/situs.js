@@ -559,7 +559,7 @@
       return `<div class="sp-tile" style="--gr-w:var(--gr-${x.bagian})"><span class="ic-box" style="--tone:var(--gr-${x.bagian})"><i class="ph-duotone ${x.bagian === 'putra' ? 'ph-gender-male' : 'ph-gender-female'}"></i></span>
         <div><small>${x.jenjang} ${x.bagian === 'putra' ? 'Putra' : 'Putri'}</small><b>${fmt.angka(x.jumlah)}</b>
         ${k ? `${G.kemajuan(k.terisi, k.kuota, `var(--gr-${x.bagian})`)}<em>${k.terisi >= k.kuota ? 'Kuota penuh' : `Sisa ${fmt.angka(k.kuota - k.terisi)} dari ${fmt.angka(k.kuota)} kursi`}</em>` : '<em>pendaftar</em>'}</div></div>`; };
-    const harian = (d.harian || []).map(h => ({ label: fmt.tgl(new Date(h.tanggal + 'T00:00:00')).slice(0, 5), nilai: h.jumlah, tip: `${fmt.tglPanjang(new Date(h.tanggal + 'T00:00:00'))}: ${fmt.angka(h.jumlah)} pendaftar` }));
+    const harian = (d.harian || []).map(h => ({ label: fmt.tgl(new Date(String(h.tanggal).slice(0, 10) + 'T00:00:00')).slice(0, 5), nilai: h.jumlah, tip: `${fmt.tglPanjang(new Date(String(h.tanggal).slice(0, 10) + 'T00:00:00'))}: ${fmt.angka(h.jumlah)} pendaftar` }));
     return `<div class="sp-kisi">
       <div class="kartu sp-utama"><span class="live-pill"><i></i>LIVE</span>
         <small>Calon santri telah mendaftar</small><b class="sp-angka">${fmt.angka(d.total)}</b>

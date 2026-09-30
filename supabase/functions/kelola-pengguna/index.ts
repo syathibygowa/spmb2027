@@ -1,7 +1,8 @@
 // =====================================================================
 //  Edge Function: kelola-pengguna
-//  Dipakai dashboard untuk membuat akun panitia dan mengatur ulang
-//  kata sandi. Hanya Superadmin aktif yang boleh memanggilnya.
+//  Dipakai dashboard untuk membuat akun panitia, mengatur ulang kata
+//  sandi, dan menghapus akun (Fase 4). Hanya Superadmin aktif yang
+//  boleh memanggilnya.
 //  Kunci rahasia (service role) tersedia otomatis di server Supabase,
 //  tidak pernah dikirim ke browser.
 // =====================================================================
@@ -16,7 +17,6 @@ const jawab = (isi: unknown, status = 200) =>
   new Response(JSON.stringify(isi), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
 const PERAN = ['superadmin', 'admin', 'penguji'];
-const BIDANG = ['tahfizh', 'tertulis', 'wawancara'];
 const BAGIAN = ['umum', 'putra', 'putri'];
 const sandiKuat = (s: string) => typeof s === 'string' && s.length >= 8 && /[A-Za-z]/.test(s) && /\d/.test(s);
 
@@ -50,6 +50,10 @@ Deno.serve(async (req) => {
 
   const catat = (aksi: string, objek_id: string, rincian: unknown) =>
     admin.from('log_aktivitas').insert({ pengguna_id: u.user!.id, nama_pengguna: pemanggil.nama_lengkap, aksi, objek: 'akun', objek_id, rincian });
+
+  // Daftar bidang tes diatur di Seleksi > Bidang dan Bobot (pengaturan 'seleksi')
+  const { data: cfg } = await admin.from('pengaturan').select('nilai').eq('kunci', 'seleksi').maybeSingle();
+  const BIDANG: string[] = Array.isArray(cfg?.nilai?.bidang) ? cfg.nilai.bidang.map((x: { kunci: string }) => x.kunci) : ['tahfizh', 'tertulis', 'wawancara'];
 
   // 2. Buat akun baru
   if (b.aksi === 'buat') {
@@ -100,6 +104,19 @@ Deno.serve(async (req) => {
       jenis: 'peringatan', tautan: '#/profil',
     });
     await catat('atur_ulang_sandi', id, null);
+    return jawab({ ok: true });
+  }
+
+  // 4. Hapus akun (riwayat nilai, verifikasi, dan log tetap tersimpan dengan nama petugasnya)
+  if (b.aksi === 'hapus') {
+    const id = String(b.id || '');
+    const { data: alasan, error: eCek } = await admin.rpc('alasan_tolak_hapus', { p_id: id, p_pemanggil: u.user.id });
+    if (eCek) return jawab({ error: 'Pemeriksaan gagal: ' + eCek.message + ' (pastikan SQL 11 sudah dijalankan).' }, 500);
+    if (alasan) return jawab({ error: alasan }, 400);
+    const { data: prof } = await admin.from('profil_pengguna').select('nama_lengkap,email,peran').eq('id', id).maybeSingle();
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) return jawab({ error: error.message }, 400);
+    await catat('hapus_akun', id, prof);
     return jawab({ ok: true });
   }
 

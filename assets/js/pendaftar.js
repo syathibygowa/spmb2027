@@ -648,7 +648,7 @@
       const situs = alamatSitus();
       // Jadwal tes dari sesi yang diikuti (Fase 4); bila belum dijadwalkan, pakai tanggal tes gelombang
       const { data: ikut } = await sb.from('peserta_sesi').select('sesi_tes(*)').eq('pendaftar_id', P.id);
-      const jadwalSesi = UI.teksJadwalTes ? UI.teksJadwalTes((ikut || []).map(x => x.sesi_tes)) : '';
+      const jadwalSesi = UI.teksJadwalTes ? UI.teksJadwalTes((ikut || []).map(x => x.sesi_tes), S.pengaturan) : '';
       const data = {
         nama: P.nama_lengkap, no_registrasi: P.no_registrasi, jenjang: `${P.jenjang} ${bagianL(P.bagian)}`, gelombang: G?.nama || '',
         catatan: P.catatan_berkas || P.catatan_bayar || '', jadwal_tes: jadwalSesi || (G?.tes_mulai ? (G.tes_selesai && G.tes_selesai !== G.tes_mulai ? `${tglPanjangIso(G.tes_mulai)} – ${tglPanjangIso(G.tes_selesai)}` : tglPanjangIso(G.tes_mulai)) : ''),

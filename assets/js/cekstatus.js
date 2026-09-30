@@ -131,7 +131,7 @@
           <h3><i class="ph-duotone ph-calendar-check" style="color:var(--c2)"></i>Jadwal tes seleksi</h3>
           <ul class="cek-sesi">${d.sesi_tes.map(s => { const on = s.mode === 'online';
             return `<li><span class="ic-box" style="--tone:${on ? 'var(--c2)' : 'var(--c3)'}"><i class="ph-duotone ${on ? 'ph-video-camera' : 'ph-map-pin'}"></i></span>
-              <div><b>${esc((s.bidang || []).map(b => BIDANG[b] || b).join(', '))}</b>
+              <div><b>${esc((s.bidang_label || (s.bidang || []).map(b => BIDANG[b] || b)).join(', '))}</b>
                 <small>${esc(hariTgl(s.tanggal))} · pukul ${esc(String(s.jam_mulai).slice(0, 5).replace(':', '.'))}${s.jam_selesai ? '–' + esc(String(s.jam_selesai).slice(0, 5).replace(':', '.')) : ''} WITA</small>
                 <small>${on ? 'Daring' : 'Tatap muka'}: ${esc(s.tempat || (on ? 'tautan menyusul' : 'tempat menyusul'))}</small>
                 ${on && s.tautan ? `<a class="btn sm" href="${esc(s.tautan)}" target="_blank" rel="noopener" style="margin-top:6px"><i class="ph-duotone ph-video-camera"></i>Buka tautan tes</a>` : ''}

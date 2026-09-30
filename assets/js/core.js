@@ -347,7 +347,8 @@
   /* Dokumen F4 (kop, judul, isi, tanda tangan sejajar). Dipakai untuk cetak dan PDF
      agar hasil keduanya sama persis. isi: HTML badan dokumen.
      ttd: array 1–2 kolom tanda tangan {jabatan, nama, nip}, diletakkan sejajar kiri–kanan. */
-  function htmlDokumen({ judul, nomor = '', meta = '', isi = '', ttd = [], tempat = 'Gowa' }, p) {
+  function htmlDokumen({ judul, nomor = '', meta = '', isi = '', ttd = [], tempat = 'Gowa', tanggal = null }, p) {
+    const tglTtd = tanggal ? (typeof tanggal === 'string' ? new Date(tanggal.slice(0, 10) + 'T00:00:00') : tanggal) : new Date();
     const kolomTtd = ttd.length === 1 ? [{}, ttd[0]] : ttd; // satu penanda tangan: di kanan
     return `
       <div class="doc">
@@ -357,7 +358,7 @@
         ${meta ? `<div class="doc-meta">${meta}</div>` : ''}
         ${isi}
         ${kolomTtd.length ? `<div class="sign">${kolomTtd.map((t, i) => `
-          <div>${t.jabatan ? `${i === kolomTtd.length - 1 ? `${esc(tempat)}, ${fmt.tglPanjang(new Date())}<br>` : '<br>'}${esc(t.jabatan)}<div class="space"></div><b>${esc(t.nama || '............................................')}</b>${t.nip ? `<br>${esc(t.nip)}` : ''}` : ''}</div>`).join('')}
+          <div>${t.jabatan ? `${i === kolomTtd.length - 1 ? `${esc(tempat)}, ${fmt.tglPanjang(tglTtd)}<br>` : '<br>'}${esc(t.jabatan)}<div class="space"></div><b>${esc(t.nama || '............................................')}</b>${t.nip ? `<br>${esc(t.nip)}` : ''}` : ''}</div>`).join('')}
         </div>` : ''}
         <div class="foot">Dicetak dari Sistem SPMB ${esc(p.identitas?.tahun_ajaran || '')} pada ${fmt.hariTgl(new Date())} pukul ${fmt.jam(new Date())} WITA</div>
       </div>`;
@@ -462,7 +463,10 @@
       while (mulai < total - 1) {
         let akhir = Math.min(total, mulai + tinggiHal);
         const henti = paksa.find(y => y > mulai + 1 && y < akhir);
-        if (henti) akhir = henti;
+        // Sisa sampai pemisah halaman berikutnya hanya lebih sedikit (≤ 4%): muat di halaman ini dengan skala kecil
+        const batas = paksa.find(y => y > mulai + 1) ?? total;
+        if (!henti && batas - mulai > tinggiHal && batas - mulai <= tinggiHal * 1.04) akhir = batas;
+        else if (henti) akhir = henti;
         else if (akhir < total) { const cocok = aman.filter(y => y > mulai + 40 && y <= akhir); if (cocok.length) akhir = cocok[cocok.length - 1] + 1; }
         const potong = document.createElement('canvas');
         potong.width = kanvasGambar.width; potong.height = Math.round((akhir - mulai) * SKALA);
@@ -473,7 +477,8 @@
         for (let i = 0; i < d.length; i += 4) { if (d[i] > 248 && d[i + 1] > 248 && d[i + 2] > 248) { d[i] = d[i + 1] = d[i + 2] = 255; } d[i + 3] = 255; }
         ctx.putImageData(px, 0, 0);
         if (hal++) pdf.addPage([215.9, 330.2], 'portrait');
-        pdf.addImage(potong.toDataURL('image/png'), 'PNG', 20, 20, 175.9, (akhir - mulai) / pxPerMm, undefined, 'FAST');
+        const tMm = (akhir - mulai) / pxPerMm, skl = Math.min(1, 290.2 / tMm);
+        pdf.addImage(potong.toDataURL('image/png'), 'PNG', 20 + 175.9 * (1 - skl) / 2, 20, 175.9 * skl, tMm * skl, undefined, 'FAST');
         mulai = akhir;
       }
       pdf.setProperties({ title: judul, creator: 'Sistem SPMB ' + (p.identitas?.nama_singkat || '') });

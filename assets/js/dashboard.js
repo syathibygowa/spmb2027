@@ -12,7 +12,10 @@
 
   const NAMA_PERAN = { superadmin: 'Superadmin', admin: 'Admin', penguji: 'Penguji' };
   const TONE_PERAN = { superadmin: 'var(--c7)', admin: 'var(--c1)', penguji: 'var(--c5)' };
-  const NAMA_BIDANG = { tahfizh: 'Tahfizh', tertulis: 'Tertulis', wawancara: 'Wawancara' };
+  // Nama bidang tes dari Pengaturan > seleksi.bidang (bisa 2–8 bidang)
+  const NB = () => { const b = S.pengaturan?.seleksi?.bidang;
+    return Array.isArray(b) && b.length ? Object.fromEntries(b.map(x => [x.kunci, x.label || x.kunci])) : { tahfizh: 'Tahfizh', tertulis: 'Tes Tertulis', wawancara: 'Wawancara' }; };
+  const namaBidang = k => NB()[k] || String(k).replace(/_/g, ' ');
   const IKON_NOTIF = {
     info: ['ph-info', 'var(--c1)'], sukses: ['ph-check-circle', 'var(--ok)'],
     peringatan: ['ph-warning', 'var(--c6)'], penting: ['ph-siren', 'var(--c7)']
@@ -175,7 +178,7 @@
     k.innerHTML = `
       <div class="welcome">
         <h2>${salam}, ${esc((p.nama_lengkap || '').split(' ')[0] || NAMA_PERAN[p.peran])}</h2>
-        <p>Anda masuk sebagai <b>${NAMA_PERAN[p.peran]}</b>${p.peran === 'penguji' && p.bidang_penguji?.length ? ` · Bidang ${p.bidang_penguji.map(b => NAMA_BIDANG[b]).join(', ')}` : ''}.</p>
+        <p>Anda masuk sebagai <b>${NAMA_PERAN[p.peran]}</b>${p.peran === 'penguji' && p.bidang_penguji?.length ? ` · Bidang ${p.bidang_penguji.map(b => namaBidang(b)).join(', ')}` : ''}.</p>
         <div class="clock"><span><i class="ph-duotone ph-calendar-blank"></i><span id="hariIni">${fmt.hariTgl()}</span></span>
           <span><i class="ph-duotone ph-clock"></i><span id="jamKini">${fmt.jam(new Date())}</span> WITA</span></div>
       </div>
@@ -507,7 +510,7 @@
         <div class="field"><label>Bagian</label>
           <select class="select" name="bagian">${[['umum', 'Umum (putra dan putri)'], ['putra', 'Putra'], ['putri', 'Putri']].map(([v, l]) => `<option value="${v}" ${u.bagian === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="field full" data-bidang><span class="label">Bidang tes (khusus Penguji)</span>
-          <div class="chips-select">${Object.entries(NAMA_BIDANG).map(([v, l]) => `<label><input type="checkbox" name="bidang" value="${v}" ${(u.bidang_penguji || []).includes(v) ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
+          <div class="chips-select">${Object.entries({ ...NB(), ...Object.fromEntries((u.bidang_penguji || []).filter(b => !NB()[b]).map(b => [b, namaBidang(b)])) }).map(([v, l]) => `<label><input type="checkbox" name="bidang" value="${v}" ${(u.bidang_penguji || []).includes(v) ? 'checked' : ''}>${l}</label>`).join('')}</div></div>
         <div class="field"><label>NIY</label><input class="input" name="niy" value="${esc(u.niy || '')}" placeholder="Nomor Induk Yayasan"></div>
         ${u.id ? `<div class="field"><span class="label">Status akun</span><label class="check"><input type="checkbox" name="aktif" ${u.aktif ? 'checked' : ''}>Akun aktif (dapat masuk)</label></div>`
                : `<div class="field"><label>Kata sandi awal <span class="req">*</span></label>
@@ -556,7 +559,8 @@
       <div class="table-wrap"><table class="tbl"><thead><tr>
         <th>Pengguna</th><th>Peran</th><th class="hide-sm">Bagian / Bidang</th><th class="hide-sm">WhatsApp</th><th class="c">Status</th><th class="c">Aksi</th>
       </tr></thead><tbody id="tbPengguna"></tbody></table></div>
-      <p class="muted" style="font-size:12.5px;margin-top:10px"><i class="ph-duotone ph-info"></i> Akun yang dinonaktifkan tidak dapat masuk, tetapi datanya tetap tersimpan.</p>`;
+      <p class="muted" style="font-size:12.5px;margin-top:10px"><i class="ph-duotone ph-info"></i> Akun yang dinonaktifkan tidak dapat masuk, tetapi datanya tetap tersimpan.
+        Pengguna yang sudah tidak berperan dapat <b>dihapus</b>; nilai dan riwayat verifikasi yang pernah ia isi tetap tersimpan atas namanya.</p>`;
 
     let semua = [];
     const kp = () => (S.pengaturan.ketua_panitia || {}).pengguna_id;
@@ -568,12 +572,13 @@
           <td><div class="who"><div class="avatar" style="${u.aktif ? '' : 'filter:grayscale(1);opacity:.6'}">${esc(inisial(u.nama_lengkap || u.email))}</div>
             <div><b>${esc(u.nama_lengkap || '(tanpa nama)')}${u.id === kp() ? ' <span class="pill" style="--tone:var(--c6)"><i class="ph-duotone ph-seal-check"></i>Ketua Panitia</span>' : ''}${u.id === S.user.id ? ' <span class="pill" style="--tone:var(--c8)">Anda</span>' : ''}</b><span>${esc(u.email)}</span></div></div></td>
           <td><span class="pill" style="--tone:${TONE_PERAN[u.peran]}">${NAMA_PERAN[u.peran]}</span></td>
-          <td class="hide-sm">${u.bagian === 'umum' ? 'Umum' : u.bagian === 'putra' ? 'Putra' : 'Putri'}${u.bidang_penguji?.length ? `<br><span class="muted" style="font-size:12px">${u.bidang_penguji.map(b => NAMA_BIDANG[b]).join(', ')}</span>` : ''}</td>
+          <td class="hide-sm">${u.bagian === 'umum' ? 'Umum' : u.bagian === 'putra' ? 'Putra' : 'Putri'}${u.bidang_penguji?.length ? `<br><span class="muted" style="font-size:12px">${u.bidang_penguji.map(b => namaBidang(b)).join(', ')}</span>` : ''}</td>
           <td class="hide-sm">${u.no_wa ? `<a href="https://wa.me/${esc(u.no_wa)}" target="_blank" rel="noopener" style="text-decoration:none"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i> ${esc(u.no_wa)}</a>` : '<span class="muted">–</span>'}</td>
           <td class="c">${u.aktif ? '<span class="pill" style="--tone:var(--ok)">Aktif</span>' : '<span class="pill" style="--tone:var(--c8)">Nonaktif</span>'}</td>
           <td class="c" style="white-space:nowrap">
             <button class="icon-btn plain" data-ubah="${u.id}" title="Ubah" aria-label="Ubah"><i class="ph-duotone ph-pencil-simple" style="color:var(--c1)"></i></button>
             <button class="icon-btn plain" data-sandi="${u.id}" title="Atur ulang kata sandi" aria-label="Atur ulang kata sandi"><i class="ph-duotone ph-key" style="color:var(--c6)"></i></button>
+            ${u.id === S.user.id ? '' : `<button class="icon-btn plain" data-hapus="${u.id}" title="Hapus pengguna" aria-label="Hapus pengguna"><i class="ph-duotone ph-trash" style="color:var(--danger)"></i></button>`}
           </td>
         </tr>`).join('') : '<tr><td colspan="6"><div class="empty"><i class="ph-duotone ph-users-three"></i><b>Tidak ada pengguna yang cocok</b></div></td></tr>';
     };
@@ -601,7 +606,25 @@
     setFab(tambah, 'ph-user-plus', 'Tambah pengguna');
 
     $('#tbPengguna').addEventListener('click', async e => {
-      const bU = e.target.closest('[data-ubah]'), bS = e.target.closest('[data-sandi]');
+      const bU = e.target.closest('[data-ubah]'), bS = e.target.closest('[data-sandi]'), bH = e.target.closest('[data-hapus]');
+      if (bH) {
+        const u = semua.find(x => x.id === bH.dataset.hapus);
+        const { data: r, error } = await sb.rpc('ringkasan_pengguna', { p_id: u.id });
+        if (error) return toast(pesanGalat(error), 'err', 6000);
+        if (r.alasan_tolak) return dialog({ judul: 'Pengguna tidak dapat dihapus', ikon: 'ph-prohibit', tone: 'var(--danger)',
+          isi: `<p style="margin:0">${esc(r.alasan_tolak)}</p>`, tombol: [{ label: 'Tutup', nilai: null }] });
+        const jejak = [[r.penugasan_sesi, 'penugasan sebagai penguji sesi tes (akan dilepas)'], [r.nilai_diisi, 'nilai tes yang pernah diisi (tetap tersimpan)'], [r.verifikasi, 'catatan verifikasi berkas/pembayaran (tetap tersimpan)']].filter(x => +x[0]);
+        const ok = await dialog({ judul: 'Hapus pengguna', ikon: 'ph-trash', tone: 'var(--danger)',
+          isi: `<p style="margin:0 0 10px">Akun <b>${esc(u.nama_lengkap || u.email)}</b> (${esc(u.email)}, ${NAMA_PERAN[u.peran]}) akan dihapus permanen dan tidak dapat masuk lagi.</p>
+            ${jejak.length ? `<div class="note"><i class="ph-duotone ph-info"></i><div>Jejak kerja pengguna ini:<br>${jejak.map(([n, l]) => `• ${n} ${l}`).join('<br>')}</div></div>` : ''}
+            <p class="muted" style="margin:10px 0 6px;font-size:13px">Jika hanya ingin menghentikan sementara, gunakan <b>Ubah</b> lalu hilangkan centang <i>Akun aktif</i>.</p>
+            <div class="field"><label>Ketik <b>HAPUS</b> untuk menegaskan</label><input class="input" id="tegasHapus" autocomplete="off"></div><div id="fErr"></div>`,
+          tombol: [{ label: 'Batal', kelas: 'ghost', nilai: false }, { label: 'Hapus permanen', ikon: 'ph-trash', kelas: 'danger', aksi: async root => {
+            if (root.querySelector('#tegasHapus').value.trim().toUpperCase() !== 'HAPUS') { root.querySelector('#fErr').innerHTML = '<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>Ketik HAPUS untuk melanjutkan.</div></div>'; return false; }
+            await panggilFungsiPengguna({ aksi: 'hapus', id: u.id }); return true; } }] });
+        if (ok) { toast('Pengguna dihapus.'); await muat(); }
+        return;
+      }
       if (bU) {
         const u = semua.find(x => x.id === bU.dataset.ubah);
         const ok = await dialog({
@@ -1086,7 +1109,7 @@
           ${inp('nama_lengkap', 'Nama lengkap', p.nama_lengkap, 'maxlength="100"')}
           ${inp('email', 'Email (untuk masuk)', p.email, 'readonly', 'Hubungi Superadmin untuk mengganti email.')}
           ${inp('no_wa', 'Nomor WhatsApp', p.no_wa, 'inputmode="tel" placeholder="08xxxxxxxxxx"')}
-          ${p.peran === 'penguji' ? `<div class="field"><span class="label">Bidang tes</span><div>${(p.bidang_penguji || []).map(b => `<span class="pill" style="--tone:var(--c5)">${NAMA_BIDANG[b]}</span>`).join(' ') || '–'}</div></div>` : ''}
+          ${p.peran === 'penguji' ? `<div class="field"><span class="label">Bidang tes</span><div>${(p.bidang_penguji || []).map(b => `<span class="pill" style="--tone:var(--c5)">${namaBidang(b)}</span>`).join(' ') || '–'}</div></div>` : ''}
           <div class="field"><span class="label">Terdaftar sejak</span><div class="muted">${fmt.tglPanjang(p.dibuat_pada)}</div></div>
           <div style="display:flex;justify-content:flex-end"><button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan profil</button></div>
         </form>

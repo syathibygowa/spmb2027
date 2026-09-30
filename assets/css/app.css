@@ -1841,3 +1841,35 @@ a.stat b{color:var(--tone)}
 .modal-foot{flex-wrap:wrap}
 @media (max-width:720px){.modal-foot .btn{flex:1 1 auto;justify-content:center}}
 .ttd-kisi .card{margin:0}
+.tbl-bidang .input{min-width:0}.bidang-nama{display:flex;align-items:center;gap:8px;min-width:190px}.ic-box.kecil{width:32px;height:32px;font-size:17px;flex:none}
+/* Peringkat dan keputusan */
+.bilah-pilih{position:sticky;top:calc(var(--appbar-h) + 6px);z-index:5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;margin:0 0 12px;border-radius:14px;background:var(--surface);border:1.5px solid var(--c2);box-shadow:var(--shadow-lg)}
+.bilah-pilih .spacer{flex:1}
+.klp-kartu{margin-bottom:16px;border-top:4px solid var(--tone)}
+.klp-kepala{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.klp-kepala .ic-box{background:color-mix(in srgb,var(--tone) 14%,transparent);color:var(--tone)}
+.klp-kepala .teks{flex:1;min-width:160px}
+.klp-kepala h3{margin:0;font-size:17px}
+.klp-kepala small{color:var(--muted);font-size:12.5px}
+.tbl-peringkat .peringkat{display:inline-grid;place-items:center;min-width:28px;height:28px;border-radius:9px;background:var(--surface-2);font-variant-numeric:tabular-nums}
+.tbl-peringkat tr.garis-kuota td{padding:0;border-bottom:0;height:0;position:relative}
+.tbl-peringkat tr.garis-kuota td span{position:relative;display:block;margin:-1px 0 0;border-top:2.5px dashed var(--danger);padding:3px 12px;font-size:11.5px;font-weight:800;color:var(--danger);letter-spacing:.03em;background:color-mix(in srgb,var(--danger) 6%,transparent)}
+.tbl-peringkat tr.pemisah td{background:var(--surface-2);font-size:12px;font-weight:800;color:var(--muted);padding:6px 12px}
+.tbl-peringkat tr.redup-baris td{opacity:.7}
+.icon-btn.aktif-hasil{background:color-mix(in srgb,var(--tone) 16%,transparent);box-shadow:inset 0 0 0 1.5px var(--tone)}
+.note.ok-note{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)}
+.note.ok-note>i{color:var(--ok)}
+/* SK: tabel tanpa garis */
+.sk-tentang{text-align:center;font-weight:700;font-size:10.5pt;line-height:1.35;margin:0}
+.doc table.sk-tabel,.doc table.sk-tabel td,.pdf-kanvas table.sk-tabel,.pdf-kanvas table.sk-tabel td{border:0!important;padding:1.5pt 3pt;vertical-align:top;font-size:10.5pt;line-height:1.35}
+.doc table.sk-tabel{margin-top:6px}
+.sk-butir{display:flex;gap:4pt;margin:0 0 1pt;text-align:justify}
+.sk-butir span{flex:none;min-width:12pt}
+@media (max-width:760px){
+  .tbl-peringkat .reg-kecil{font-size:10.5px;word-break:break-all}
+  .tbl-peringkat td,.tbl-peringkat th{padding:8px 6px}
+  .tbl-peringkat .aksi-sel{width:40px}
+  .tbl-peringkat .aksi-sel .icon-btn{display:flex;margin:2px auto}
+  .tbl-peringkat .aksi-sel .icon-btn{width:32px;height:32px}
+  .klp-kepala .btn span{display:none}
+}

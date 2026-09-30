@@ -840,7 +840,27 @@
             <button class="btn" type="button" id="btnUjiAlur"><i class="ph-duotone ph-play-circle"></i>Jalankan uji</button>
           </div>
         </div>
+      </div>
+      <div class="card" style="max-width:760px;margin-top:16px">
+        <div class="card-head"><div class="ic-box" style="--tone:var(--c2)"><i class="ph-duotone ph-users-four"></i></div>
+          <div><h3>Data uji massal (latihan Admin)</h3><p>Membuat pendaftar fiktif bernomor <b>UJI-</b> dengan jenjang, asal daerah, dan status verifikasi yang beragam, tersebar dalam 14 hari terakhir</p></div></div>
+        <div class="note info"><i class="ph-duotone ph-info"></i><div>Data ini <b>tanpa berkas</b> dan tidak dihitung dalam kuota maupun statistik publik. Pakai untuk latihan verifikasi, WhatsApp, cetak, dan ekspor di menu Pendaftar (centang <b>Data uji</b>). Hapus semuanya dengan tombol <b>Hapus data uji</b> di atas.</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end">
+          <div class="field" style="margin:0;width:140px"><label for="jmlUji">Jumlah pendaftar</label><input class="input" id="jmlUji" type="number" min="1" max="200" value="20" inputmode="numeric"></div>
+          <button class="btn" type="button" id="btnIsiUji"><i class="ph-duotone ph-magic-wand"></i>Buat data uji</button>
+        </div>
       </div>`);
+    $('#btnIsiUji').onclick = async e => {
+      const n = +$('#jmlUji').value;
+      if (!(n >= 1 && n <= 200)) return toast('Jumlah data uji 1 sampai 200.', 'err');
+      const b = e.currentTarget; b.disabled = true;
+      try {
+        const { data, error } = await sb.rpc('isi_data_uji', { p_jumlah: n }); if (error) throw error;
+        toast(`${data.jumlah} pendaftar uji dibuat pada ${data.gelombang}.`, 'ok', 6000);
+        segarJumlah();
+        if (await konfirmasi('Data uji siap', `${data.jumlah} pendaftar uji sudah dibuat. Buka menu Pendaftar sekarang?`, 'Buka menu Pendaftar')) location.hash = '#/pendaftar?uji=1';
+      } catch (err) { toast(pesanGalat(err), 'err'); } finally { b.disabled = false; }
+    };
 
     const tanda = (i, st) => {
       const li = el.querySelector(`#ujiLangkah [data-l="${i}"]`); if (!li) return;

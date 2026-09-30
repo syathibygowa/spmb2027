@@ -26,7 +26,7 @@
   const rupiah = n => 'Rp ' + fmt.angka(n || 0);
   const tanggalId = s => s ? fmt.tglPanjang(new Date(s + 'T00:00:00')) : '';
   const rentang = (a, b) => !b || a === b ? tanggalId(a) : `${tanggalId(a)} – ${tanggalId(b)}`;
-  const tautanDaftar = () => 'index.html#alur';          // Fase 3: diganti halaman formulir
+  const tautanDaftar = () => 'daftar.html';              // formulir online (saat ditutup: hitung mundur gelombang berikutnya)
 
   /* =================================================================
      MUAT DATA
@@ -257,7 +257,9 @@
     },
     alur: () => !(S.konten.alur || []).length ? '' : `<ol class="alur">${S.konten.alur.map((x, i) => `
       <li style="--tone:var(--${esc(x.data.warna || 'c3')})"><span class="alur-no">${i + 1}</span><span class="ic-box"><i class="ph-duotone ph-${esc(x.data.ikon || 'check')}"></i></span>
-        <div><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></li>`).join('')}</ol>`,
+        <div><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></li>`).join('')}</ol>
+      <div class="hero-actions" style="justify-content:center;margin-top:18px"><a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>Isi formulir pendaftaran</a>
+        <a class="btn ghost" href="cek-status.html"><i class="ph-duotone ph-magnifying-glass"></i>Cek status pendaftaran</a></div>`,
 
     jaminan: () => !(S.konten.jaminan || []).length ? '' : `<div class="kisi-3">${S.konten.jaminan.map(x => `
       <div class="kartu jaminan" style="--tone:var(--${esc(x.data.warna || 'c5')})">
@@ -719,8 +721,8 @@
             <span class="pill">${esc(x.data.jabatan || '')}</span><b>${esc(x.judul)}</b>${lencanaTersembunyi(x)}
             ${x.isi ? `<details><summary>Baca sambutan</summary><div class="artikel">${teksBerformat(x.isi)}</div></details>` : ''}
           </article>`).join('')}</div></div></section>` : ''}
-      <section class="sek"><div class="wadah ajakan"><div><h2>Siap bergabung bersama kami?</h2><p>Lihat biaya, jadwal gelombang, dan alur pendaftaran SPMB ${esc(S.ta)}.</p></div>
-        <div class="hero-actions"><a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>Alur pendaftaran</a><a class="btn ghost" href="index.html#biaya"><i class="ph-duotone ph-wallet"></i>Biaya</a></div></div></section>`;
+      <section class="sek"><div class="wadah ajakan"><div><h2>Siap bergabung bersama kami?</h2><p>Daftar online kapan saja lewat HP atau laptop, lalu pantau statusnya di halaman Cek Status. SPMB ${esc(S.ta)}.</p></div>
+        <div class="hero-actions"><a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>Daftar sekarang</a><a class="btn ghost" href="cek-status.html"><i class="ph-duotone ph-magnifying-glass"></i>Cek status</a><a class="btn ghost" href="index.html#biaya"><i class="ph-duotone ph-wallet"></i>Biaya</a></div></div></section>`;
   }
 
   /* =================================================================
@@ -760,7 +762,7 @@
         <ol class="sisi-daftar" data-panel-sisi="baru">${saring(baru).map(item).join('') || '<li class="muted">Belum ada berita.</li>'}</ol>
         <ol class="sisi-daftar bernomor" data-panel-sisi="populer" hidden>${saring(populer).map(item).join('') || '<li class="muted">Belum ada berita.</li>'}</ol>
       </div>
-      <a class="kartu sisi-ajakan" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i><span><b>SPMB ${esc(S.ta)}</b><small>Lihat alur pendaftaran santri baru</small></span><i class="ph-duotone ph-arrow-right"></i></a>
+      <a class="kartu sisi-ajakan" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i><span><b>SPMB ${esc(S.ta)}</b><small>Isi formulir pendaftaran online</small></span><i class="ph-duotone ph-arrow-right"></i></a>
     </aside>`;
   }
   function pasangSidebar(root, saatKategori) {

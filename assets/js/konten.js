@@ -590,7 +590,7 @@
           <div class="field"><label>Hitung mundur sampai</label><input class="input" type="datetime-local" name="hitung_mundur" value="${esc(keLokal(h.hitung_mundur))}"><small>Hitung mundur kini <b>otomatis dari jadwal gelombang</b> (Pengaturan SPMB): sampai pendaftaran ditutup, atau sampai gelombang berikutnya dibuka. Isian ini hanya dipakai bila belum ada gelombang. Jam mengikuti WITA.</small></div>
           <div class="field"><label>Keterangan hitung mundur</label><input class="input" name="label_hitung_mundur" value="${esc(h.label_hitung_mundur || '')}" maxlength="60"></div>
         </div>
-        <div class="note info" style="margin:0 0 12px"><i class="ph-duotone ph-info"></i><div>Sebelum Fase 3, tombol utama mengarah ke bagian Alur Pendaftaran dan tombol kedua ke bagian Gelombang dan Jadwal. Setelah formulir online dan pengumuman aktif, keduanya otomatis membuka halaman yang sesuai.</div></div>
+        <div class="note info" style="margin:0 0 12px"><i class="ph-duotone ph-info"></i><div>Tombol utama membuka <b>formulir pendaftaran online</b> (saat pendaftaran ditutup, formulir menampilkan hitung mundur gelombang berikutnya). Tombol kedua membuka halaman <b>Cek Status</b>, tempat hasil seleksi juga tampil setelah waktu pengumuman.</div></div>
         <div style="display:flex;justify-content:flex-end"><button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan bagian pembuka</button></div>
       </form>
 

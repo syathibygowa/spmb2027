@@ -1278,7 +1278,7 @@ img.avatar{object-fit:cover}
 .kombo-daftar li.kosong{cursor:default;color:var(--muted);font-size:13px;justify-content:flex-start}
 .kombo-daftar li.kosong:hover{background:none;color:var(--muted)}
 /* prestasi */
-.prestasi-baris{display:grid;grid-template-columns:minmax(0,1fr) 150px 96px 38px;gap:8px;margin-bottom:8px;align-items:center}
+.prestasi-baris{display:grid;grid-template-columns:minmax(0,1fr) 180px 96px 38px;gap:8px;margin-bottom:8px;align-items:center}
 /* pembayaran & berkas */
 .bayar-kotak{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;margin-bottom:18px}
 .bayar-rincian{padding:14px;border-radius:16px;background:var(--surface-2)}
@@ -1360,3 +1360,21 @@ img.avatar{object-fit:cover}
 }
 #samakanAsal{white-space:normal;text-align:left;height:auto;min-height:36px;line-height:1.35;padding-block:7px;max-width:100%}
 .daftar-kartu,.daftar-kartu *{min-width:0}
+/* Perbaikan formulir (Langkah 4b) */
+.centang-kotak{align-items:flex-start;gap:12px;padding:12px 14px;margin:0 0 14px;border:1.5px solid var(--border);border-radius:14px;background:var(--surface);line-height:1.45;transition:.15s}
+.centang-kotak input{margin-top:2px;flex:none}
+.centang-kotak small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.centang-kotak:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
+.field.terkunci .input{background:var(--surface-2);color:var(--muted);cursor:not-allowed}
+.isian-satuan{position:relative}
+.isian-satuan .input{padding-right:70px}
+.isian-satuan>span{position:absolute;right:6px;top:50%;transform:translateY(-50%);padding:4px 10px;border-radius:8px;background:color-mix(in srgb,var(--c5) 14%,transparent);color:var(--c5);font-weight:800;font-size:13px;pointer-events:none}
+.cek-banyak label{border-radius:12px}
+.cek-banyak input{position:absolute;opacity:0;pointer-events:none}
+.cek-banyak label{position:relative}
+.cek-banyak label i{font-size:19px;color:var(--muted)}
+.cek-banyak label i.penuh,.cek-banyak label:has(input:checked) i.kosong{display:none}
+.cek-banyak label:has(input:checked) i.penuh{display:inline-block;color:var(--primary)}
+.cek-banyak label:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--primary) 40%,transparent);outline-offset:2px}
+.berkas-teks .alasan{display:block;color:var(--warn);font-weight:600;font-size:12px;margin:2px 0}
+#bantuLama b{color:var(--c5)}

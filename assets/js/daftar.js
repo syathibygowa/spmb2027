@@ -22,12 +22,16 @@
   const HUBUNGAN = ['Ayah', 'Ibu', 'Kakak', 'Paman', 'Bibi', 'Kakek', 'Nenek', 'Wali', 'Lainnya'];
   const TINGKAT = ['Sekolah', 'Kecamatan', 'Kabupaten/Kota', 'Provinsi', 'Nasional', 'Internasional'];
   const POLA_NAMA = /^[\p{L} .,'`’-]{3,100}$/u;
+  const BUKAN_HURUF_NAMA = /[^\p{L} .,'`’-]/gu;
+  const NAMA_SAJA = ['nama_lengkap', 'nama_ayah', 'nama_ibu', 'darurat_nama', 'perekomendasi'];
+  const PERAN_REKOM = ['Pengurus Wahdah Islamiyah', 'Ustadz/ustadzah pondok', 'Guru/pegawai pondok', 'Alumni pondok', 'Wali santri pondok', 'Guru sekolah asal', 'Tokoh agama/masyarakat'];
 
   // Kolom yang dilaporkan server (hint) -> langkah
   const LANGKAH_KOLOM = {
     jenjang: 0, bagian: 0, nama_lengkap: 1, nisn: 1, nik: 1, tempat_lahir: 1, tanggal_lahir: 1, asal_provinsi: 1, asal_kabupaten: 1,
     provinsi: 1, kabupaten: 1, kecamatan: 1, desa: 1, rt: 1, rw: 1, kode_pos: 1, asal_sekolah: 1, npsn_sekolah: 1,
-    nama_ayah: 2, nama_ibu: 2, email: 2, no_wa: 2, darurat_no: 2, hafalan_juz: 3, prestasi: 3, setuju: 5
+    nama_ayah: 2, nama_ibu: 2, email: 2, no_wa: 2, darurat_nama: 2, darurat_hubungan: 2, darurat_no: 2,
+    pondok_sebelumnya: 3, lama_mondok: 3, hafalan_juz: 3, hafalan_surah: 3, sumber_info: 3, perekomendasi: 3, perekomendasi_peran: 3, prestasi: 3, setuju: 5
   };
 
   window.SPMB_HAL.daftar = async api => {
@@ -83,10 +87,13 @@
     const modeUji = () => panitia && (wajibUji || st.uji);
 
     /* ---------- Draf ---------- */
-    const baru = () => ({ D: { _kode: {}, prestasi: [], pernah_mondok: false, hafalan_juz: '' }, langkah: 0, token: null, berkas: {}, ok: [], uji: true });
+    const baru = () => ({ D: { _kode: {}, prestasi: [], pernah_mondok: false, pondok_sama: false, samakan_asal: false, hafalan_jenis: '', hafalan_juz: '', hafalan_surah: '', sumber_info: [], ada_rekomendasi: false }, langkah: 0, token: null, berkas: {}, ok: [], uji: true });
     let st = baru(), dipulihkan = false;
     try { const x = JSON.parse(localStorage.getItem(KUNCI_DRAF) || 'null'); if (x && x.D) { st = Object.assign(baru(), x); dipulihkan = true; } } catch (e) {}
     const D = st.D; D._kode = D._kode || {}; D.prestasi = D.prestasi || [];
+    if (!Array.isArray(D.sumber_info)) D.sumber_info = D.sumber_info ? [D.sumber_info] : [];
+    if (!D.hafalan_jenis && D.hafalan_juz !== '' && D.hafalan_juz != null) D.hafalan_jenis = juzAngka(D.hafalan_juz) >= 1 ? 'juz' : 'belum';
+    if (D.perekomendasi && D.ada_rekomendasi === undefined) D.ada_rekomendasi = true;
     let tSimpan;
     let selesaiKirim = false;
     const tulisDraf = () => { clearTimeout(tSimpan); tSimpan = null; if (selesaiKirim) return; try { st.waktu = Date.now(); localStorage.setItem(KUNCI_DRAF, JSON.stringify(st)); } catch (e) {} };
@@ -127,14 +134,45 @@
       let bln = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()); if (b.getDate() < a.getDate()) bln--;
       return Math.floor(bln / 12) + (bln % 12) / 12;
     };
+    // Lama mondok: "1,5" -> 18 bulan -> "1 tahun 6 bulan"
+    const lamaBulan = v => {
+      v = String(v || '').trim().toLowerCase(); if (!v) return 0;
+      const m = v.match(/^(?:(\d{1,2})\s*tahun)?\s*(?:(\d{1,2})\s*bulan)?$/);
+      if (m && (m[1] || m[2])) return (+m[1] || 0) * 12 + (+m[2] || 0);
+      return /^\d{1,2}([.,]\d{1,2})?$/.test(v) ? Math.round(parseFloat(v.replace(',', '.')) * 12) : 0;
+    };
+    const teksLama = b => [Math.floor(b / 12) ? `${Math.floor(b / 12)} tahun` : '', b % 12 ? `${b % 12} bulan` : ''].filter(Boolean).join(' ');
+    const teksHafalan = d => d.hafalan_jenis === 'juz' ? `${String(juzAngka(d.hafalan_juz)).replace('.', ',')} juz`
+      : d.hafalan_jenis === 'surah' ? `${+d.hafalan_surah || 0} surah pendek (kurang dari 1 juz)` : 'Belum ada hafalan';
+    // NISN/NIK yang sudah terdaftar (diperiksa ke server; hanya jawaban ya/tidak)
+    const TERDAFTAR = {};
+    const kunciCek = (j, v) => `${modeUji() ? 'uji:' : ''}${j}:${v}`;
+    const PESAN_GANDA = j => `${j} ini sudah terdaftar. Satu ${j} hanya dapat didaftarkan sekali. Bila keliru, hubungi panitia untuk mereset data pendaftaran sebelumnya.`;
+    async function periksaTerdaftar() {
+      const nisn = digit(D.nisn), nik = digit(D.nik);
+      const okNisn = /^\d{10}$/.test(nisn), okNik = /^\d{16}$/.test(nik);
+      if (!(okNisn && !(kunciCek('nisn', nisn) in TERDAFTAR)) && !(okNik && !(kunciCek('nik', nik) in TERDAFTAR))) return;
+      try {
+        const { data, error } = await sb.rpc('cek_terdaftar', { p_nisn: okNisn ? nisn : null, p_nik: okNik ? nik : null, p_uji: modeUji() });
+        if (error || !data?.ok) return;   // bila belum dipasang atau sedang padat, server tetap memeriksa saat formulir dikirim
+        if (okNisn) TERDAFTAR[kunciCek('nisn', nisn)] = !!data.nisn;
+        if (okNik) TERDAFTAR[kunciCek('nik', nik)] = !!data.nik;
+      } catch (e) {}
+    }
+    // Berkas yang menjadi wajib karena isian tertentu
+    const prestasiTerisi = () => D.prestasi.filter(p => (p.nama || '').trim());
+    const syaratBerkas = b => b.kunci === 'rekomendasi' && D.ada_rekomendasi ? 'Wajib karena Anda mengisi pemberi rekomendasi.'
+      : b.kunci === 'sertifikat' && prestasiTerisi().length ? 'Wajib karena Anda mengisi prestasi. Gabungkan semua bukti dalam satu berkas.' : '';
+    const wajibBerkas = b => !!b.wajib || !!syaratBerkas(b);
     const acuanUsia = cfg.usia?.acuan || '2027-07-01';
     const batasUsia = j => ({ min: cfg.usia?.[j]?.min ?? (j === 'SMP' ? 11 : 14), maks: cfg.usia?.[j]?.maks ?? (j === 'SMP' ? 15 : 18) });
     const V = {
       nama_lengkap: v => !POLA_NAMA.test((v || '').trim()) && ['err', 'Nama 3–100 huruf; hanya huruf, spasi, titik, koma, petik, dan strip.'],
-      nisn: v => !/^\d{10}$/.test(v || '') && ['err', 'NISN harus tepat 10 digit angka.'],
+      nisn: v => !/^\d{10}$/.test(v || '') ? ['err', 'NISN harus tepat 10 digit angka.'] : TERDAFTAR[kunciCek('nisn', v)] && ['err', PESAN_GANDA('NISN')],
       nik: v => {
         if (!/^\d{16}$/.test(v || '')) return ['err', 'NIK harus tepat 16 digit angka.'];
         if (!PROV_SAH.includes(v.slice(0, 2))) return ['err', 'Dua digit awal NIK bukan kode provinsi yang sah.'];
+        if (TERDAFTAR[kunciCek('nik', v)]) return ['err', PESAN_GANDA('NIK')];
         if (D.tanggal_lahir) {
           const [y, m, d] = D.tanggal_lahir.split('-');
           const dd = +v.slice(6, 8), mm = v.slice(8, 10), yy = v.slice(10, 12);
@@ -166,13 +204,18 @@
       email: v => !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test((v || '').trim()) && ['err', 'Alamat email belum benar, contoh: nama@gmail.com'],
       email2: v => (v || '').trim().toLowerCase() !== (D.email || '').trim().toLowerCase() && ['err', 'Email tidak sama dengan yang diketik pertama.'],
       no_wa: v => !/^628\d{7,11}$/.test(normalWA(v)) && ['err', 'Nomor WhatsApp diawali 08 atau +62, 10–13 digit.'],
-      darurat_nama: v => (v || '').trim().length < 3 && ['err', 'Nama kontak darurat wajib diisi.'],
+      darurat_nama: v => !POLA_NAMA.test((v || '').trim()) && ['err', 'Nama orang terkait wajib diisi dengan huruf (3–100 huruf, tanpa angka).'],
       darurat_hubungan: v => !v && ['err', 'Pilih hubungan dengan calon santri.'],
       darurat_no: v => !/^628\d{7,11}$/.test(normalWA(v)) ? ['err', 'Nomor kontak darurat diawali 08 atau +62, 10–13 digit.']
         : normalWA(v) === normalWA(D.no_wa) && ['warn', 'Nomor kontak darurat sama dengan nomor WhatsApp utama. Sebaiknya nomor lain.'],
       pondok_sebelumnya: v => D.pernah_mondok && (v || '').trim().length < 3 && ['err', 'Tulis nama pondok sebelumnya.'],
-      hafalan_juz: v => (v === '' || isNaN(+v) || +v < 0 || +v > 30) && ['err', 'Isi jumlah hafalan 0–30 juz (boleh 0,5).'],
-      sumber_info: v => !v && ['err', 'Pilih dari mana Anda mengetahui informasi SPMB.']
+      lama_mondok: v => { if (!D.pernah_mondok) return; const b = lamaBulan(v); return (b < 1 || b > 180) && ['err', 'Isi lama mondok dalam tahun, misalnya 1,5 (menjadi 1 tahun 6 bulan) atau 0,5 (6 bulan).']; },
+      hafalan_jenis: v => !v && ['err', 'Pilih keadaan hafalan Al-Qur\'an calon santri.'],
+      hafalan_juz: v => { if (D.hafalan_jenis !== 'juz') return; const n = juzAngka(v); return (isNaN(n) || n < 1 || n > 30 || n * 2 !== Math.floor(n * 2)) && ['err', 'Isi 1–30 juz (boleh setengah, misalnya 2,5). Bila kurang dari 1 juz, pilih "Kurang dari 1 juz".']; },
+      hafalan_surah: v => D.hafalan_jenis === 'surah' && !(/^\d{1,3}$/.test(v || '') && +v >= 1 && +v <= 114) && ['err', 'Isi jumlah surah yang sudah dihafal (1–114).'],
+      sumber_info: v => !(v && v.length) && ['err', 'Pilih minimal satu sumber informasi SPMB.'],
+      perekomendasi: v => D.ada_rekomendasi && !POLA_NAMA.test((v || '').trim()) && ['err', 'Nama pemberi rekomendasi 3–100 huruf, tanpa angka.'],
+      perekomendasi_peran: v => D.ada_rekomendasi && (v || '').trim().length < 3 && ['err', 'Isi jabatan/kedudukan pemberi rekomendasi.']
     };
     Object.keys(KOMBO).filter(k => !KOMBO[k].bebas).forEach(k => {
       V[k] = v => !v ? ['err', `Pilih ${NAMA_KOLOM[k]} dari daftar.`] : !D._kode[k] && ['err', `Pilih ${NAMA_KOLOM[k]} dari daftar yang muncul saat mengetik.`];
@@ -181,24 +224,24 @@
       [],
       ['nama_lengkap', 'nisn', 'nik', 'tempat_lahir', 'tanggal_lahir', 'asal_provinsi', 'asal_kabupaten', 'provinsi', 'kabupaten', 'kecamatan', 'desa', 'alamat_jalan', 'rt', 'rw', 'kode_pos', 'asal_sekolah', 'npsn_sekolah'],
       ['nama_ayah', 'pekerjaan_ayah', 'nama_ibu', 'pekerjaan_ibu', 'email', 'email2', 'no_wa', 'darurat_nama', 'darurat_hubungan', 'darurat_no'],
-      ['pondok_sebelumnya', 'hafalan_juz', 'sumber_info']
+      ['pondok_sebelumnya', 'lama_mondok', 'hafalan_jenis', 'hafalan_juz', 'hafalan_surah', 'sumber_info', 'perekomendasi', 'perekomendasi_peran']
     ];
 
     /* ---------- Pembuat kolom ---------- */
     const bantu = t => t ? `<small class="bantu">${t}</small>` : '';
     const wajib = '<span class="req">*</span>';
-    const kolom = (k, label, { tipe = 'text', mode = '', maks = 100, contoh = '', b = '', opsional = false, full = false } = {}) => `
-      <div class="field${full ? ' full' : ''}" data-f="${k}"><label for="k_${k}">${label}${opsional ? ' <span class="muted">(opsional)</span>' : ` ${wajib}`}</label>
-        <input class="input" id="k_${k}" name="${k}" type="${tipe}" value="${esc(D[k] ?? '')}" ${mode ? `inputmode="${mode}"` : ''} maxlength="${DIGIT_SAJA[k] ? maks + 12 : maks}" ${contoh ? `placeholder="${esc(contoh)}"` : ''} autocomplete="off">
+    const kolom = (k, label, { tipe = 'text', mode = '', maks = 100, contoh = '', b = '', opsional = false, full = false, kunci = false, daftar = '', satuan = '' } = {}) => `
+      <div class="field${full ? ' full' : ''}${kunci ? ' terkunci' : ''}" data-f="${k}"><label for="k_${k}">${label}${opsional ? ' <span class="muted">(opsional)</span>' : ` ${wajib}`}</label>
+        ${satuan ? '<div class="isian-satuan">' : ''}<input class="input" id="k_${k}" name="${k}" type="${tipe}" value="${esc(D[k] ?? '')}" ${mode ? `inputmode="${mode}"` : ''} maxlength="${DIGIT_SAJA[k] ? maks + 12 : maks}" ${contoh ? `placeholder="${esc(contoh)}"` : ''} ${kunci ? 'readonly' : ''} ${daftar ? `list="${daftar}"` : ''} autocomplete="off">${satuan ? `<span>${satuan}</span></div>` : ''}
         ${bantu(b)}<small class="pesan"></small></div>`;
     const pilihan = (k, label, opsi, { b = '', full = false } = {}) => `
       <div class="field${full ? ' full' : ''}" data-f="${k}"><label for="k_${k}">${label} ${wajib}</label>
         <select class="select" id="k_${k}" name="${k}"><option value="">— Pilih —</option>${opsi.map(o => `<option ${o === D[k] ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>
         ${bantu(b)}<small class="pesan"></small></div>`;
-    const kombo = (k, label, { b = '', contoh = 'Ketik untuk mencari', full = false } = {}) => `
-      <div class="field kombo${full ? ' full' : ''}" data-f="${k}" data-kombo="${k}"><label for="k_${k}">${label} ${wajib}</label>
-        <div class="kombo-wadah"><input class="input" id="k_${k}" name="${k}" value="${esc(D[k] ?? '')}" placeholder="${esc(contoh)}" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list">
-          <i class="ph-duotone ph-magnifying-glass kombo-ikon"></i><ul class="kombo-daftar" role="listbox" hidden></ul></div>
+    const kombo = (k, label, { b = '', contoh = 'Ketik untuk mencari', full = false, kunci = false } = {}) => `
+      <div class="field kombo${full ? ' full' : ''}${kunci ? ' terkunci' : ''}" data-f="${k}" data-kombo="${k}"><label for="k_${k}">${label} ${wajib}</label>
+        <div class="kombo-wadah"><input class="input" id="k_${k}" name="${k}" value="${esc(D[k] ?? '')}" placeholder="${esc(contoh)}" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" ${kunci ? 'readonly' : ''}>
+          <i class="ph-duotone ${kunci ? 'ph-lock-simple' : 'ph-magnifying-glass'} kombo-ikon"></i><ul class="kombo-daftar" role="listbox" hidden></ul></div>
         ${bantu(b)}<small class="pesan"></small></div>`;
     const subjudul = (ic, t, teks) => `<h3 class="daftar-sub"><i class="ph-duotone ${ic}" style="color:${t}"></i>${teks}</h3>`;
 
@@ -251,9 +294,10 @@
         ${subjudul('ph-map-trifold', 'var(--c5)', 'Asal daerah')}
         <div class="grid-form">${kombo('asal_provinsi', 'Provinsi asal')}${kombo('asal_kabupaten', 'Kabupaten/kota asal')}</div>
         ${subjudul('ph-house-line', 'var(--c1)', 'Alamat domisili')}
-        <button type="button" class="btn sm ghost" id="samakanAsal" style="margin:-4px 0 12px"><i class="ph-duotone ph-copy" style="color:var(--c1)"></i>Samakan provinsi dan kabupaten dengan asal daerah</button>
+        <label class="check centang-kotak"><input type="checkbox" id="samakanAsal" ${D.samakan_asal ? 'checked' : ''}>
+          <span>Provinsi dan kabupaten/kota domisili <b>sama dengan asal daerah</b><small>Centang agar tidak perlu memilih dua kali.</small></span></label>
         <div class="grid-form">
-          ${kombo('provinsi', 'Provinsi')}${kombo('kabupaten', 'Kabupaten/kota')}${kombo('kecamatan', 'Kecamatan')}${kombo('desa', 'Desa/kelurahan')}
+          ${kombo('provinsi', 'Provinsi', { kunci: D.samakan_asal, b: D.samakan_asal ? 'Mengikuti asal daerah.' : '' })}${kombo('kabupaten', 'Kabupaten/kota', { kunci: D.samakan_asal, b: D.samakan_asal ? 'Mengikuti asal daerah.' : '' })}${kombo('kecamatan', 'Kecamatan')}${kombo('desa', 'Desa/kelurahan')}
           ${kolom('alamat_jalan', 'Jalan / lorong dan nomor rumah', { full: 1, maks: 200, contoh: 'Jl. Poros Malino No. 12' })}
           ${kolom('dusun', 'Dusun / lingkungan', { opsional: 1, contoh: 'Dusun Bontorita' })}
           <div class="field tiga">
@@ -278,32 +322,56 @@
           ${kolom('email2', 'Ketik ulang email', { tipe: 'email', mode: 'email', contoh: 'Harus sama dengan email di samping' })}
           ${kolom('no_wa', 'Nomor WhatsApp', { tipe: 'tel', mode: 'tel', maks: 18, contoh: '08xxxxxxxxxx', b: 'Panitia menghubungi melalui nomor ini.' })}
         </div>
-        ${subjudul('ph-first-aid-kit', 'var(--c7)', 'Kontak darurat')}
+        ${subjudul('ph-first-aid-kit', 'var(--c7)', 'Kontak darurat (orang terkait)')}
         <div class="grid-form">
-          ${kolom('darurat_nama', 'Nama kontak darurat', { contoh: 'Selain nomor di atas, bila memungkinkan' })}
+          ${kolom('darurat_nama', 'Nama orang terkait', { contoh: 'Nama lengkap, misalnya Hasan Basri', b: 'Orang yang dapat dihubungi saat keadaan darurat. Hanya huruf, tanpa angka.' })}
           ${pilihan('darurat_hubungan', 'Hubungan dengan santri', HUBUNGAN)}
           ${kolom('darurat_no', 'Nomor HP / WhatsApp kontak darurat', { tipe: 'tel', mode: 'tel', maks: 18, contoh: '08xxxxxxxxxx' })}
         </div>`,
       // 4. Pertanyaan
-      () => `
+      () => {
+        if (D.pondok_sama) D.pondok_sebelumnya = D.asal_sekolah || '';
+        const chip = (nama, nilai, label, cek) => `<label><input type="radio" name="${nama}" value="${nilai}" ${cek ? 'checked' : ''}>${label}</label>`;
+        const lb = lamaBulan(D.lama_mondok);
+        return `
         ${subjudul('ph-house-simple', 'var(--c2)', 'Riwayat mondok')}
         <div class="field full" data-f="pernah_mondok"><span class="label">Pernah mondok sebelumnya? ${wajib}</span>
-          <div class="chips-select"><label><input type="radio" name="pernah_mondok" value="tidak" ${!D.pernah_mondok ? 'checked' : ''}>Belum pernah</label>
-            <label><input type="radio" name="pernah_mondok" value="ya" ${D.pernah_mondok ? 'checked' : ''}>Pernah</label></div></div>
-        <div class="grid-form" id="kolomMondok" ${D.pernah_mondok ? '' : 'hidden'}>
-          ${kolom('pondok_sebelumnya', 'Nama pondok sebelumnya', { maks: 150 })}
-          ${kolom('lama_mondok', 'Lama mondok', { opsional: 1, maks: 40, contoh: '1 tahun 6 bulan' })}
-        </div>
+          <div class="chips-select">${chip('pernah_mondok', 'tidak', 'Belum pernah', !D.pernah_mondok)}${chip('pernah_mondok', 'ya', 'Pernah', D.pernah_mondok)}</div></div>
+        ${D.pernah_mondok ? `
+          ${D.asal_sekolah ? `<label class="check centang-kotak"><input type="checkbox" id="pondokSama" ${D.pondok_sama ? 'checked' : ''}>
+            <span>Sekolah asal <b>${esc(D.asal_sekolah)}</b> adalah pondok pesantren<small>Centang agar nama pondok tidak perlu ditulis ulang.</small></span></label>` : ''}
+          <div class="grid-form">
+            ${kolom('pondok_sebelumnya', 'Nama pondok sebelumnya', { maks: 150, kunci: D.pondok_sama, contoh: 'Pondok Pesantren …', b: D.pondok_sama ? 'Mengikuti sekolah asal.' : '' })}
+            ${kolom('lama_mondok', 'Lama mondok', { mode: 'decimal', maks: 20, contoh: 'Dalam tahun, misalnya 1,5',
+              b: `<span id="bantuLama">${lb ? `= <b>${teksLama(lb)}</b>` : 'Tulis dalam tahun: 1,5 = 1 tahun 6 bulan; 0,5 = 6 bulan.'}</span>` })}
+          </div>` : ''}
         ${subjudul('ph-book-open-text', 'var(--c5)', 'Hafalan Al-Qur\'an')}
-        <div class="grid-form">${kolom('hafalan_juz', 'Jumlah hafalan (juz)', { tipe: 'number', mode: 'decimal', maks: 4, contoh: '0', b: 'Isi 0 bila belum ada. Boleh setengah, misalnya 2,5.' })}</div>
-        ${subjudul('ph-megaphone', 'var(--c3)', 'Informasi')}
-        <div class="grid-form">
-          ${pilihan('sumber_info', 'Dari mana mengetahui informasi SPMB', cfg.sumber_info || [])}
-          ${kolom('perekomendasi', 'Pemberi rekomendasi', { opsional: 1, contoh: 'Nama ustadz/alumni yang merekomendasikan' })}
-        </div>
+        <div class="field full" data-f="hafalan_jenis"><span class="label">Keadaan hafalan ${wajib}</span>
+          <div class="chips-select">${chip('hafalan_jenis', 'juz', '1 juz atau lebih', D.hafalan_jenis === 'juz')}${chip('hafalan_jenis', 'surah', 'Kurang dari 1 juz (surah pendek)', D.hafalan_jenis === 'surah')}${chip('hafalan_jenis', 'belum', 'Belum ada hafalan', D.hafalan_jenis === 'belum')}</div>
+          <small class="pesan"></small></div>
+        ${D.hafalan_jenis === 'juz' ? `<div class="grid-form">${kolom('hafalan_juz', 'Jumlah hafalan', { mode: 'decimal', maks: 4, contoh: 'Misalnya 10', satuan: 'Juz', b: 'Hanya angka. Boleh setengah, misalnya 2,5.' })}</div>` : ''}
+        ${D.hafalan_jenis === 'surah' ? `<div class="grid-form">${kolom('hafalan_surah', 'Jumlah surah yang dihafal', { mode: 'numeric', maks: 3, contoh: 'Misalnya 12', satuan: 'Surah', b: 'Hitung semua surah yang sudah dihafal. Contoh: An-Nas sampai Al-Fil = 10 surah.' })}</div>` : ''}
+        ${subjudul('ph-megaphone', 'var(--c3)', 'Informasi SPMB')}
+        <div class="field full" data-f="sumber_info"><span class="label">Dari mana mengetahui informasi SPMB? ${wajib} <span class="muted">(boleh pilih lebih dari satu)</span></span>
+          <div class="chips-select cek-banyak">${(cfg.sumber_info || []).map(x => `<label><input type="checkbox" name="sumber_info" value="${esc(x)}" ${D.sumber_info.includes(x) ? 'checked' : ''}><i class="ph-duotone ph-square kosong"></i><i class="ph-duotone ph-check-square penuh"></i>${esc(x)}</label>`).join('')}</div>
+          <small class="pesan"></small></div>
+        ${subjudul('ph-handshake', 'var(--c1)', 'Rekomendasi')}
+        <div class="field full" data-f="ada_rekomendasi"><span class="label">Ada yang merekomendasikan calon santri?</span>
+          <div class="chips-select">${chip('ada_rekomendasi', 'tidak', 'Tidak ada', !D.ada_rekomendasi)}${chip('ada_rekomendasi', 'ya', 'Ada pemberi rekomendasi', D.ada_rekomendasi)}</div></div>
+        ${D.ada_rekomendasi ? `
+          <div class="grid-form">
+            ${kolom('perekomendasi', 'Nama pemberi rekomendasi', { contoh: 'Nama lengkap, misalnya Ust. Ahmad Syarif' })}
+            ${kolom('perekomendasi_peran', 'Jabatan / kedudukan', { maks: 80, contoh: 'Pilih atau ketik', daftar: 'daftarPeran', b: 'Misalnya Pengurus Wahdah Islamiyah, ustadz pondok, atau alumni.' })}
+          </div>
+          <datalist id="daftarPeran">${PERAN_REKOM.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
+          <div class="note info"><i class="ph-duotone ph-file-text"></i><div><b>Surat rekomendasi wajib diunggah</b> pada langkah Berkas.</div></div>` : ''}
         ${subjudul('ph-trophy', 'var(--c6)', 'Prestasi (opsional)')}
+        <div class="note info"><i class="ph-duotone ph-certificate"></i><div>Setiap prestasi wajib dibuktikan dengan sertifikat, piagam, atau surat keterangan.
+          <b>Gabungkan semua bukti menjadi satu berkas</b> (sebaiknya PDF), lalu unggah sekali pada langkah Berkas.
+          Tips: fitur <i>Pindai</i> di aplikasi Google Drive dapat memotret beberapa lembar menjadi satu PDF.</div></div>
         <div id="daftarPrestasi"></div>
-        <button type="button" class="btn sm ghost" id="tambahPrestasi"><i class="ph-duotone ph-plus-circle" style="color:var(--c6)"></i>Tambah prestasi</button>`,
+        <button type="button" class="btn sm ghost" id="tambahPrestasi"><i class="ph-duotone ph-plus-circle" style="color:var(--c6)"></i>Tambah prestasi</button>`;
+      },
       // 5. Berkas
       () => {
         const bj = biayaUntuk(D.jenjang, D.bagian);
@@ -318,7 +386,7 @@
               <button type="button" class="icon-btn plain" data-salin="${esc(digit(r.nomor_rekening))}" title="Salin nomor rekening" aria-label="Salin nomor rekening"><i class="ph-duotone ph-copy"></i></button></div>`).join('')}</div>` : ''}
           </div>` : ''}
           <p class="muted" style="margin:0 0 12px;font-size:13.5px"><i class="ph-duotone ph-info"></i> Foto otomatis diperkecil sebelum dikirim. PDF maksimal 5 MB. Pastikan tulisan terbaca jelas.</p>
-          <div class="berkas-daftar">${(cfg.berkas || []).map(b => kartuBerkas(b)).join('')}</div>`;
+          <div class="berkas-daftar">${[...(cfg.berkas || [])].sort((a, b) => wajibBerkas(b) - wajibBerkas(a)).map(b => kartuBerkas(b)).join('')}</div>`;
       },
       // 6. Periksa dan kirim
       () => ringkasan()
@@ -328,8 +396,9 @@
       const x = st.berkas[b.kunci];
       return `<div class="berkas-kartu${x ? ' ada' : ''}" data-berkas="${b.kunci}" data-f="berkas_${b.kunci}">
         <div class="berkas-prev">${x ? (x.thumb ? `<img alt="" src="${x.thumb}">` : '<i class="ph-duotone ph-file-pdf"></i>') : `<i class="ph-duotone ${b.jenis === 'gambar' ? 'ph-image' : 'ph-file-arrow-up'}"></i>`}</div>
-        <div class="berkas-teks"><b>${esc(b.label)} ${b.wajib ? wajib : '<span class="muted">(opsional)</span>'}</b>
-          <span class="berkas-status">${x ? `<i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i> ${esc(x.nama)} · ${Math.max(1, Math.round(x.ukuran / 1024))} KB` : (b.jenis === 'gambar' ? 'Foto (JPG/PNG)' : 'Foto (JPG/PNG) atau PDF')}</span>
+        <div class="berkas-teks"><b>${esc(b.label)} ${wajibBerkas(b) ? wajib : '<span class="muted">(opsional)</span>'}</b>
+          ${syaratBerkas(b) ? `<small class="alasan"><i class="ph-duotone ph-info"></i> ${syaratBerkas(b)}</small>` : ''}
+          <span class="berkas-status">${x ? `<i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i> ${esc(x.nama)} · ${Math.max(1, Math.round(x.ukuran / 1024))} KB` : (b.jenis === 'gambar' ? 'Foto (JPG/PNG)' : b.kunci === 'sertifikat' ? 'Satu PDF gabungan semua bukti (maks. 5 MB)' : 'Foto (JPG/PNG) atau PDF')}</span>
           <small class="pesan"></small></div>
         <label class="btn sm ${x ? 'ghost' : ''}"><i class="ph-duotone ${x ? 'ph-arrows-clockwise' : 'ph-upload-simple'}"></i>${x ? 'Ganti' : 'Pilih'}
           <input type="file" hidden accept="${b.jenis === 'gambar' ? 'image/jpeg,image/png,image/webp' : 'image/jpeg,image/png,image/webp,application/pdf'}"></label>
@@ -347,11 +416,11 @@
         ${blok(1, baris('Nama lengkap', D.nama_lengkap) + baris('NISN', D.nisn) + baris('NIK', D.nik) + baris('Tempat, tanggal lahir', `${D.tempat_lahir || '–'}, ${D.tanggal_lahir ? fmt.tglPanjang(new Date(D.tanggal_lahir + 'T00:00:00')) : '–'}`)
           + baris('Asal daerah', `${D.asal_kabupaten || '–'}, ${D.asal_provinsi || '–'}`) + baris('Alamat domisili', alamat) + baris('Sekolah asal', `${D.asal_sekolah || '–'}${D.npsn_sekolah ? ` (NPSN ${D.npsn_sekolah})` : ''}`))}
         ${blok(2, baris('Ayah', `${D.nama_ayah || '–'} · ${D.pekerjaan_ayah || '–'}`) + baris('Ibu', `${D.nama_ibu || '–'} · ${D.pekerjaan_ibu || '–'}`) + baris('Email', D.email)
-          + baris('WhatsApp', D.no_wa ? '+' + normalWA(D.no_wa) : '') + baris('Kontak darurat', `${D.darurat_nama || '–'} (${D.darurat_hubungan || '–'}) · +${normalWA(D.darurat_no)}`))}
-        ${blok(3, baris('Riwayat mondok', D.pernah_mondok ? `${D.pondok_sebelumnya}${D.lama_mondok ? `, ${D.lama_mondok}` : ''}` : 'Belum pernah') + baris('Hafalan', `${String(D.hafalan_juz || 0).replace('.', ',')} juz`)
-          + baris('Sumber informasi', D.sumber_info) + (D.perekomendasi ? baris('Rekomendasi', D.perekomendasi) : '')
+          + baris('WhatsApp', D.no_wa ? '+' + normalWA(D.no_wa) : '') + baris('Orang terkait (darurat)', `${D.darurat_nama || '–'} (${D.darurat_hubungan || '–'}) · +${normalWA(D.darurat_no)}`))}
+        ${blok(3, baris('Riwayat mondok', D.pernah_mondok ? `${D.pondok_sebelumnya}${D.lama_mondok ? `, ${D.lama_mondok}` : ''}` : 'Belum pernah') + baris('Hafalan', teksHafalan(D))
+          + baris('Sumber informasi', D.sumber_info.join(', ')) + baris('Rekomendasi', D.ada_rekomendasi ? `${D.perekomendasi} (${D.perekomendasi_peran})` : 'Tidak ada')
           + baris('Prestasi', D.prestasi.filter(p => p.nama).map(p => `${p.nama} (${p.tingkat}, ${p.tahun})`).join('; ') || 'Tidak ada'))}
-        ${blok(4, (cfg.berkas || []).map(b => baris(b.label, st.berkas[b.kunci] ? '✓ Terunggah' : b.wajib ? 'BELUM DIUNGGAH' : 'Tidak ada')).join(''))}
+        ${blok(4, (cfg.berkas || []).map(b => baris(b.label, st.berkas[b.kunci] ? '✓ Terunggah' : wajibBerkas(b) ? 'BELUM DIUNGGAH' : 'Tidak ada')).join(''))}
         ${peringatan.length ? `<div class="note"><i class="ph-duotone ph-warning"></i><div><b>Perlu diperhatikan:</b><ul style="margin:4px 0 0;padding-left:18px">${peringatan.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
           <label class="check" style="margin-top:8px"><input type="checkbox" id="setujuPeringatan" ${st.okPeringatan ? 'checked' : ''}>Saya sudah memeriksa dan data tersebut memang benar.</label></div></div>` : ''}
         <label class="check pernyataan" data-f="setuju"><input type="checkbox" id="setuju" ${D.setuju ? 'checked' : ''}><span>${esc(cfg.pernyataan || 'Saya menyatakan data yang diisi benar.')}</span></label>
@@ -407,11 +476,19 @@
       (KOLOM_LANGKAH[L] || []).forEach(k => { if (D[k]) cekKolom(k, false); });
     }
 
+    const salinAsal = () => {
+      const ubahKab = D._kode.kabupaten !== D._kode.asal_kabupaten;
+      D.provinsi = D.asal_provinsi || ''; D.kabupaten = D.asal_kabupaten || '';
+      ['provinsi', 'kabupaten'].forEach(k => { const a = D._kode['asal_' + k]; if (a) D._kode[k] = a; else delete D._kode[k]; });
+      if (ubahKab) { D.kecamatan = D.desa = D.kode_wilayah = ''; delete D._kode.kecamatan; delete D._kode.desa; }
+      ['provinsi', 'kabupaten', 'kecamatan', 'desa'].forEach(k => { const i = form.querySelector(`[name="${k}"]`); if (i) i.value = D[k] || ''; });
+    };
     /* ---------- Kombo (pencarian wilayah) ---------- */
     function pasangKombo() {
       form.querySelectorAll('[data-kombo]').forEach(box => {
         const k = box.dataset.kombo, K = KOMBO[k];
         const input = box.querySelector('input'), ul = box.querySelector('ul');
+        if (input.readOnly) return;
         let opsi = [], aktif = -1;
         const muatOpsi = async () => { try { opsi = await K.opsi(); } catch (e) { opsi = []; toast(pesanGalat(e), 'err'); } };
         const norm = s => String(s).toLowerCase().replace(/^(kab\.|kota|kabupaten)\s+/, '').replace(/[^a-z0-9 ]/g, '');
@@ -431,6 +508,7 @@
           D[k] = o.v; D._kode[k] = o.kode; input.value = o.v; tutup();
           if (lama !== o.kode) (K.anak || []).forEach(a => { D[a] = ''; delete D._kode[a]; const i = form.querySelector(`[name="${a}"]`); if (i) i.value = ''; });
           if (k === 'desa') { D.kode_wilayah = o.kode; if (o.kp) { D.kode_pos = o.kp; const kp = form.querySelector('[name=kode_pos]'); if (kp) { kp.value = o.kp; cekKolom('kode_pos', false); } } }
+          if (k.startsWith('asal_') && D.samakan_asal) salinAsal();
           cekKolom(k, true); simpanDraf();
         };
         input.addEventListener('focus', tampil);
@@ -479,7 +557,7 @@
         const q = D.jenjang && D.bagian && kuotaDari(D.jenjang, D.bagian);
         if (q && q.kuota != null && q.sisa === 0 && !modeUji()) { salah.push('bagian'); tulisPesan('bagian', ['err', `Kuota ${D.jenjang} ${D.bagian} sudah penuh.`]); }
       } else if (L === 4) {
-        (cfg.berkas || []).filter(b => b.wajib && !st.berkas[b.kunci]).forEach(b => { salah.push('berkas_' + b.kunci); const box = form.querySelector(`[data-berkas="${b.kunci}"]`); box?.classList.add('salah'); const ps = box?.querySelector('.pesan'); if (ps) { ps.textContent = 'Wajib diunggah.'; ps.className = 'pesan err'; } });
+        (cfg.berkas || []).filter(b => wajibBerkas(b) && !st.berkas[b.kunci]).forEach(b => { salah.push('berkas_' + b.kunci); const box = form.querySelector(`[data-berkas="${b.kunci}"]`); box?.classList.add('salah'); const ps = box?.querySelector('.pesan'); if (ps) { ps.textContent = 'Wajib diunggah.'; ps.className = 'pesan err'; } });
       } else if (L === 5) {
         if (daftarPeringatan().length && !$('#setujuPeringatan')?.checked) { salah.push('setujuPeringatan'); toast('Centang konfirmasi pada kotak "Perlu diperhatikan".', 'warn'); }
         if (!D.setuju) { salah.push('setuju'); tulisPesan('setuju', ['err', 'Centang pernyataan persetujuan untuk mengirim.']); }
@@ -494,11 +572,18 @@
     };
 
     /* ---------- Isian ---------- */
-    const DIGIT_SAJA = { nisn: 10, nik: 16, rt: 3, rw: 3, kode_pos: 5, npsn_sekolah: 8 };
+    const DIGIT_SAJA = { nisn: 10, nik: 16, rt: 3, rw: 3, kode_pos: 5, npsn_sekolah: 8, hafalan_surah: 3 };
     form.addEventListener('input', e => {
       const t = e.target, k = t.name; if (!k || t.type === 'file' || t.closest('[data-kombo]') || t.closest('.prestasi-baris')) return;
       if (DIGIT_SAJA[k]) { const v = digit(t.value).slice(0, DIGIT_SAJA[k]); if (v !== t.value) t.value = v; }
-      if (t.type === 'radio') return;
+      if (k === 'hafalan_juz' || k === 'lama_mondok') { const v = t.value.replace(/[^\d.,]/g, '').replace(/([.,].*)[.,]/, '$1'); if (v !== t.value) t.value = v; }
+      if (NAMA_SAJA.includes(k)) {
+        const v = t.value.replace(BUKAN_HURUF_NAMA, '');
+        if (v !== t.value) { const pos = Math.max(0, (t.selectionStart || v.length) - (t.value.length - v.length)); t.value = v; t.setSelectionRange(pos, pos); tulisPesan(k, ['err', 'Kolom nama hanya dapat diisi huruf (tanpa angka).']); }
+      }
+      if (t.type === 'radio' || t.type === 'checkbox') return;
+      if (k === 'lama_mondok') { const b = lamaBulan(t.value), el = $('#bantuLama'); if (el) el.innerHTML = b ? `= <b>${teksLama(b)}</b>` : 'Tulis dalam tahun: 1,5 = 1 tahun 6 bulan; 0,5 = 6 bulan.'; }
+      if (k === 'asal_sekolah' && D.pondok_sama) D.pondok_sebelumnya = t.value;
       D[k] = t.value;
       // kolom yang sudah ditandai salah diperiksa ulang saat diketik
       if (t.closest('.salah,.awas')) cekKolom(k, true);
@@ -509,19 +594,37 @@
     form.addEventListener('change', e => {
       const t = e.target, k = t.name;
       if (t.type === 'radio') {
-        if (k === 'pernah_mondok') { D.pernah_mondok = t.value === 'ya'; $('#kolomMondok').hidden = !D.pernah_mondok; }
-        else { D[k] = t.value; tulisPesan(k, null); if (k === 'jenjang') render(); else if (k === 'bagian') render(); }
-        simpanDraf(); return;
+        if (k === 'pernah_mondok') D.pernah_mondok = t.value === 'ya';
+        else if (k === 'ada_rekomendasi') D.ada_rekomendasi = t.value === 'ya';
+        else D[k] = t.value;
+        tulisPesan(k, null); simpanDraf();
+        if (['jenjang', 'bagian', 'pernah_mondok', 'hafalan_jenis', 'ada_rekomendasi'].includes(k)) render();
+        return;
+      }
+      if (t.name === 'sumber_info') { D.sumber_info = [...form.querySelectorAll('[name=sumber_info]:checked')].map(x => x.value); cekKolom('sumber_info', true); simpanDraf(); return; }
+      if (t.id === 'pondokSama') { D.pondok_sama = t.checked; if (t.checked) D.pondok_sebelumnya = D.asal_sekolah || ''; simpanDraf(); render(); return; }
+      if (t.id === 'samakanAsal') {
+        if (t.checked && !D._kode.asal_kabupaten) { t.checked = false; toast('Pilih dulu provinsi dan kabupaten/kota asal di atas.', 'warn'); gulirKe(D._kode.asal_provinsi ? 'asal_kabupaten' : 'asal_provinsi'); return; }
+        D.samakan_asal = t.checked; if (t.checked) salinAsal();
+        simpanDraf(); render(); if (t.checked) setTimeout(() => gulirKe('kecamatan'), 50);
+        return;
       }
       if (t.id === 'setuju') { D.setuju = t.checked; tulisPesan('setuju', null); simpanDraf(); return; }
       if (t.id === 'setujuPeringatan') { st.okPeringatan = t.checked; simpanDraf(); return; }
       if (t.tagName === 'SELECT' && k) { D[k] = t.value; cekKolom(k, true); simpanDraf(); }
     });
+    form.addEventListener('focusin', e => {
+      const t = e.target;
+      if (t.name === 'lama_mondok' && /[a-z]/i.test(t.value)) { const b = lamaBulan(t.value); if (b) t.value = String(Math.round(b / 12 * 100) / 100).replace('.', ','); }
+    });
     form.addEventListener('focusout', e => {
       const t = e.target, k = t.name; if (!k || t.closest('[data-kombo]') || t.type === 'radio' || t.type === 'file') return;
       if (['no_wa', 'darurat_no'].includes(k) && t.value && /^628\d{7,11}$/.test(normalWA(t.value))) { const n = normalWA(t.value); t.value = '0' + n.slice(2); D[k] = t.value; }
-      if (k === 'nama_lengkap' || k === 'nama_ayah' || k === 'nama_ibu') { t.value = t.value.replace(/\s+/g, ' ').trim(); D[k] = t.value; }
-      if (k === 'hafalan_juz' && t.value !== '') { t.value = String(Math.round(+t.value * 2) / 2); D[k] = t.value; }
+      if (NAMA_SAJA.includes(k)) { t.value = t.value.replace(/\s+/g, ' ').trim(); D[k] = t.value; }
+      if (k === 'hafalan_juz' && t.value !== '' && !isNaN(juzAngka(t.value))) { t.value = String(Math.round(juzAngka(t.value) * 2) / 2).replace('.', ','); D[k] = t.value; }
+      if (k === 'hafalan_surah' && t.value !== '') { t.value = String(+t.value); D[k] = t.value; }
+      if (k === 'lama_mondok' && lamaBulan(t.value)) { t.value = teksLama(lamaBulan(t.value)); D[k] = t.value; }
+      if ((k === 'nisn' || k === 'nik') && V[k](D[k] ?? '')?.[0] !== 'err') periksaTerdaftar().then(() => { cekKolom('nisn', !!D.nisn); if (D.nik) cekKolom('nik', true); });
       if (D[k] !== undefined || V[k]) cekKolom(k, true);
       simpanDraf();
     });
@@ -529,13 +632,6 @@
       const ke = e.target.closest('[data-ke]'); if (ke) return pindah(+ke.dataset.ke);
       const sl = e.target.closest('[data-salin]');
       if (sl) { navigator.clipboard?.writeText(sl.dataset.salin).then(() => toast('Nomor rekening disalin.'), () => toast('Nomor: ' + sl.dataset.salin, 'info')); return; }
-      if (e.target.closest('#samakanAsal')) {
-        if (!D._kode.asal_kabupaten) return toast('Pilih dulu provinsi dan kabupaten/kota asal.', 'warn');
-        const ubah = D._kode.kabupaten !== D._kode.asal_kabupaten;
-        D.provinsi = D.asal_provinsi; D._kode.provinsi = D._kode.asal_provinsi; D.kabupaten = D.asal_kabupaten; D._kode.kabupaten = D._kode.asal_kabupaten;
-        if (ubah) { D.kecamatan = D.desa = ''; delete D._kode.kecamatan; delete D._kode.desa; }
-        simpanDraf(); render(); setTimeout(() => gulirKe('kecamatan'), 50);
-      }
       if (e.target.closest('#tambahPrestasi')) {
         if (D.prestasi.length >= 10) return toast('Prestasi paling banyak 10 baris.', 'warn');
         D.prestasi.push({ nama: '', tingkat: 'Kabupaten/Kota', tahun: String(new Date().getFullYear()) }); renderPrestasi(); simpanDraf();
@@ -604,6 +700,7 @@
         // semua langkah yang dilewati harus valid
         for (let L = st.langkah; L < ke; L++) {
           if (L !== st.langkah) { st.langkah = L; render(); }
+          if (L === 1) await periksaTerdaftar();
           const salah = cekLangkah(L);
           if (salah.length) { toast('Masih ada isian yang perlu diperbaiki.', 'err'); gulirKe(salah[0]); return; }
           // peringatan di langkah ini: minta konfirmasi sekali
@@ -625,16 +722,21 @@
     /* ---------- Kirim ---------- */
     async function kirim() {
       // periksa semua langkah sekali lagi
+      await periksaTerdaftar();
       for (let L = 0; L < LANGKAH.length; L++) {
         const salah = L === st.langkah ? cekLangkah(L) : cekDiam(L);
         if (salah.length) { if (L !== st.langkah) { st.langkah = L; render(); cekLangkah(L); } toast('Masih ada isian yang perlu diperbaiki.', 'err'); gulirKe(salah[0]); return; }
       }
       const tombol = $('#btnLanjut'); tombol.disabled = true; tombol.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-color:#fff4;border-top-color:#fff"></span> Mengirim…';
       const p = {
-        ...Object.fromEntries(Object.entries(D).filter(([k]) => !k.startsWith('_') && k !== 'email2')),
+        ...Object.fromEntries(Object.entries(D).filter(([k]) => !k.startsWith('_') && !['email2', 'samakan_asal', 'pondok_sama', 'ada_rekomendasi', 'hafalan_jenis'].includes(k))),
         nisn: digit(D.nisn), nik: digit(D.nik), no_wa: normalWA(D.no_wa), darurat_no: normalWA(D.darurat_no),
-        email: (D.email || '').trim().toLowerCase(), hafalan_juz: +D.hafalan_juz || 0,
-        pondok_sebelumnya: D.pernah_mondok ? D.pondok_sebelumnya : '', lama_mondok: D.pernah_mondok ? (D.lama_mondok || '') : '',
+        email: (D.email || '').trim().toLowerCase(),
+        hafalan_juz: D.hafalan_jenis === 'juz' ? juzAngka(D.hafalan_juz) || 0 : 0, hafalan_surah: D.hafalan_jenis === 'surah' ? +D.hafalan_surah || 0 : 0,
+        pondok_sebelumnya: D.pernah_mondok ? (D.pondok_sama ? D.asal_sekolah : D.pondok_sebelumnya) : '',
+        lama_mondok: D.pernah_mondok ? teksLama(lamaBulan(D.lama_mondok)) : '',
+        sumber_info: D.sumber_info, darurat_nama: (D.darurat_nama || '').replace(/\s+/g, ' ').trim(),
+        perekomendasi: D.ada_rekomendasi ? (D.perekomendasi || '').replace(/\s+/g, ' ').trim() : '', perekomendasi_peran: D.ada_rekomendasi ? (D.perekomendasi_peran || '').trim() : '',
         prestasi: D.prestasi.filter(x => (x.nama || '').trim()).map(x => ({ nama: x.nama.trim(), tingkat: x.tingkat, tahun: +x.tahun })),
         berkas: Object.values(st.berkas).map(b => b.id), peringatan: daftarPeringatan(), setuju: !!D.setuju,
         uji: modeUji()
@@ -659,7 +761,7 @@
     // validasi tanpa menampilkan pesan (untuk langkah yang tidak sedang tampil)
     function cekDiam(L) {
       if (L === 0) return !D.jenjang || !D.bagian ? ['jenjang'] : [];
-      if (L === 4) return (cfg.berkas || []).filter(b => b.wajib && !st.berkas[b.kunci]).map(b => 'berkas_' + b.kunci);
+      if (L === 4) return (cfg.berkas || []).filter(b => wajibBerkas(b) && !st.berkas[b.kunci]).map(b => 'berkas_' + b.kunci);
       if (L === 5) return D.setuju ? [] : ['setuju'];
       return (KOLOM_LANGKAH[L] || []).filter(k => V[k]?.(D[k] ?? '')?.[0] === 'err');
     }
@@ -715,7 +817,7 @@
             ${r('Jenjang / bagian', `${d.jenjang} / ${d.bagian === 'putra' ? 'Putra' : 'Putri'}`)}${r('Asal daerah', `${d.asal_kabupaten}, ${d.asal_provinsi}`)}
             ${r('Alamat domisili', alamat)}${r('Sekolah asal', d.asal_sekolah)}
             ${r('Nama ayah / ibu', `${d.nama_ayah} / ${d.nama_ibu}`)}${r('WhatsApp / email', `+${normalWA(d.no_wa)} / ${(d.email || '').trim().toLowerCase()}`)}
-            ${r('Hafalan Al-Qur\'an', `${String(d.hafalan_juz || 0).replace('.', ',')} juz`)}</tbody>`, [34, 66])}
+            ${r('Hafalan Al-Qur\'an', teksHafalan(d))}</tbody>`, [34, 66])}
           <div style="height:6px"></div>
           ${berkasL.length ? t(`<thead><tr><th>No</th><th>Berkas yang diunggah</th><th>Status</th></tr></thead><tbody>
             ${berkasL.map((b, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(b.label)}</td><td>Menunggu verifikasi</td></tr>`).join('')}</tbody>`, [8, 62, 30]) : ''}
@@ -729,6 +831,7 @@
   };
 
   /* ---------- Bantu umum ---------- */
+  function juzAngka(v) { return parseFloat(String(v ?? '').replace(',', '.')); }
   function tsPanjang(ts) {
     if (!ts) return '–';
     const s = new Date(ts).toLocaleString('sv-SE', { timeZone: 'Asia/Makassar' });

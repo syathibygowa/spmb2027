@@ -840,7 +840,8 @@
           tempat_lahir: 'Kab. Gowa', tanggal_lahir: fmt.isoTgl(lahir), asal_provinsi: 'Sulawesi Selatan', asal_kabupaten: 'Kab. Gowa',
           alamat_jalan: 'Jl. Uji Coba No. 1', rt: '1', rw: '1', desa: 'Desa Uji', kecamatan: 'Kecamatan Uji', kabupaten: 'Kab. Gowa', provinsi: 'Sulawesi Selatan',
           kode_pos: '92111', asal_sekolah: 'SD Uji Coba', nama_ayah: 'Ayah Uji Coba', nama_ibu: 'Ibu Uji Coba', pekerjaan_ayah: 'Lainnya', pekerjaan_ibu: 'Lainnya',
-          email: S.user.email, no_wa: S.profil.no_wa || '6281234567890', sumber_info: 'Lainnya', berkas: ids } });
+          email: S.user.email, no_wa: S.profil.no_wa || '6281234567890', darurat_nama: 'Kerabat Uji Coba', darurat_hubungan: 'Paman',
+          darurat_no: '6285200000000', hafalan_juz: 1, sumber_info: ['Lainnya'], berkas: ids } });
         if (eKirim) throw eKirim;
         tanda(2, 'ok'); langkah = 3; tanda(3, 'jalan');
 

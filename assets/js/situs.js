@@ -1,5 +1,5 @@
 /* =====================================================================
-   SITUS PUBLIK SPMB (Fase 2)
+   SITUS PUBLIK SPMB (Fase 3)
    Kerangka (bilah atas, navigasi bawah HP, kaki, tombol WhatsApp
    melayang) dan isi halaman: Beranda, Profil, Berita, Kontak.
    Semua isi dibaca dari Supabase dan diatur di Dashboard > Konten Situs.
@@ -53,6 +53,42 @@
     let q = sb.from('berita').select(kolom).is('diarsipkan_pada', null);
     if (!S.pratinjau) q = q.eq('status', 'terbit').lte('terbit_pada', new Date().toISOString());
     return q;
+  }
+  // Fase 3: Biaya, Jadwal, dan Rekening dibaca dari data terstruktur (menu Pengaturan SPMB)
+  // lalu diubah ke bentuk yang sama dengan isi Konten Situs agar tampilannya tetap.
+  const wita = ts => { if (!ts) return { tgl: '', jam: '' }; const s = new Date(ts).toLocaleString('sv-SE', { timeZone: 'Asia/Makassar' }); return { tgl: s.slice(0, 10), jam: s.slice(11, 16).replace(':', '.') }; };
+  async function muatSpmb() {
+    const tampil = q => S.pratinjau ? q : q.eq('tampil', true);
+    const [b, g, r] = await Promise.all([
+      tampil(sb.from('rincian_biaya').select('*').is('diarsipkan_pada', null)).order('urutan').order('id'),
+      tampil(sb.from('gelombang').select('*').is('diarsipkan_pada', null)).order('urutan').order('id'),
+      tampil(sb.from('rekening').select('*').is('diarsipkan_pada', null)).order('urutan').order('id')
+    ]);
+    [b, g, r].forEach(h => { if (h.error) throw h.error; });
+    const namaGel = Object.fromEntries(g.data.map(x => [x.id, x.nama]));
+    // Gelombang acuan biaya: yang sedang dibuka, lalu yang berikutnya, lalu yang terakhir
+    const kini = Date.now(), jadi = g.data.filter(x => x.buka && x.tutup);
+    const acuan = jadi.find(x => x.formulir_dibuka && new Date(x.buka) <= kini && kini < new Date(x.tutup))
+      || jadi.filter(x => new Date(x.buka) > kini).sort((a, c) => new Date(a.buka) - new Date(c.buka))[0]
+      || jadi[jadi.length - 1] || g.data[0];
+    const biayaDipakai = b.data.filter(x => !x.gelombang_id || x.gelombang_id === acuan?.id);
+    S.biayaGel = b.data.some(x => x.gelombang_id) && acuan ? acuan.nama : '';
+    const TAHAP = { pendaftaran: 'Pendaftaran', daftar_ulang: 'Daftar ulang', bulanan: 'Bulanan', tahunan: 'Tahunan', lainnya: 'Lainnya' };
+    S.konten.biaya = biayaDipakai.map(x => ({ id: x.id, judul: x.komponen, isi: x.keterangan, tampil: x.tampil, data: {
+      tahap: TAHAP[x.tahap], jenjang: x.jenjang === 'semua' ? 'Semua jenjang' : x.jenjang,
+      bagian: { semua: 'Putra dan putri', putra: 'Putra', putri: 'Putri' }[x.bagian], nominal: x.nominal, wajib: x.wajib,
+      gelombang: x.gelombang_id ? (namaGel[x.gelombang_id] || '') : '' } }));
+    S.konten.jadwal = [];
+    g.data.forEach(x => {
+      const tambah = (judul, mulai, selesai, isi) => mulai && S.konten.jadwal.push({ id: `${x.id}-${S.konten.jadwal.length}`, judul, isi: isi || '', tampil: x.tampil, data: { gelombang: x.nama, mulai, selesai: selesai || mulai } });
+      const bu = wita(x.buka), tu = wita(x.tutup), pg = wita(x.pengumuman);
+      tambah('Pendaftaran online', bu.tgl, tu.tgl, x.tutup ? `Ditutup ${tanggalId(tu.tgl)} pukul ${tu.jam} WITA` : '');
+      tambah('Tes seleksi', x.tes_mulai, x.tes_selesai);
+      tambah('Pengumuman hasil seleksi', pg.tgl, '', pg.jam ? `Pukul ${pg.jam} WITA` : '');
+      tambah('Daftar ulang', x.daftar_ulang_mulai, x.daftar_ulang_selesai);
+      (x.kegiatan || []).forEach(k => tambah(k.judul, k.mulai, k.selesai, k.keterangan));
+    });
+    S.rekening = r.data.filter(x => x.peruntukan !== 'daftar_ulang');
   }
   const lencanaTersembunyi = x => S.pratinjau && x && x.tampil === false ? '<span class="lencana-sembunyi"><i class="ph-duotone ph-eye-slash"></i>Disembunyikan</span>' : '';
 
@@ -265,7 +301,11 @@
           <span class="muted"><i class="ph-duotone ph-info"></i> Angka di kanan judul = total biaya wajib</span></div>
         ${tab.map((j, i) => `<div class="biaya-kolom" data-panel-biaya="${esc(j)}" ${i ? 'hidden' : ''}>${panel(j)}</div>`).join('')}
       </div>
-      <p class="catatan-sek"><i class="ph-duotone ph-info"></i>Rincian dapat berubah. Informasi rekening pembayaran disampaikan saat pendaftaran.</p>`;
+      ${(S.rekening || []).length ? `<div class="rek-daftar">${S.rekening.map(r => `
+        <div class="rek-item${r.tampil === false ? ' redup' : ''}"><span class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-bank"></i></span>
+          <div><small>${esc(r.bank)}${r.bagian !== 'semua' ? ` · Santri ${r.bagian}` : ''}</small><b>${esc(r.nomor_rekening)}</b><span>a.n. ${esc(r.atas_nama)}</span>${r.keterangan ? `<em>${esc(r.keterangan)}</em>` : ''}</div>
+          <button type="button" class="icon-btn plain" data-salin="${esc(r.nomor_rekening.replace(/[^0-9]/g, ''))}" title="Salin nomor rekening" aria-label="Salin nomor rekening"><i class="ph-duotone ph-copy"></i></button></div>`).join('')}</div>` : ''}
+      <p class="catatan-sek"><i class="ph-duotone ph-info"></i>${S.biayaGel ? `Rincian berlaku untuk ${esc(S.biayaGel)}. ` : ''}Rincian dapat berubah. ${(S.rekening || []).length ? 'Transfer hanya ke rekening resmi di atas, lalu unggah buktinya saat mengisi formulir.' : 'Informasi rekening pembayaran disampaikan saat pendaftaran.'}</p>`;
     },
 
     jadwal: () => {
@@ -537,6 +577,12 @@
         root.querySelectorAll('[data-pilih-yt]').forEach(b => b.classList.toggle('aktif', b === pilih));
         return;
       }
+      const sl = e.target.closest('[data-salin]');
+      if (sl) {
+        const teks = sl.dataset.salin;
+        (navigator.clipboard?.writeText(teks) || Promise.reject()).then(() => toast('Nomor rekening disalin.'), () => toast('Nomor rekening: ' + teks, 'info', 6000));
+        return;
+      }
       const tb = e.target.closest('[data-biaya]');
       if (tb) {
         tb.parentNode.querySelectorAll('[data-biaya]').forEach(b => b.setAttribute('aria-selected', String(b === tb)));
@@ -802,9 +848,10 @@
     S.pratinjau = await cekPratinjau().catch(() => false);
     S.p = await muatPengaturan();
     S.ta = S.p.identitas?.tahun_ajaran || '2027/2028';
-    const jenis = { beranda: ['keunggulan', 'jaminan', 'program', 'prestasi', 'flyer', 'alur', 'testimoni', 'galeri', 'faq', 'video', 'kontak_panitia', 'biaya', 'jadwal'],
+    const jenis = { beranda: ['keunggulan', 'jaminan', 'program', 'prestasi', 'flyer', 'alur', 'testimoni', 'galeri', 'faq', 'video', 'kontak_panitia'],
       profil: ['pimpinan', 'kontak_panitia'], berita: ['kontak_panitia'], kontak: ['kontak_panitia', 'faq'] }[HAL] || ['kontak_panitia'];
     const tugas = [muatKonten(jenis)];
+    if (HAL === 'beranda') tugas.push(muatSpmb());
     if (HAL === 'beranda') tugas.push(queryBerita().order('terbit_pada', { ascending: false }).limit(3).then(({ data }) => { S.beritaTerbaru = data || []; }));
     await Promise.all(tugas);
     pasangKerangka();

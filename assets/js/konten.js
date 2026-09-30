@@ -326,6 +326,8 @@
       ['kontak_panitia', 'Kontak Panitia', MODUL.kontak_panitia.ikon, MODUL.kontak_panitia.tone], ['berita', 'Berita', 'ph-newspaper', 'var(--c3)']]],
     ['Penyimpanan', [['berkas', 'Berkas Unggahan', 'ph-folder-open', 'var(--c8)']]]
   ];
+  // Sejak Fase 3, Biaya dan Jadwal diambil dari data terstruktur di menu Pengaturan SPMB
+  const PINDAH = { biaya: '#/spmb?tab=biaya', jadwal: '#/spmb?tab=gelombang' };
   const NAMA_MODUL = { beranda: 'Beranda', profil: 'Profil Lembaga', berita: 'Berita', berkas: 'Berkas Unggahan', identitas: 'Identitas', kop: 'Kop surat', brosur: 'Brosur', kontak: 'Kontak', umum: 'Umum' };
   Object.entries(MODUL).forEach(([k, m]) => NAMA_MODUL[k] = m.label);
   window.SPMB_UI.NAMA_MODUL = NAMA_MODUL;
@@ -339,7 +341,7 @@
     k.innerHTML = `
       <div class="modgrid" role="tablist">
         ${KELOMPOK.map(([g, daftar]) => `<div class="modgrup"><h5>${g}</h5><div class="modbtns">
-          ${daftar.map(([id, l, ic, t]) => `<a href="#/konten?m=${id}" role="tab" aria-selected="${id === m}" style="--tone:${t}"><span class="ic-box"><i class="ph-duotone ${ic}"></i></span><span>${l}</span></a>`).join('')}
+          ${daftar.map(([id, l, ic, t]) => `<a href="${PINDAH[id] || `#/konten?m=${id}`}" role="tab" aria-selected="${id === m}" style="--tone:${t}"${PINDAH[id] ? ' title="Dikelola di menu Pengaturan SPMB"' : ''}><span class="ic-box"><i class="ph-duotone ${ic}"></i></span><span>${l}</span>${PINDAH[id] ? '<i class="ph-duotone ph-arrow-square-out" style="margin-left:auto;font-size:14px;opacity:.7"></i>' : ''}</a>`).join('')}
         </div></div>`).join('')}
       </div>
       <div id="isiModul"></div>`;
@@ -351,6 +353,7 @@
     if (m === 'profil') return halProfil(el, ctx);
     if (m === 'berita') return halBerita(el, ctx);
     if (m === 'berkas') return halBerkas(el, ctx);
+    if (PINDAH[m]) { location.replace(PINDAH[m]); return; }
     if (MODUL[m]) return halModul(el, m, ctx);
     el.innerHTML = '<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>Modul tidak dikenal.</div></div>';
   };
@@ -561,8 +564,8 @@
     keunggulan: 'Tampil sebagai slider bergambar yang bergulir otomatis (4 kartu di laptop, 1 kartu di HP).',
     video: 'Video utama berputar otomatis tanpa suara saat bagian ini terlihat di layar.',
     statistik: 'Berisi angka pendaftar langsung. Aktif setelah Fase 3 (pendaftaran online).',
-    biaya: 'Isi sementara dari modul Biaya, tampil dalam satu kartu per jenjang. Tampil "Segera diumumkan" bila kosong.',
-    jadwal: 'Isi sementara dari modul Jadwal, tampil sebagai linimasa mendatar per gelombang. Status dihitung otomatis dari tanggal.',
+    biaya: 'Diambil dari Pengaturan SPMB > Rincian Biaya dan Rekening, tampil dalam satu kartu per jenjang. Tampil "Segera diumumkan" bila kosong.',
+    jadwal: 'Diambil dari Pengaturan SPMB > Gelombang dan Kuota, tampil sebagai linimasa mendatar per gelombang. Status dihitung otomatis dari tanggal.',
     berita: 'Menampilkan 3 berita terbaru yang sudah terbit.',
     kontak: 'Alamat, telepon, media sosial, dan peta dari Pengaturan > Identitas, ditambah Kontak Panitia.'
   };
@@ -623,7 +626,7 @@
             ${CATATAN_BAGIAN[s.kunci] ? `<span class="catatan"><i class="ph-duotone ph-info"></i> ${CATATAN_BAGIAN[s.kunci]}</span>` : ''}
           </div>
           <div class="aksi">
-            ${MODUL_BAGIAN[s.kunci] ? `<a class="icon-btn plain" href="#/konten?m=${MODUL_BAGIAN[s.kunci]}" title="Kelola isi" aria-label="Kelola isi"><i class="ph-duotone ph-pencil-simple" style="color:var(--c1)"></i></a>` : ''}
+            ${MODUL_BAGIAN[s.kunci] ? `<a class="icon-btn plain" href="${PINDAH[s.kunci] || `#/konten?m=${MODUL_BAGIAN[s.kunci]}`}" title="Kelola isi" aria-label="Kelola isi"><i class="ph-duotone ph-pencil-simple" style="color:var(--c1)"></i></a>` : ''}
             ${tombolUrut}
             <label class="switch" title="Tampilkan"><input type="checkbox" data-tampil="${s.kunci}" ${s.tampil ? 'checked' : ''}><span></span></label>
           </div>

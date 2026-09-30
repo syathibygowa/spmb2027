@@ -1106,3 +1106,104 @@ img.avatar{object-fit:cover}
   .sisi-berita{grid-template-columns:minmax(0,1fr)}
   .baca-tata{padding-top:20px}
 }
+
+/* =====================================================================
+   FASE 3 · PENGATURAN SPMB (dashboard) dan rekening (situs)
+   ===================================================================== */
+.gel-daftar{display:grid;gap:14px}
+.gel-kartu{padding:16px 18px}
+.gel-kartu.redup .gel-jadwal,.gel-kartu.redup .kuota-kisi{opacity:.55}
+.gel-kartu.diseret{opacity:.45}
+.gel-kepala{display:flex;align-items:center;gap:12px}
+.gel-kepala .pegangan{font-size:20px;color:var(--faint);cursor:grab;flex:none}
+.gel-kepala .teks{flex:1;min-width:0}
+.gel-kepala .teks>b{display:block;font-size:16px}
+.gel-kepala .lencana{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.gel-kepala .aksi{display:flex;align-items:center;gap:2px;flex:none}
+.gel-saklar{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--muted);margin-right:6px;cursor:pointer}
+.gel-jadwal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.gel-jadwal>div{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center;background:var(--surface-2);border-radius:10px;padding:9px 11px}
+.gel-jadwal i{grid-row:span 2;font-size:20px;color:var(--tone)}
+.gel-jadwal span{font-size:11.5px;color:var(--muted);font-weight:700}
+.gel-jadwal b{font-size:12.5px;font-weight:600;line-height:1.35}
+.kuota-kisi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
+.kuota-sel{border:1px solid var(--border);border-left:4px solid var(--tone);border-radius:10px;padding:8px 11px;display:grid;gap:2px}
+.kuota-sel>span{font-size:11.5px;font-weight:700;color:var(--tone)}
+.kuota-sel>b{font-size:19px;line-height:1.2}
+.kuota-sel>b small{font-size:12px;color:var(--muted);font-weight:600}
+.kuota-sel .bar{display:block;height:5px;border-radius:9px;background:var(--surface-3);overflow:hidden;margin:3px 0 1px}
+.kuota-sel .bar i{display:block;height:100%;border-radius:9px}
+.kuota-sel em{font-style:normal;font-size:11.5px;color:var(--muted)}
+.sub-form{display:flex;align-items:center;gap:8px;font-size:14px;margin:14px 0 10px;padding-top:12px;border-top:1px dashed var(--border)}
+.sub-form i{font-size:19px}
+.pasangan{display:flex;gap:8px}
+.pasangan .input{min-width:0}
+.pasangan .input[type=time]{max-width:130px}
+.kuota-isian{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 12px}
+.kegiatan-baris{display:grid;grid-template-columns:minmax(0,2fr) 150px 150px minmax(0,2fr) auto;gap:8px;align-items:center;margin-bottom:8px}
+.baris-konten .nominal{font-size:14px;white-space:nowrap;flex:none;margin-right:6px}
+.berkas-atur{display:grid;grid-template-columns:auto minmax(0,1fr) 160px auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border)}
+.berkas-atur:first-child{border-top:0}
+.berkas-atur .ic-box{width:36px;height:36px;font-size:19px}
+.token-baris{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.chip-token{border:1px dashed var(--border);background:var(--surface-2);color:var(--text);border-radius:8px;padding:3px 8px;font:600 12px ui-monospace,Menlo,Consolas,monospace;cursor:pointer}
+.chip-token:hover{border-color:var(--primary);color:var(--primary)}
+.nomor-contoh{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.nomor-contoh>div{background:var(--surface-2);border-radius:10px;padding:8px 10px}
+.nomor-contoh span{display:block;font-size:11.5px;color:var(--muted);font-weight:700}
+.nomor-contoh code{font-size:13.5px;font-weight:700;color:var(--primary);word-break:break-all}
+.bilah-simpan{position:sticky;bottom:12px;display:flex;justify-content:flex-end;margin-top:4px;z-index:5;pointer-events:none}
+.bilah-simpan .btn{pointer-events:auto;box-shadow:var(--shadow-lg,0 6px 20px rgba(0,0,0,.18))}
+.wa-templat{padding:0;margin-bottom:12px}
+.wa-templat>summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer}
+.wa-templat>summary::-webkit-details-marker{display:none}
+.wa-templat>summary .teks{flex:1;min-width:0}
+.wa-templat>summary .teks b{display:block;font-size:14.5px}
+.wa-templat>summary .teks span{display:block;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-templat>summary .panah{font-size:20px;color:var(--muted);transition:transform .2s}
+.wa-templat[open]>summary .panah{transform:rotate(180deg)}
+.wa-templat>.grid-2{padding:0 18px 16px}
+.wa-layar{background:#e7ddd3;border-radius:14px;padding:14px;min-height:120px}
+.wa-gelembung{background:#dcf8c6;color:#111b21;border-radius:10px 10px 10px 2px;padding:9px 11px;font-size:13.5px;line-height:1.5;box-shadow:0 1px 1px rgba(0,0,0,.12);max-width:100%;overflow-wrap:anywhere}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wa-layar{background:#0b141a}:root:not([data-theme="light"]) .wa-gelembung{background:#005c4b;color:#e9edef}}
+:root[data-theme="dark"] .wa-layar{background:#0b141a}
+:root[data-theme="dark"] .wa-gelembung{background:#005c4b;color:#e9edef}
+@media (max-width:1024px){
+  .gel-jadwal,.kuota-kisi,.kuota-isian{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kegiatan-baris{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;padding:10px;border:1px solid var(--border);border-radius:12px}
+  .kegiatan-baris [data-kg=judul],.kegiatan-baris [data-kg=keterangan]{grid-column:1/3}
+  .kegiatan-baris [data-hapus-kg]{grid-row:1;grid-column:3}
+}
+@media (max-width:720px){
+  .gel-kartu{padding:14px}
+  .gel-kepala{flex-wrap:wrap}
+  .gel-kepala .aksi{width:100%;justify-content:flex-end;border-top:1px dashed var(--border);padding-top:6px}
+  .gel-jadwal{grid-template-columns:minmax(0,1fr)}
+  .pasangan .input[type=time]{max-width:110px}
+  .berkas-atur{grid-template-columns:auto minmax(0,1fr) auto;row-gap:6px}
+  .berkas-atur select{grid-column:2/4}
+  .berkas-atur .check{grid-column:2}
+  .baris-konten .nominal{font-size:13px}
+  .nomor-contoh{grid-template-columns:minmax(0,1fr)}
+}
+
+/* Rekening di bagian Biaya halaman depan */
+.rek-daftar{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
+.rek-item{display:flex;align-items:flex-start;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 14px 14px 16px}
+.rek-item.redup{opacity:.55}
+.rek-item>div{flex:1;min-width:0}
+.rek-item small{display:block;font-size:12px;color:var(--muted);font-weight:700}
+.rek-item b{display:block;font-size:18px;letter-spacing:.03em;font-variant-numeric:tabular-nums}
+.rek-item span{display:block;font-size:13px}
+.rek-item em{display:block;font-style:normal;font-size:12px;color:var(--muted);margin-top:4px}
+#fForm>.card,#fForm>.grid-2,#fWA>.card{margin-bottom:16px}
+#fForm>.grid-2>.card{margin-bottom:0}
+@media (max-width:720px){#fForm>.grid-2{gap:16px}}
+.ringkas-biaya .tbl td,.ringkas-biaya .tbl th{white-space:nowrap}
+@media (max-width:720px){
+  .ringkas-biaya .card-head{flex-wrap:wrap}
+  .ringkas-biaya .card-head .select{width:100%!important}
+  .pasangan .input[type=time]{max-width:none;flex:0 0 44%}
+}
+.rek-item .ic-box{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:23px}
+.rek-item .ic-box i{font-size:23px;line-height:1}

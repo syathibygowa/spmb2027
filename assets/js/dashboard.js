@@ -1,7 +1,7 @@
 /* =====================================================================
-   DASHBOARD PANITIA SPMB (Fase 2)
-   Menu: Beranda, Notifikasi, Konten Situs, Pengguna, Pengaturan, Log Aktivitas, Profil
-   Halaman Konten Situs ada di berkas konten.js
+   DASHBOARD PANITIA SPMB (Fase 3)
+   Menu: Beranda, Notifikasi, Konten Situs, Pengaturan SPMB, Pengguna, Pengaturan, Log Aktivitas, Profil
+   Halaman Konten Situs ada di berkas konten.js, Pengaturan SPMB di spmb.js
    ===================================================================== */
 (function () {
   'use strict';
@@ -23,6 +23,7 @@
     { id: 'beranda',    label: 'Beranda',       ikon: 'ph-squares-four',            tone: 'var(--c1)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Ringkasan dan statistik langsung' },
     { id: 'notifikasi', label: 'Notifikasi',    ikon: 'ph-bell-ringing',            tone: 'var(--c3)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Pemberitahuan untuk akun Anda' },
     { id: 'konten',     label: 'Konten Situs',  ikon: 'ph-browsers',                tone: 'var(--c7)', peran: ['superadmin'], sub: 'Isi landing page, profil, berita, dan berkas' },
+    { id: 'spmb',       label: 'Pengaturan SPMB', ikon: 'ph-flag-banner',          tone: 'var(--c3)', peran: ['superadmin'], sub: 'Gelombang, kuota, biaya, rekening, formulir, dan templat WhatsApp' },
     { id: 'pengguna',   label: 'Pengguna',      ikon: 'ph-users-three',             tone: 'var(--c2)', peran: ['superadmin'], sub: 'Akun Admin dan Penguji' },
     { id: 'pengaturan', label: 'Pengaturan',    ikon: 'ph-sliders-horizontal',      tone: 'var(--c5)', peran: ['superadmin'], sub: 'Identitas lembaga, kop surat, Ketua Panitia, integrasi' },
     { id: 'log',        label: 'Log Aktivitas', ikon: 'ph-clock-counter-clockwise', tone: 'var(--c6)', peran: ['superadmin'], sub: 'Riwayat perubahan penting' },
@@ -181,6 +182,8 @@
             <a href="#/notifikasi"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-bell-ringing"></i></span>Notifikasi</a>
             ${isSuper ? `<a href="#/konten"><span class="ic-box" style="--tone:var(--c7);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-browsers"></i></span>Konten situs</a>
             <a href="#/konten?m=berita"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-line"></i></span>Tulis berita</a>
+            <a href="#/spmb?tab=gelombang"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-flag-banner"></i></span>Gelombang dan kuota</a>
+            <a href="#/spmb?tab=biaya"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-wallet"></i></span>Rincian biaya</a>
             <a href="#/pengguna"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-user-plus"></i></span>Tambah pengguna</a>
             <a href="#/pengaturan"><span class="ic-box" style="--tone:var(--c5);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-identification-card"></i></span>Kop surat</a>
             <a href="#/log"><span class="ic-box" style="--tone:var(--c6);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-clock-counter-clockwise"></i></span>Log aktivitas</a>` : ''}
@@ -191,7 +194,7 @@
         <div class="card">
           <div class="card-head"><div class="ic-box" style="--tone:var(--c6)"><i class="ph-duotone ph-rocket-launch"></i></div><div><h3>Tahap pengembangan</h3><p>Menu baru muncul sesuai fase</p></div></div>
           <ul class="roadmap-mini">
-            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'done'], ['Landing page dan konten situs', 'on'], ['Pendaftaran online', ''], ['Seleksi dan pengumuman', ''], ['Daftar ulang', ''], ['Laporan dan cadangan', '']]
+            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'done'], ['Landing page dan konten situs', 'done'], ['Pendaftaran online', 'on'], ['Seleksi dan pengumuman', ''], ['Daftar ulang', ''], ['Laporan dan cadangan', '']]
               .map(([t, s], i) => `<li class="${s}"><span class="n">${s === 'done' ? '✓' : i}</span>Fase ${i} · ${t}${s === 'on' ? ' <span class="pill" style="--tone:var(--c1);margin-left:auto">Sedang berjalan</span>' : ''}</li>`).join('')}
           </ul>
         </div>
@@ -230,12 +233,21 @@
     // Yang perlu dilengkapi Superadmin
     if (isSuper) {
       const id = S.pengaturan.identitas || {}, kop = S.pengaturan.kop_surat || {}, kp = S.pengaturan.ketua_panitia || {};
-      const { count: jmlAdmin } = await sb.from('profil_pengguna').select('id', { count: 'exact', head: true }).eq('peran', 'admin').eq('aktif', true);
+      const hitung = q => q.then(r => r.count || 0, () => 0);
+      const [jmlAdmin, jmlGel, jmlBiaya, jmlRek] = await Promise.all([
+        hitung(sb.from('profil_pengguna').select('id', { count: 'exact', head: true }).eq('peran', 'admin').eq('aktif', true)),
+        hitung(sb.from('gelombang').select('id', { count: 'exact', head: true }).is('diarsipkan_pada', null).not('buka', 'is', null)),
+        hitung(sb.from('rincian_biaya').select('id', { count: 'exact', head: true }).is('diarsipkan_pada', null).eq('tahap', 'pendaftaran')),
+        hitung(sb.from('rekening').select('id', { count: 'exact', head: true }).is('diarsipkan_pada', null))
+      ]);
       const tugas = [
         [!!id.alamat && !!id.telepon, 'Lengkapi alamat dan telepon lembaga', '#/pengaturan?tab=identitas'],
         [!!id.logo, 'Unggah logo pondok (logo situs, ikon tab, dan kop surat)', '#/pengaturan?tab=identitas'],
         [(jmlAdmin || 0) > 0, 'Tambahkan akun Admin panitia', '#/pengguna'],
-        [!!kp.nama, 'Tunjuk Ketua Panitia (penanda tangan dokumen)', '#/pengaturan?tab=ketua']
+        [!!kp.nama, 'Tunjuk Ketua Panitia (penanda tangan dokumen)', '#/pengaturan?tab=ketua'],
+        [jmlGel > 0, 'Atur gelombang: jadwal buka–tutup pendaftaran dan kuota', '#/spmb?tab=gelombang'],
+        [jmlBiaya > 0, 'Isi rincian biaya tahap Pendaftaran', '#/spmb?tab=biaya'],
+        [jmlRek > 0, 'Tambahkan rekening pembayaran', '#/spmb?tab=rekening']
       ];
       const sisa = tugas.filter(t => !t[0]);
       if (sisa.length) $('#lengkapi').innerHTML = `
@@ -371,6 +383,11 @@
      KONTEN SITUS (Superadmin) · isi di konten.js
      ================================================================= */
   HALAMAN.konten = k => window.SPMB_MODUL.konten(k, { S, setFab, simpanPengaturan });
+
+  /* =================================================================
+     PENGATURAN SPMB (Superadmin) · isi di spmb.js
+     ================================================================= */
+  HALAMAN.spmb = k => window.SPMB_MODUL.spmb(k, { S, setFab, simpanPengaturan });
 
   /* =================================================================
      PENGGUNA (Superadmin)

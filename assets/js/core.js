@@ -431,13 +431,32 @@
     const p = await muatPengaturan().catch(() => ({}));
     return buatPdfHtml(htmlDokumen(opsi, p), { judul: opsi.judul + (opsi.nomor ? ' ' + opsi.nomor : '') });
   }
-  async function buatPdfBanyak(daftarOpsi, judul) {
+  // Banyak dokumen (mis. SKL satu angkatan): dirender bertahap per 6 dokumen agar kanvas tidak melampaui batas peramban
+  async function buatPdfBanyak(daftarOpsi, judul, kemajuan) {
     const p = await muatPengaturan().catch(() => ({}));
-    return buatPdfHtml(daftarOpsi.map((o, i) => (i ? '<div class="halaman-baru"></div>' : '') + htmlDokumen(o, p)).join(''), { judul });
+    await siapkanPustakaPdf();
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: [215.9, 330.2], orientation: 'portrait', compress: true });
+    let hal = 0;
+    for (let i = 0; i < daftarOpsi.length; i += 6) {
+      const bagian = daftarOpsi.slice(i, i + 6);
+      hal = await renderKePdf(pdf, bagian.map((o, j) => (j ? '<div class="halaman-baru"></div>' : '') + htmlDokumen(o, p)).join(''), hal);
+      if (kemajuan) kemajuan(Math.min(daftarOpsi.length, i + 6), daftarOpsi.length);
+    }
+    pdf.setProperties({ title: judul || 'Dokumen SPMB', creator: 'Sistem SPMB ' + (p.identitas?.nama_singkat || '') });
+    return pdf.output('datauristring').replace(/^data:application\/pdf;[^,]*,/, 'data:application/pdf;base64,');
   }
   // PDF F4 dari HTML apa pun. .halaman-baru memaksa halaman baru; .kartu-tes dan baris tabel menjadi titik potong aman.
   async function buatPdfHtml(html, { judul = 'Dokumen SPMB' } = {}) {
     const [p] = await Promise.all([muatPengaturan().catch(() => ({})), siapkanPustakaPdf()]);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: [215.9, 330.2], orientation: 'portrait', compress: true });
+    await renderKePdf(pdf, html, 0);
+    pdf.setProperties({ title: judul, creator: 'Sistem SPMB ' + (p.identitas?.nama_singkat || '') });
+    return pdf.output('datauristring').replace(/^data:application\/pdf;[^,]*,/, 'data:application/pdf;base64,');
+  }
+  // Memotret html dan menambahkannya ke pdf mulai halaman ke-(hal+1); mengembalikan jumlah halaman terpakai
+  async function renderKePdf(pdf, html, hal) {
     const kanvas = document.createElement('div');
     kanvas.className = 'pdf-kanvas';
     kanvas.innerHTML = html;
@@ -453,13 +472,12 @@
       // Titik potong yang aman: bagian bawah baris tabel, paragraf, dan blok
       const atas = kanvas.getBoundingClientRect().top;
       const aman = [...kanvas.querySelectorAll('tr, p, .doc-meta, .doc-no, .doc-title, .kop-preview, .sign, .foot, table, .catatan-kotak, div[style*="height"], .kartu-tes, .kt-potong, .doc')]
+        .filter(el => !el.closest('thead') && !el.classList.contains('jangan-putus'))   // jangan memotong tepat sesudah judul/kepala tabel
         .map(el => el.getBoundingClientRect().bottom - atas).filter(y => y > 0).sort((a, b) => a - b);
       const paksa = [...kanvas.querySelectorAll('.halaman-baru')].map(el => el.getBoundingClientRect().top - atas).sort((a, b) => a - b);
       const pxPerMm = kanvas.offsetWidth / 175.9;
       const tinggiHal = 290.2 * pxPerMm, total = kanvas.scrollHeight;
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ unit: 'mm', format: [215.9, 330.2], orientation: 'portrait', compress: true });
-      let mulai = 0, hal = 0;
+      let mulai = 0;
       while (mulai < total - 1) {
         let akhir = Math.min(total, mulai + tinggiHal);
         const henti = paksa.find(y => y > mulai + 1 && y < akhir);
@@ -481,8 +499,7 @@
         pdf.addImage(potong.toDataURL('image/png'), 'PNG', 20 + 175.9 * (1 - skl) / 2, 20, 175.9 * skl, tMm * skl, undefined, 'FAST');
         mulai = akhir;
       }
-      pdf.setProperties({ title: judul, creator: 'Sistem SPMB ' + (p.identitas?.nama_singkat || '') });
-      return pdf.output('datauristring').replace(/^data:application\/pdf;[^,]*,/, 'data:application/pdf;base64,');
+      return hal;
     } finally { kanvas.remove(); }
   }
   async function unduhPdfDokumen(opsi, namaFile) {
@@ -555,6 +572,46 @@
           ${urut.map((j, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(label[j] || j)}</td><td>Menunggu verifikasi</td></tr>`).join('')}</tbody>`, [8, 62, 30]) : ''}
         <p style="font-size:9pt;margin:6px 0 0">Catatan: simpan bukti ini. Status dan jadwal tes dapat dilihat di halaman Cek Status situs SPMB dengan nomor registrasi dan tanggal lahir santri.</p>`,
       ttd: [{ jabatan: 'Calon santri / wali,', nama: p.nama_lengkap }, { jabatan: 'Ketua Panitia SPMB,', nama: kp.nama, nip: kp.niy ? 'NIY. ' + kp.niy : '' }]
+    };
+  }
+
+  /* ---------- Surat Keterangan Lulus (Fase 4 · Langkah 5) ----------
+     d: data dari hasil_seleksi().skl atau data_skl_massal(); QR berisi tautan validasi.
+     Panggil await siapkanQr() lebih dulu agar QR tergambar. */
+  const siapkanQr = () => muatSkrip('assets/vendor/qrcode/qrcode.min.js').catch(() => null);
+  function qrDataURL(teks) {
+    if (!window.qrcode) return '';
+    try { const q = window.qrcode(0, 'M'); q.addData(teks); q.make(); return q.createDataURL(4, 0); } catch (e) { return ''; }
+  }
+  const alamatSitusUmum = () => (CFG.alamatSitus || location.href.replace(/\/[^/]*$/, '')).replace(/\/$/, '');
+  function tautanValidasiSkl(kode) { return `${alamatSitusUmum()}/pengumuman.html?v=${encodeURIComponent(kode || '')}`; }
+  function dokumenSKL(d, peng) {
+    const id_ = peng.identitas || {}, ta = id_.tahun_ajaran || '', pg = peng.pengumuman || {};
+    const tglI = iso => iso ? fmt.tglPanjang(new Date(String(iso).slice(0, 10) + 'T00:00:00')) : '.................';
+    const bag = d.bagian === 'putra' ? 'Putra' : 'Putri';
+    const du = d.daftar_ulang_mulai ? (d.daftar_ulang_selesai && d.daftar_ulang_selesai !== d.daftar_ulang_mulai ? `${tglI(d.daftar_ulang_mulai)} sampai dengan ${tglI(d.daftar_ulang_selesai)}` : tglI(d.daftar_ulang_mulai)) : 'waktu yang akan diumumkan panitia';
+    const syarat = (Array.isArray(pg.syarat_daftar_ulang) ? pg.syarat_daftar_ulang : String(pg.syarat_daftar_ulang || '').split('\n')).map(x => String(x).trim()).filter(Boolean);
+    const baris = (a, b) => `<tr><td>${a}</td><td>:</td><td>${esc(b == null || b === '' ? '–' : String(b))}</td></tr>`;
+    const url = tautanValidasiSkl(d.kode_skl), qr = d.kode_skl ? qrDataURL(url) : '';
+    return {
+      judul: 'Surat Keterangan Lulus Seleksi', nomor: d.nomor_skl || '',
+      meta: d.uji ? '<b>DATA UJI COBA · TIDAK BERLAKU</b>' : '',
+      isi: `<p style="text-align:justify;line-height:1.55;margin:4px 0 6px">Yang bertanda tangan di bawah ini, Ketua Panitia Penerimaan Murid Baru ${esc(id_.nama_lembaga || '')} Tahun Ajaran ${esc(ta)}, menerangkan bahwa:</p>
+        <table class="sk-tabel skl-data"><colgroup><col style="width:30%"><col style="width:3%"><col></colgroup><tbody>
+          ${baris('Nama lengkap', d.nama_lengkap)}${baris('Nomor registrasi', d.no_registrasi)}${d.nisn ? baris('NISN', d.nisn) : ''}
+          ${baris('Tempat, tanggal lahir', `${d.tempat_lahir || '–'}, ${d.tanggal_lahir ? tglI(d.tanggal_lahir) : '–'}`)}
+          ${baris('Jenjang / bagian', `${d.jenjang} ${bag}`)}${baris('Sekolah asal', d.asal_sekolah)}
+          ${baris('Nama orang tua', [d.nama_ayah, d.nama_ibu].filter(Boolean).join(' / '))}
+        </tbody></table>
+        <p style="text-align:justify;line-height:1.55;margin:8px 0 6px">berdasarkan hasil seleksi${d.nomor_sk ? ` dan Keputusan Ketua Panitia Nomor ${esc(d.nomor_sk)} tanggal ${tglI(d.tanggal_sk)}` : ''}, dinyatakan:</p>
+        <div class="skl-lulus">LULUS</div>
+        <p style="text-align:justify;line-height:1.55;margin:6px 0">sebagai calon santri baru ${esc(d.jenjang)} ${bag} ${esc(id_.nama_lembaga || '')} Tahun Ajaran ${esc(ta)} (${esc(d.gelombang || '')}).</p>
+        <p style="text-align:justify;line-height:1.55;margin:6px 0 2px">Calon santri wajib melakukan daftar ulang pada <b>${esc(du)}</b>${syarat.length ? ', dengan ketentuan:' : '.'}</p>
+        ${syarat.length ? `<ol class="skl-syarat">${syarat.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
+        <p style="text-align:justify;line-height:1.55;margin:4px 0">Calon santri yang tidak melakukan daftar ulang sampai batas waktu tersebut dianggap mengundurkan diri.${pg.catatan_skl ? ' ' + esc(pg.catatan_skl) : ''}</p>
+        <p style="text-align:justify;line-height:1.55;margin:4px 0 0">Demikian surat keterangan ini dibuat untuk dipergunakan sebagaimana mestinya.</p>
+        ${d.kode_skl ? `<div class="skl-validasi">${qr ? `<img src="${qr}" alt="QR validasi">` : ''}<div><b>Validasi keaslian</b><br>Pindai kode QR atau buka ${esc(url.replace(/^https?:\/\//, ''))}<br>Kode validasi: <b>${esc(d.kode_skl)}</b></div></div>` : ''}`,
+      ttd: penandaTangan('skl', peng, d.jenjang), tanggal: d.tanggal_sk || null
     };
   }
 
@@ -760,7 +817,7 @@
     sb, CFG, fmt, esc, inisial, toast, dialog, konfirmasi, pesanGalat,
     muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen, htmlDokumen, buatPdfDokumen, unduhPdfDokumen, dokumenBukti, grafik,
     cetakHtml, cetakBanyakDokumen, buatPdfHtml, buatPdfBanyak, penandaTangan,
-    isiTanggalBawaan, setTheme, getTheme, themeSegHTML,
+    isiTanggalBawaan, siapkanQr, qrDataURL, dokumenSKL, tautanValidasiSkl, setTheme, getTheme, themeSegHTML,
     alamatUnggah, kirimKeJembatan, kompresGambar, unggahBerkas, hapusBerkasDrive, gambar, youtubeId,
     unggahBerkasPendaftar, konfirmasiPendaftaran, lihatBerkasPendaftar, hapusBerkasPendaftar,
     ambilBuktiPdf, simpanPdf, unggahBerkasAdmin,

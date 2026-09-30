@@ -1873,3 +1873,82 @@ a.stat b{color:var(--tone)}
   .tbl-peringkat .aksi-sel .icon-btn{width:32px;height:32px}
   .klp-kepala .btn span{display:none}
 }
+/* Surat Keterangan Lulus */
+.skl-lulus{margin:6px auto 4px;width:46%;text-align:center;font-size:17pt;font-weight:800;letter-spacing:.35em;padding:5pt 0 5pt .35em;border:1.5pt solid #000}
+.skl-syarat{margin:2px 0 4px;padding-left:22pt;line-height:1.5}
+.skl-syarat li{margin:0 0 1pt}
+.skl-validasi{display:flex;align-items:center;gap:10pt;margin:10pt 0 0;padding:6pt 8pt;border:.5pt dashed #666;font-size:8.5pt;line-height:1.45}
+.skl-validasi img{width:22mm;height:22mm;image-rendering:pixelated;flex:none}
+.doc table.skl-data td{padding:1.5pt 3pt}
+/* Halaman Pengumuman */
+.pgm-wadah{max-width:980px;margin:0 auto;display:grid;gap:18px}
+.pgm-gel{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.pgm-kartu{border-top:4px solid var(--tone)}
+.pgm-kepala{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.pgm-kepala .ic-box,.pgm-verif .ic-box{background:color-mix(in srgb,var(--tone) 15%,transparent);color:var(--tone)}
+.pgm-kepala small,.pgm-verif small{color:var(--muted);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.pgm-kepala h3,.pgm-verif h3{margin:2px 0 0;font-size:18px}
+.pgm-ring{display:grid;gap:8px}
+.pgm-ring>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:12px;background:var(--surface-2)}
+.pgm-ring>div b{flex:1;min-width:110px}
+
+.pgm-verif{display:flex;gap:14px;align-items:flex-start;border:1.5px solid var(--tone);background:color-mix(in srgb,var(--tone) 6%,var(--surface))}
+.pgm-verif p{margin:6px 0 0;line-height:1.55}
+.pgm-hasil{text-align:center;border-top:5px solid var(--tone);position:relative;overflow:hidden}
+.pgm-hasil-ikon{width:76px;height:76px;margin:4px auto 8px;border-radius:24px;display:grid;place-items:center;font-size:40px;color:var(--tone);background:color-mix(in srgb,var(--tone) 15%,transparent)}
+.pgm-hasil.rayakan .pgm-hasil-ikon{animation:pgm-goyang 1.4s ease-in-out 2}
+.pgm-hasil.rayakan::before{content:"";position:absolute;inset:0 0 auto;height:120px;pointer-events:none;opacity:.55;
+  background:radial-gradient(circle at 12% 30%,var(--c3) 0 3px,transparent 4px),radial-gradient(circle at 25% 70%,var(--c5) 0 3px,transparent 4px),radial-gradient(circle at 80% 25%,var(--c4) 0 3px,transparent 4px),
+  radial-gradient(circle at 90% 65%,var(--c2) 0 3px,transparent 4px),radial-gradient(circle at 65% 15%,var(--c6) 0 2.5px,transparent 3.5px),radial-gradient(circle at 38% 20%,var(--c1) 0 2.5px,transparent 3.5px)}
+.pgm-hasil small{color:var(--muted)}
+.pgm-hasil h2{margin:4px 0 6px;font-size:30px;letter-spacing:.06em;color:var(--tone)}
+.pgm-hasil>p{max-width:560px;margin:8px auto 14px;line-height:1.6}
+.pgm-hasil .cek-data{text-align:left}
+.pgm-aksi{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.pgm-daftar h3{margin:0 0 12px}
+.pgm-daftar-alat{display:grid;gap:10px;margin-bottom:12px}
+.pgm-daftar td small{display:block}
+@keyframes pgm-goyang{0%,100%{transform:rotate(0)}25%{transform:rotate(-10deg) scale(1.06)}75%{transform:rotate(10deg) scale(1.06)}}
+@media (prefers-reduced-motion:reduce){.pgm-hasil.rayakan .pgm-hasil-ikon{animation:none}}
+@media (max-width:760px){.pgm-hasil h2{font-size:26px}.pgm-aksi .btn{flex:1 1 100%}}
+/* Menu Pengumuman (dashboard) */
+.pg-status{border-top:4px solid var(--tone);margin-bottom:16px}
+.pg-status-kepala{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pg-status-kepala .ic-box{background:color-mix(in srgb,var(--tone) 15%,transparent);color:var(--tone)}
+.pg-status-kepala small{color:var(--muted);font-weight:700;font-size:12px}
+.pg-status-kepala h3{margin:2px 0;font-size:18px}
+.pg-status-kepala .spacer{flex:1}
+.pg-langkah{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.pg-langkah li{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:12px;background:var(--surface-2);opacity:.75}
+.pg-langkah li.selesai,.pg-langkah li.berjalan{opacity:1}
+.pg-langkah .titik{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--muted);border:1.5px solid var(--border)}
+.pg-langkah li.selesai .titik{background:var(--ok);color:#fff;border-color:var(--ok)}
+.pg-langkah li.berjalan .titik{color:var(--c2);border-color:var(--c2)}
+.pg-langkah li.berjalan .titik i{animation:putar 1.6s linear infinite}
+.pg-langkah b{display:block;font-size:13.5px}
+.pg-langkah small{color:var(--muted);font-size:12px}
+.pg-kisi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.pg-aksi-kartu h3{margin:0 0 12px;font-size:16px;display:flex;align-items:center;gap:8px}
+.pg-aksi-kartu .btn.block{justify-content:flex-start;margin-bottom:8px;text-align:left}
+.pg-wa-btn .spacer{flex:1}
+.pg-periksa{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}
+.pg-periksa li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:var(--surface-2);line-height:1.5}
+.pg-periksa li i{font-size:20px;flex:none}
+.pg-periksa li.ok i{color:var(--ok)}
+.pg-periksa li.awas{background:color-mix(in srgb,var(--c6) 12%,var(--surface))}
+.pg-periksa li.awas i{color:var(--c6)}
+@keyframes putar{to{transform:rotate(360deg)}}
+@media (max-width:900px){.pg-langkah{grid-template-columns:repeat(2,minmax(0,1fr))}.pg-kisi{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:520px){.pg-langkah{grid-template-columns:minmax(0,1fr)}}
+.pg-kisi>.card{margin:0}
+@media (max-width:1440px) and (min-width:1025px){.situs-nav a{padding:8px 8px;font-size:13px;gap:5px}.situs-nav a i{font-size:16px}.situs-bar .brand-teks span{display:none}}
+@media (max-width:1260px) and (min-width:1025px){.situs-nav a i{display:none}.situs-nav a{padding:8px 7px}}
+/* Tombol di bawah hasil Cek Status / Pengumuman berada di latar biasa, bukan di hero */
+.cek-aksi .btn{background:var(--grad);color:#fff}
+.cek-aksi .btn.ghost{background:var(--surface-2);color:var(--text);border-color:var(--border)}
+.situs-nav a{white-space:nowrap}
+.pgm-wadah{max-width:760px}
+.pgm-gel{grid-template-columns:minmax(0,1fr)}
+.cek-ke-pgm{margin-top:14px}
+@media (max-width:1120px) and (min-width:1025px){.situs-nav a{padding:8px 5px;font-size:12.5px}.situs-bar .brand-teks b{font-size:13px}}
+.pg-aksi-kartu .btn.block{white-space:normal;height:auto;min-height:44px;padding-top:8px;padding-bottom:8px;line-height:1.35}

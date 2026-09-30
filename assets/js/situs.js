@@ -108,6 +108,7 @@
     ['jadwal', 'Jadwal', 'index.html#jadwal', 'ph-calendar-dots', 'var(--c2)'],
     ['berita', 'Berita', 'berita.html', 'ph-newspaper', 'var(--c5)'],
     ['cek-status', 'Cek Status', 'cek-status.html', 'ph-magnifying-glass', 'var(--c4)'],
+    ['pengumuman', 'Pengumuman', 'pengumuman.html', 'ph-megaphone', 'var(--c3)'],
     ['kontak', 'Kontak', 'kontak.html', 'ph-phone-call', 'var(--ok)']
   ];
 
@@ -124,7 +125,7 @@
           <div class="brand-teks"><b>${esc(nama)}</b><span>SPMB Tahun Ajaran ${esc(ta)}</span></div>
         </a>
         <nav class="situs-nav" aria-label="Menu utama">
-          ${NAV.map(([k, l, h, ic, t]) => `<a href="${h}" style="--tone:${t}" class="${k === HAL ? 'aktif' : ''}"><i class="ph-duotone ${ic}"></i>${l}</a>`).join('')}
+          ${NAV.filter(([k]) => k !== 'jadwal').map(([k, l, h, ic, t]) => `<a href="${h}" style="--tone:${t}" class="${k === HAL ? 'aktif' : ''}"><i class="ph-duotone ${ic}"></i>${l}</a>`).join('')}
         </nav>
         <div class="situs-aksi">
           <div class="hide-sm">${themeSegHTML}</div>
@@ -137,6 +138,7 @@
       ...['keunggulan', 'program', 'prestasi', 'flyer', 'biaya', 'jadwal', 'alur', 'galeri', 'faq']
         .map(k => [(S.p.beranda?.bagian || []).find(b => b.kunci === k)?.judul || k, `index.html#${idBagian(k)}`, IKON[k][0], IKON[k][1]]),
       ['Cek Status', 'cek-status.html', 'ph-magnifying-glass', 'var(--c4)'],
+      ['Pengumuman', 'pengumuman.html', 'ph-megaphone', 'var(--c3)'],
       ['Kontak dan Lokasi', 'kontak.html', 'ph-map-pin', 'var(--ok)'],
       ['Masuk Panitia', 'masuk.html', 'ph-sign-in', 'var(--c8)']
     ];
@@ -164,7 +166,7 @@
         <a href="profil.html" class="${HAL === 'profil' ? 'aktif' : ''}" style="--tone:var(--c1)"><span class="pill-ic"><i class="ph-duotone ph-identification-badge"></i></span>Profil</a>
         <a href="${tautanDaftar()}" class="daftar${HAL === 'daftar' ? ' aktif' : ''}"><span class="pill-ic"><i class="ph-duotone ph-note-pencil"></i></span>Daftar</a>
         <a href="berita.html" class="${HAL === 'berita' ? 'aktif' : ''}" style="--tone:var(--c5)"><span class="pill-ic"><i class="ph-duotone ph-newspaper"></i></span>Berita</a>
-        <button type="button" id="btnLainnya" class="${['kontak', 'cek-status'].includes(HAL) ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
+        <button type="button" id="btnLainnya" class="${['kontak', 'cek-status', 'pengumuman'].includes(HAL) ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
       </nav>
 
       <div class="lembar-back hidden" id="lembarLainnya">
@@ -513,8 +515,11 @@
         <h1>${esc(h.judul || 'Penerimaan Santri Baru')} <span class="ta">${esc(S.ta)}</span></h1>
         <p>${esc(h.subjudul || id.nama_lembaga || '')}</p>
         <div class="hero-actions">
-          <a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>${esc(h.tombol_utama || 'Daftar Sekarang')}</a>
-          <a class="btn ghost" href="cek-status.html"><i class="ph-duotone ph-magnifying-glass"></i>${esc(h.tombol_kedua || 'Cek Pengumuman')}</a>
+          ${(S.pgm || []).some(g => g.terbuka)
+            ? `<a class="btn" href="pengumuman.html"><i class="ph-duotone ph-megaphone"></i>Lihat Pengumuman Hasil Seleksi</a>
+               <a class="btn ghost" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>${esc(h.tombol_utama || 'Daftar Sekarang')}</a>`
+            : `<a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>${esc(h.tombol_utama || 'Daftar Sekarang')}</a>
+               <a class="btn ghost" href="pengumuman.html"><i class="ph-duotone ph-megaphone"></i>${esc(h.tombol_kedua || 'Cek Pengumuman')}</a>`}
         </div>
         ${adaHM ? `<div class="hitung" data-akhir="${akhir.toISOString()}"><small><i class="ph-duotone ph-hourglass-medium"></i>${esc(labelHM)}</small>
           <div>${['hari', 'jam', 'menit', 'detik'].map((u, i) => `${i ? '<em>:</em>' : ''}<span><b data-u="${u}">00</b>${u}</span>`).join('')}</div></div>` : ''}
@@ -893,6 +898,7 @@
       profil: ['pimpinan', 'kontak_panitia'], berita: ['kontak_panitia'], kontak: ['kontak_panitia', 'faq'] }[HAL] || ['kontak_panitia'];
     const tugas = [muatKonten(jenis)];
     if (HAL === 'beranda') tugas.push(muatSpmb());
+    if (HAL === 'beranda') tugas.push(sb.rpc('pengumuman_publik').then(({ data }) => { S.pgm = data || []; }, () => {}));
     if (HAL === 'beranda') tugas.push(sb.rpc('statistik_publik').then(({ data }) => { S.statPublik = data; }, () => {}));
     if (HAL === 'beranda') tugas.push(queryBerita().order('terbit_pada', { ascending: false }).limit(3).then(({ data }) => { S.beritaTerbaru = data || []; }));
     await Promise.all(tugas);

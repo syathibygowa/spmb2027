@@ -80,7 +80,7 @@
       `• ${(s.bidang || []).map(bidangL).join(', ')}: ${hariTglIso(s.tanggal)} pukul ${rentangJam(s)} WITA, ${s.mode === 'online' ? `daring melalui ${s.tempat || 'tautan berikut'}${s.tautan ? ' ' + s.tautan : ''}` : s.tempat || 'tempat menyusul'}`
     ).join('\n');
   }
-  Object.assign(UI, { teksJadwalTes, siapkanBidang });
+  Object.assign(UI, { teksJadwalTes, siapkanBidang, waBerurutan });
 
   const galat = err => {
     const m = String(err?.message || err || '');
@@ -239,19 +239,24 @@
   /* =================================================================
      WHATSAPP BERURUTAN (jadwal tes, pengingat tes)
      ================================================================= */
-  async function waBerurutan(daftar, awalTemplat, gelNama) {
+  // opsi.pilihan: daftar kunci templat (bawaan: jadwal/pengingat tes); opsi.gel: data gelombang (jadwal daftar ulang)
+  async function waBerurutan(daftar, awalTemplat, gelNama, opsi = {}) {
     if (!daftar.length) return toast('Tidak ada penerima.', 'warn');
     const peng = await muatPengaturan(true);
     const T = peng.templat_wa || {}, id_ = peng.identitas || {};
-    const pilihan = ['jadwal_tes', 'pengingat_tes'].filter(x => T[x]);
-    if (!pilihan.length) return toast('Templat WhatsApp Jadwal Tes belum ada. Periksa Pengaturan SPMB > Templat WhatsApp.', 'err');
+    const pilihan = (opsi.pilihan || ['jadwal_tes', 'pengingat_tes']).filter(x => T[x]);
+    if (!pilihan.length) return toast('Templat WhatsApp yang diperlukan belum ada. Periksa Pengaturan SPMB > Templat WhatsApp.', 'err');
+    const g = opsi.gel || {}, tglDu = iso => iso ? fmt.tglPanjang(dIso(iso)) : '';
+    const jadwalDu = g.daftar_ulang_mulai ? (g.daftar_ulang_selesai && g.daftar_ulang_selesai !== g.daftar_ulang_mulai ? `${tglDu(g.daftar_ulang_mulai)} s.d. ${tglDu(g.daftar_ulang_selesai)}` : tglDu(g.daftar_ulang_mulai)) : 'jadwal menyusul';
     const { data: log } = await sb.from('log_wa').select('pendaftar_id,templat,pada').in('pendaftar_id', daftar.map(x => x.p.id)).in('templat', pilihan).order('pada', { ascending: false });
     const terkirim = {}; (log || []).forEach(l => { const k = l.pendaftar_id + l.templat; if (!terkirim[k]) terkirim[k] = l.pada; });
     let i = 0, templat = pilihan.includes(awalTemplat) ? awalTemplat : pilihan[0], jml = 0;
     const situs = alamatSitus();
     const dataPesan = x => ({
       nama: x.p.nama_lengkap, no_registrasi: x.p.no_registrasi, jenjang: `${x.p.jenjang} ${bagianL(x.p.bagian)}`, gelombang: gelNama || '',
-      jadwal_tes: teksJadwalTes(x.sesi), tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
+      jadwal_tes: teksJadwalTes(x.sesi || []), tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
+      tautan_pengumuman: `${situs}/pengumuman.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
+      tautan_daftar_ulang: `${situs}/daftar-ulang.html?no=${encodeURIComponent(x.p.no_registrasi)}`, jadwal_daftar_ulang: jadwalDu,
       nama_lembaga: id_.nama_lembaga || '', tahun_ajaran: id_.tahun_ajaran || ''
     });
     // lompati yang sudah pernah dikirimi templat ini
@@ -295,7 +300,7 @@
       root.querySelector('#waBar').style.width = `${Math.round((i + 1) / daftar.length * 100)}%`;
       root.querySelector('#waPenerima').innerHTML = `<b>${esc(x.p.nama_lengkap)}</b> <span class="mono muted">${esc(x.p.no_registrasi)}</span>
         <div>${x.p.no_wa ? `<i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i> +${esc(x.p.no_wa)}` : '<span style="color:var(--danger)">Nomor WhatsApp kosong</span>'}
-        ${sudah ? pill('Sudah dikirim ' + fmt.tglJam(sudah), 'var(--ok)', 'ph-check') : ''}${!x.sesi.length ? pill('Belum dijadwalkan', 'var(--c7)', 'ph-warning') : ''}</div>`;
+        ${sudah ? pill('Sudah dikirim ' + fmt.tglJam(sudah), 'var(--ok)', 'ph-check') : ''}${templat.endsWith('_tes') && !(x.sesi || []).length ? pill('Belum dijadwalkan', 'var(--c7)', 'ph-warning') : ''}</div>`;
       const ta = root.querySelector('#waIsi');
       ta.value = UI.isiTemplat(T[templat]?.isi || '', dataPesan(x));
       root.querySelector('#waPrev').innerHTML = UI.formatWA(ta.value);
@@ -1118,7 +1123,7 @@
       judul: `Lampiran ${no}`, nomor: '',
       meta: `Keputusan Ketua Panitia Penerimaan Murid Baru Nomor ${esc(d.nomor_sk || '.................')} tanggal ${tglDok(tgl) === '.................' ? fmt.tglPanjang(new Date()) : tglDok(tgl)}<br><b>${esc(judul)}</b>${SEL.uji ? ' · <b>DATA UJI COBA</b>' : ''}`,
       isi: KELOMPOK.map(([j, b]) => { const rs = rows.filter(r => r.jenjang === j && r.bagian === b).sort((x, y) => (x.peringkat ?? 1e9) - (y.peringkat ?? 1e9));
-        return rs.length ? `<p style="font-weight:700;margin:10px 0 4px">${j} ${bagianL(b)} (${rs.length} orang)</p>
+        return rs.length ? `<p class="jangan-putus" style="font-weight:700;margin:10px 0 4px">${j} ${bagianL(b)} (${rs.length} orang)</p>
           <table><colgroup><col style="width:6%"><col style="width:40%"><col style="width:24%"><col style="width:30%"></colgroup>
           <thead><tr><th>No</th><th>Nama calon santri / No. registrasi</th><th>Asal daerah</th><th>Asal sekolah</th></tr></thead>
           <tbody>${rs.map((r, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(r.nama_lengkap)}<br><span style="font-size:8pt">${esc(r.no_registrasi)}</span></td><td>${esc(r.asal || '–')}</td><td>${esc(r.asal_sekolah || '–')}</td></tr>`).join('')}</tbody></table>` : ''; }).join(''),
@@ -1375,4 +1380,221 @@
     }
     tampilSesi();
   };
+
+  /* =================================================================
+     MENU PENGUMUMAN (Fase 4 · Langkah 5) · Superadmin menerbitkan,
+     Admin melihat, mencetak, dan mengirim WhatsApp hasil
+     ================================================================= */
+  window.SPMB_MODUL.pengumuman = async (k, api) => {
+    siapkanBidang(api.S.pengaturan);
+    api.setFab(null);
+    const gels = await muatGelombang();
+    if (!gels.length) { k.innerHTML = '<div class="card"><div class="empty"><i class="ph-duotone ph-flag-banner"></i><b>Belum ada gelombang</b></div></div>'; return; }
+    const isSuper = api.S.profil.peran === 'superadmin';
+    let g = null, data = [], waLog = {};
+    k.innerHTML = `
+      <div class="page-head">
+        <select class="select" id="pgGel" aria-label="Gelombang" style="max-width:240px">${opsiGel(gels)}</select>
+        <label class="check uji-saklar"><input type="checkbox" id="pgUji" ${SEL.uji ? 'checked' : ''}>Data uji</label>
+        <div class="spacer"></div>
+        <a class="btn sm ghost" href="pengumuman.html" target="_blank" rel="noopener"><i class="ph-duotone ph-arrow-square-out" style="color:var(--c1)"></i>Halaman publik</a>
+        ${isSuper ? '<button class="btn sm ghost" id="pgAtur"><i class="ph-duotone ph-gear-six" style="color:var(--c7)"></i>Pengaturan pengumuman</button>' : ''}
+      </div>
+      <div id="pgStatus"></div>
+      <div class="stats stats-pendaftar" id="pgStat"></div>
+      <div class="pg-kisi">
+        <div class="card pg-aksi-kartu">
+          <h3><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Dokumen</h3>
+          <button class="btn ghost block" id="pgCetak"><i class="ph-duotone ph-newspaper-clipping" style="color:var(--c3)"></i>Pengumuman hasil seleksi (lampiran nama)</button>
+          <button class="btn ghost block" id="pgSkl"><i class="ph-duotone ph-certificate" style="color:var(--ok)"></i>Surat Keterangan Lulus (semua yang lulus)</button>
+          <p class="muted kecil" style="margin:8px 0 0">Surat Keterangan Lulus bernomor otomatis dan memuat kode QR validasi. Wali juga dapat mengunduhnya sendiri di halaman Pengumuman.</p>
+        </div>
+        <div class="card pg-aksi-kartu">
+          <h3><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>WhatsApp hasil</h3>
+          <div id="pgWa"></div>
+          <p class="muted kecil" style="margin:8px 0 0">Pesan dikirim satu per satu dari WhatsApp Anda sendiri dan tercatat di riwayat pendaftar. Tombol aktif setelah hasil terbuka untuk publik.</p>
+        </div>
+      </div>`;
+
+    const hit = f => data.filter(f).length;
+    const kel = r => hasilDari(r.status);
+    const render = () => {
+      const terbit = !!g.hasil_terbit_pada, nanti = g.pengumuman && new Date(g.pengumuman) > Date.now(), terbuka = terbit && !nanti;
+      const belum = hit(r => !SUDAH.includes(r.status)), nomorSk = g.dokumen_hasil?.nomor_sk || g.nomor_sk;
+      const langkah = [
+        ['Keputusan disusun', belum ? `${belum} peserta belum diputuskan` : `${data.length} peserta sudah diputuskan`, belum ? 'berjalan' : 'selesai'],
+        ['Diajukan ke Superadmin', g.diajukan_pada ? `${fmt.tglJam(g.diajukan_pada)} WITA` : terbit ? 'Langsung diterbitkan Superadmin' : 'Belum diajukan (dari menu Seleksi)', g.diajukan_pada || terbit ? 'selesai' : ''],
+        ['Diterbitkan Superadmin', terbit ? `${fmt.tglJam(g.hasil_terbit_pada)} WITA` : 'Belum diterbitkan', terbit ? 'selesai' : g.diajukan_pada ? 'berjalan' : ''],
+        ['Terbuka untuk publik', g.pengumuman ? `${fmt.tglJam(g.pengumuman)} WITA` : 'Langsung saat diterbitkan', terbuka ? 'selesai' : terbit ? 'berjalan' : '']
+      ];
+      $('#pgStatus').innerHTML = `<div class="card pg-status" style="--tone:${terbuka ? 'var(--ok)' : terbit ? 'var(--c2)' : 'var(--c6)'}">
+        <div class="pg-status-kepala"><span class="ic-box"><i class="ph-duotone ${terbuka ? 'ph-megaphone' : terbit ? 'ph-hourglass-medium' : 'ph-clipboard-text'}"></i></span>
+          <div><small>${esc(g.nama)}</small><h3>${terbuka ? 'Hasil sudah terbuka untuk publik' : terbit ? 'Diterbitkan, menunggu waktu pengumuman' : 'Hasil belum diterbitkan'}</h3>
+          <span class="muted kecil">${nomorSk ? `SK Nomor ${esc(nomorSk)}` : 'Nomor SK belum diisi (Seleksi > Peringkat dan Keputusan > Data dokumen)'}</span></div>
+          <div class="spacer"></div>
+          ${isSuper ? (terbit ? `<label class="check" title="Tampilkan daftar nama lulus dan cadangan di halaman Pengumuman"><input type="checkbox" id="pgPublik" ${g.daftar_publik ? 'checked' : ''}>Daftar nama publik</label>
+              <button class="btn sm ghost" id="pgTarik"><i class="ph-duotone ph-arrow-u-up-left" style="color:var(--danger)"></i>Tarik penerbitan</button>`
+            : `<button class="btn" id="pgTerbit"><i class="ph-duotone ph-megaphone"></i>Terbitkan hasil</button>`) : ''}</div>
+        ${terbit && nanti ? `<div class="hitung-kecil" data-hitung="${esc(g.pengumuman)}"></div>` : ''}
+        <ol class="pg-langkah">${langkah.map(([j, t, st]) => `<li class="${st}"><span class="titik"><i class="ph-duotone ${st === 'selesai' ? 'ph-check' : st === 'berjalan' ? 'ph-circle-notch' : 'ph-circle'}"></i></span><div><b>${j}</b><small>${esc(t)}</small></div></li>`).join('')}</ol>
+      </div>`;
+      const nWa = h => data.filter(r => kel(r) === h && waLog[r.id + h]).length;
+      $('#pgStat').innerHTML = [
+        ['Lulus', hit(r => kel(r) === 'lulus'), 'ph-confetti', 'var(--ok)'],
+        ['Cadangan', hit(r => r.status === 'cadangan'), 'ph-hourglass-medium', 'var(--c6)'],
+        ['Tidak lulus', hit(r => r.status === 'tidak_lulus'), 'ph-hand-heart', 'var(--c8)'],
+        ['Belum diputuskan', belum, 'ph-question', 'var(--c7)'],
+        ['WA hasil terkirim', nWa('lulus') + nWa('cadangan') + nWa('tidak_lulus'), 'ph-whatsapp-logo', 'var(--c5)'],
+        ['Sudah daftar ulang', hit(r => r.status === 'daftar_ulang_selesai'), 'ph-graduation-cap', 'var(--c1)']
+      ].map(([l, v, ic, t]) => `<div class="stat" style="--tone:${t}"><span class="live">LIVE</span><div class="ic-box"><i class="ph-duotone ${ic}"></i></div><b>${fmt.angka(v)}</b><span>${l}</span></div>`).join('');
+      $('#pgWa').innerHTML = [['lulus', 'Lulus', 'ph-confetti', 'var(--ok)'], ['cadangan', 'Cadangan', 'ph-hourglass-medium', 'var(--c6)'], ['tidak_lulus', 'Tidak lulus', 'ph-hand-heart', 'var(--c8)']]
+        .map(([h, l, ic, t]) => { const n = hit(r => kel(r) === h);
+          return `<button class="btn ghost block pg-wa-btn" data-wa="${h}" ${!terbuka || !n ? 'disabled' : ''}><i class="ph-duotone ${ic}" style="color:${t}"></i>${l}<span class="spacer"></span><small class="muted">${nWa(h)}/${n} terkirim</small></button>`; }).join('');
+      $('#pgCetak').disabled = !hit(r => ['lulus', 'cadangan'].includes(kel(r)));
+      $('#pgSkl').disabled = !terbit || !hit(r => kel(r) === 'lulus');
+      const el = $('#pgStatus [data-hitung]');
+      if (el) { const sas = new Date(el.dataset.hitung).getTime(); clearInterval(window.__pgTik);
+        const tik = () => { if (!document.body.contains(el)) return clearInterval(window.__pgTik); const s = Math.max(0, Math.floor((sas - Date.now()) / 1000)); const b = [Math.floor(s / 86400), Math.floor(s % 86400 / 3600), Math.floor(s % 3600 / 60), s % 60];
+          el.innerHTML = ['hari', 'jam', 'menit', 'detik'].map((l, i) => `<span><b>${String(b[i]).padStart(2, '0')}</b>${l}</span>`).join(''); if (!s) { clearInterval(window.__pgTik); muat(); } };
+        window.__pgTik = setInterval(tik, 1000); tik(); }
+      pasangAksi();
+    };
+    const muat = async () => {
+      const [gl, r] = await Promise.all([muatGelLengkap(+SEL.gel), sb.rpc('rekap_seleksi', { p_gelombang: +SEL.gel, p_uji: SEL.uji })]);
+      if (r.error) throw r.error;
+      g = gl; data = r.data || [];
+      waLog = {};
+      if (data.length) {
+        const { data: lg } = await sb.from('log_wa').select('pendaftar_id,templat').in('pendaftar_id', data.map(x => x.id)).in('templat', ['lulus', 'cadangan', 'tidak_lulus']);
+        (lg || []).forEach(l => { waLog[l.pendaftar_id + l.templat] = true; });
+      }
+      render();
+    };
+    await muat();
+    $('#pgGel').onchange = e => { SEL.gel = e.target.value; muat().catch(err => toast(galat(err), 'err')); };
+    $('#pgUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(err => toast(galat(err), 'err')); };
+    if ($('#pgAtur')) $('#pgAtur').onclick = () => aturPengumuman(api);
+
+    function pasangAksi() {
+      if ($('#pgTerbit')) $('#pgTerbit').onclick = async () => {
+        const belum = hit(r => !SUDAH.includes(r.status));
+        const nomorSk = g.dokumen_hasil?.nomor_sk || g.nomor_sk, nanti = g.pengumuman && new Date(g.pengumuman) > Date.now();
+        const cek = (ok, teks) => `<li class="${ok ? 'ok' : 'awas'}"><i class="ph-duotone ${ok ? 'ph-check-circle' : 'ph-warning'}"></i><span>${teks}</span></li>`;
+        const v = await dialog({ judul: `Terbitkan hasil ${g.nama}`, ikon: 'ph-megaphone', tone: 'var(--c6)', lebar: true,
+          isi: `<ul class="pg-periksa">
+              ${cek(!belum, belum ? `Masih ada <b>${belum}</b> peserta yang belum diputuskan.` : 'Semua peserta sudah diputuskan.')}
+              ${cek(!!nomorSk, nomorSk ? `Nomor SK: <b>${esc(nomorSk)}</b>` : 'Nomor SK belum diisi. Surat Keterangan Lulus akan terbit tanpa nomor SK.')}
+              ${cek(true, nanti ? `Hasil baru terlihat publik pada <b>${fmt.tglJam(g.pengumuman)} WITA</b> (jadwal pengumuman gelombang).` : 'Hasil <b>langsung terlihat publik</b> begitu diterbitkan.')}
+              ${cek(true, `Lulus: <b>${hit(r => kel(r) === 'lulus')}</b> · Cadangan: <b>${hit(r => r.status === 'cadangan')}</b> · Tidak lulus: <b>${hit(r => r.status === 'tidak_lulus')}</b>${SEL.uji ? ' (data uji)' : ''}`)}
+            </ul>
+            <label class="check"><input type="checkbox" id="tPublik" ${g.daftar_publik ? 'checked' : ''}>Tampilkan daftar nama lulus dan cadangan di halaman Pengumuman</label>
+            ${belum ? '<label class="check"><input type="checkbox" id="tPaksa">Tetap terbitkan walau ada yang belum diputuskan</label>' : ''}
+            <p class="muted kecil" style="margin:10px 0 0">Setelah terbit, Admin tidak dapat lagi mengubah keputusan. Superadmin tetap dapat mengubahnya atau menarik penerbitan.</p>`,
+          tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Terbitkan', ikon: 'ph-megaphone', aksi: async root => {
+            const paksa = !!root.querySelector('#tPaksa')?.checked;
+            if (belum && !paksa) { toast('Centang "Tetap terbitkan" atau tetapkan hasil yang tersisa dulu.', 'warn'); return false; }
+            const { data: h, error } = await sb.rpc('terbitkan_hasil', { p_gelombang: g.id, p_paksa: paksa, p_daftar_publik: root.querySelector('#tPublik').checked });
+            if (error) throw new Error(galat(error));
+            return h;
+          } }] });
+        if (!v) return;
+        toast(v.terbuka ? 'Hasil diterbitkan dan sudah terbuka untuk publik.' : 'Hasil diterbitkan. Terbuka untuk publik sesuai jadwal pengumuman.', 'ok', 6000);
+        await muat();
+      };
+      if ($('#pgTarik')) $('#pgTarik').onclick = async () => {
+        const v = await dialog({ judul: 'Tarik penerbitan hasil', ikon: 'ph-arrow-u-up-left', tone: 'var(--danger)',
+          isi: `<p style="margin:0 0 10px">Hasil ${esc(g.nama)} akan tersembunyi lagi dari halaman Pengumuman dan Cek Status. Nomor SKL yang sudah terbit tetap tersimpan.</p>
+            <div class="field"><label>Alasan penarikan <span class="req">*</span></label><textarea class="textarea" id="tAlasan" rows="3" maxlength="300"></textarea></div>`,
+          tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Tarik', ikon: 'ph-arrow-u-up-left', kelas: 'danger', aksi: async root => {
+            const a = root.querySelector('#tAlasan').value.trim();
+            if (a.length < 5) { toast('Tuliskan alasan penarikan.', 'warn'); return false; }
+            const { error } = await sb.rpc('tarik_hasil', { p_gelombang: g.id, p_alasan: a });
+            if (error) throw new Error(galat(error)); return true; } }] });
+        if (v) { toast('Penerbitan ditarik.'); await muat(); }
+      };
+      if ($('#pgPublik')) $('#pgPublik').onchange = async e => {
+        const { error } = await sb.from('gelombang').update({ daftar_publik: e.target.checked }).eq('id', g.id);
+        if (error) { e.target.checked = !e.target.checked; return toast(galat(error), 'err'); }
+        g.daftar_publik = e.target.checked;
+        toast(e.target.checked ? 'Daftar nama tampil di halaman Pengumuman.' : 'Daftar nama disembunyikan dari halaman Pengumuman.');
+      };
+      k.querySelectorAll('[data-wa]').forEach(b => b.onclick = async () => {
+        const h = b.dataset.wa;
+        const rows = data.filter(r => kel(r) === h).sort((a, c) => a.jenjang.localeCompare(c.jenjang) || a.bagian.localeCompare(c.bagian) || a.nama_lengkap.localeCompare(c.nama_lengkap));
+        await waBerurutan(rows.map(r => ({ p: r, sesi: [] })), h, g.nama, { pilihan: [h], gel: g });
+        await muat();
+      });
+    }
+    $('#pgCetak').onclick = () => pilihCetak('Pengumuman hasil seleksi', pdf => dokPengumuman(g, data, pdf));
+    $('#pgSkl').onclick = async () => {
+      const klp = await pilihKelompok(data.filter(r => kel(r) === 'lulus'), 'Surat Keterangan Lulus'); if (klp == null) return;
+      pilihCetak('Surat Keterangan Lulus', pdf => dokSklMassal(g, klp, pdf));
+    };
+  };
+
+  async function dokPengumuman(g, data, pdf) {
+    const peng = await muatPengaturan(), ta = peng.identitas?.tahun_ajaran || '', nama = peng.identitas?.nama_lembaga || '';
+    const tgl = g.tanggal_sk || g.dokumen_hasil?.tanggal_sk || null, nomorSk = g.nomor_sk || g.dokumen_hasil?.nomor_sk || '';
+    const syarat = (Array.isArray(peng.pengumuman?.syarat_daftar_ulang) ? peng.pengumuman.syarat_daftar_ulang : []).filter(Boolean);
+    const du = g.daftar_ulang_mulai ? (g.daftar_ulang_selesai && g.daftar_ulang_selesai !== g.daftar_ulang_mulai ? `${tglDok(g.daftar_ulang_mulai)} sampai dengan ${tglDok(g.daftar_ulang_selesai)}` : tglDok(g.daftar_ulang_mulai)) : 'waktu yang akan diumumkan panitia';
+    const tabel = (rows) => `<table><colgroup><col style="width:6%"><col style="width:42%"><col style="width:22%"><col style="width:30%"></colgroup>
+      <thead><tr><th>No</th><th>Nama calon santri / No. registrasi</th><th>Asal daerah</th><th>Asal sekolah</th></tr></thead>
+      <tbody>${rows.map((r, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(r.nama_lengkap)}<br><span style="font-size:8pt">${esc(r.no_registrasi)}</span></td><td>${esc(r.asal || '–')}</td><td>${esc(r.asal_sekolah || '–')}</td></tr>`).join('')}</tbody></table>`;
+    const bagianH = (h, judul) => KELOMPOK.map(([j, b]) => { const rs = data.filter(r => r.jenjang === j && r.bagian === b && (h === 'lulus' ? hasilDari(r.status) === 'lulus' : r.status === h)).sort((x, y) => x.nama_lengkap.localeCompare(y.nama_lengkap));
+      return rs.length ? `<p class="jangan-putus" style="font-weight:700;margin:10px 0 4px">${judul} · ${j} ${bagianL(b)} (${rs.length} orang)</p>${tabel(rs)}` : ''; }).join('');
+    const opsi = {
+      judul: 'Pengumuman Hasil Seleksi Penerimaan Santri Baru', nomor: '',
+      meta: `Tahun Ajaran ${esc(ta)} · ${esc(g.nama)}${SEL.uji ? ' · <b>DATA UJI COBA</b>' : ''}`,
+      isi: `<p style="text-align:justify;line-height:1.6">Berdasarkan hasil seleksi${nomorSk ? ` dan Keputusan Ketua Panitia Penerimaan Murid Baru Nomor ${esc(nomorSk)} tanggal ${tglDok(tgl)}` : ''}, dengan ini diumumkan nama-nama calon santri baru ${esc(nama)} Tahun Ajaran ${esc(ta)} ${esc(g.nama)} yang dinyatakan <b>LULUS</b> seleksi${data.some(r => r.status === 'cadangan') ? ' dan yang ditetapkan sebagai <b>CADANGAN</b>' : ''} sebagai berikut.</p>
+        ${bagianH('lulus', 'Lulus')}${bagianH('cadangan', 'Cadangan')}
+        <p style="text-align:justify;line-height:1.6;margin-top:10px">Calon santri yang dinyatakan lulus wajib melakukan daftar ulang pada <b>${esc(du)}</b>${syarat.length ? ', dengan ketentuan:' : '.'}</p>
+        ${syarat.length ? `<ol class="skl-syarat">${syarat.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
+        <p style="text-align:justify;line-height:1.6">Calon santri cadangan akan dihubungi panitia bila terdapat kursi yang kosong. Keputusan panitia bersifat final. Surat Keterangan Lulus dapat diunduh di halaman Pengumuman situs SPMB.</p>`,
+      ttd: penandaTangan('sk', peng), tanggal: tgl
+    };
+    return pdf ? unduh(opsi, `Pengumuman Hasil ${g.nama}.pdf`) : cetakDokumen(opsi);
+  }
+
+  async function dokSklMassal(g, klp, pdf) {
+    const [peng, r] = await Promise.all([muatPengaturan(true), sb.rpc('data_skl_massal', { p_gelombang: g.id, p_uji: SEL.uji })]);
+    if (r.error) return toast(galat(r.error), 'err', 7000);
+    const rows = (r.data || []).filter(d => !klp || klp === `${d.jenjang}-${d.bagian}`);
+    if (!rows.length) return toast('Tidak ada peserta lulus pada pilihan ini.', 'warn');
+    await window.SPMB.siapkanQr();
+    const docs = rows.map(d => window.SPMB.dokumenSKL(d, peng));
+    if (!pdf) return window.SPMB.cetakBanyakDokumen(docs);
+    const t = toast(`Menyusun PDF 0/${docs.length}…`, 'info', 600000);
+    try {
+      const hasil = await window.SPMB.buatPdfBanyak(docs, 'Surat Keterangan Lulus', (n, tot) => { const d = t.querySelector('div'); if (d) d.textContent = `Menyusun PDF ${n}/${tot}…`; });
+      simpanPdf(hasil, `SKL ${g.nama}${klp ? ' ' + klp : ''}.pdf`);
+    } catch (e) { toast(galat(e), 'err', 6000); } finally { t.remove(); }
+  }
+
+  // Pengaturan halaman Pengumuman dan SKL (Superadmin)
+  async function aturPengumuman(api) {
+    const peng = await muatPengaturan(true), x = peng.pengumuman || {};
+    const syarat = (Array.isArray(x.syarat_daftar_ulang) ? x.syarat_daftar_ulang : []).join('\n');
+    const contohNo = f => String(f || '').replace('{urut}', '001').replace('{romawi}', ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][new Date().getMonth()]).replace('{tahun}', new Date().getFullYear());
+    const ok = await dialog({ judul: 'Pengaturan pengumuman', ikon: 'ph-gear-six', tone: 'var(--c7)', lebar: true,
+      isi: `<form id="fPgm" novalidate><div class="grid-form">
+        <div class="field full"><label>Judul halaman publik</label><input class="input" name="judul_halaman" maxlength="80" value="${esc(x.judul_halaman || 'Pengumuman Hasil Seleksi')}"></div>
+        <div class="field full"><label>Pesan untuk yang lulus</label><textarea class="textarea" name="pesan_lulus" rows="2" maxlength="400">${esc(x.pesan_lulus || '')}</textarea></div>
+        <div class="field full"><label>Pesan untuk cadangan</label><textarea class="textarea" name="pesan_cadangan" rows="2" maxlength="400">${esc(x.pesan_cadangan || '')}</textarea></div>
+        <div class="field full"><label>Pesan untuk yang belum lulus</label><textarea class="textarea" name="pesan_tidak_lulus" rows="2" maxlength="400">${esc(x.pesan_tidak_lulus || '')}</textarea></div>
+        <div class="field full"><label>Format nomor Surat Keterangan Lulus</label><input class="input mono" name="format_nomor_skl" maxlength="80" value="${esc(x.format_nomor_skl || '{urut}/SKL/SPMB-IAS/{romawi}/{tahun}')}">
+          <small>Isian: {urut} nomor urut 3 digit, {romawi} bulan SK dalam angka Romawi, {tahun} tahun SK. Contoh: <b id="pgContoh">${esc(contohNo(x.format_nomor_skl))}</b>. Nomor yang sudah terbit tidak berubah.</small></div>
+        <div class="field full"><label>Ketentuan daftar ulang (satu baris satu butir; tampil di SKL dan dokumen pengumuman)</label><textarea class="textarea" name="syarat" rows="4">${esc(syarat)}</textarea></div>
+        <div class="field full"><label>Catatan tambahan SKL</label><input class="input" name="catatan_skl" maxlength="200" value="${esc(x.catatan_skl || '')}" placeholder="Boleh kosong"></div>
+      </div></form>`,
+      saatBuka: root => { const f = root.querySelector('[name=format_nomor_skl]'); f.oninput = () => { root.querySelector('#pgContoh').textContent = contohNo(f.value); }; },
+      tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Simpan', ikon: 'ph-floppy-disk', aksi: async root => {
+        const f = root.querySelector('#fPgm'), v = n => f.elements[n].value.trim();
+        if (!v('format_nomor_skl').includes('{urut}')) { toast('Format nomor SKL wajib memuat {urut}.', 'warn'); return false; }
+        const nilai = { ...x, judul_halaman: v('judul_halaman') || 'Pengumuman Hasil Seleksi', pesan_lulus: v('pesan_lulus'), pesan_cadangan: v('pesan_cadangan'), pesan_tidak_lulus: v('pesan_tidak_lulus'),
+          format_nomor_skl: v('format_nomor_skl'), syarat_daftar_ulang: v('syarat').split('\n').map(s => s.trim()).filter(Boolean), catatan_skl: v('catatan_skl') };
+        const { error } = await sb.from('pengaturan').update({ nilai }).eq('kunci', 'pengumuman');
+        if (error) throw new Error(galat(error));
+        api.S.pengaturan.pengumuman = nilai; await muatPengaturan(true); return true; } }] });
+    if (ok) toast('Pengaturan pengumuman disimpan.');
+  }
 })();

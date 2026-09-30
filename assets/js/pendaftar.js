@@ -652,8 +652,8 @@
       const data = {
         nama: P.nama_lengkap, no_registrasi: P.no_registrasi, jenjang: `${P.jenjang} ${bagianL(P.bagian)}`, gelombang: G?.nama || '',
         catatan: P.catatan_berkas || P.catatan_bayar || '', jadwal_tes: jadwalSesi || (G?.tes_mulai ? (G.tes_selesai && G.tes_selesai !== G.tes_mulai ? `${tglPanjangIso(G.tes_mulai)} – ${tglPanjangIso(G.tes_selesai)}` : tglPanjangIso(G.tes_mulai)) : ''),
-        tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(P.no_registrasi)}`, tautan_pengumuman: `${situs}/cek-status.html?no=${encodeURIComponent(P.no_registrasi)}`,
-        tautan_daftar_ulang: `${situs}/daftar-ulang.html?no=${encodeURIComponent(P.no_registrasi)}`, nama_lembaga: id_.nama_lembaga || '', tahun_ajaran: id_.tahun_ajaran || ''
+        tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(P.no_registrasi)}`, tautan_pengumuman: `${situs}/pengumuman.html?no=${encodeURIComponent(P.no_registrasi)}`,
+        tautan_daftar_ulang: `${situs}/daftar-ulang.html?no=${encodeURIComponent(P.no_registrasi)}`, jadwal_daftar_ulang: G?.daftar_ulang_mulai ? (G.daftar_ulang_selesai && G.daftar_ulang_selesai !== G.daftar_ulang_mulai ? `${tglPanjangIso(G.daftar_ulang_mulai)} s.d. ${tglPanjangIso(G.daftar_ulang_selesai)}` : tglPanjangIso(G.daftar_ulang_mulai)) : 'jadwal menyusul', nama_lembaga: id_.nama_lembaga || '', tahun_ajaran: id_.tahun_ajaran || ''
       };
       const nomor = { utama: P.no_wa, darurat: P.darurat_no };
       const hasil = await dialog({

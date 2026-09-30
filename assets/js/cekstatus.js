@@ -140,6 +140,8 @@
           <h3><i class="ph-duotone ph-files" style="color:var(--c4)"></i>Berkas yang diunggah</h3>
           <ul class="cek-berkas">${d.berkas.map(b => `<li><span>${esc(label[b.jenis] || b.jenis)}${b.status === 'ditolak' && b.catatan ? `<small>${esc(b.catatan)}</small>` : ''}</span>
             <span class="pill" style="--tone:${(VERIF[b.status] || VERIF.menunggu)[1]}">${(VERIF[b.status] || VERIF.menunggu)[0]}</span></li>`).join('')}</ul></div>` : ''}
+        ${diumumkan ? `<a class="kartu sisi-ajakan cek-ke-pgm" href="pengumuman.html?no=${encodeURIComponent(d.no_registrasi)}" style="--tone:var(--c3)"><i class="ph-duotone ph-megaphone"></i>
+          <span><b>Pengumuman hasil seleksi</b><small>${['lulus', 'daftar_ulang_menunggu', 'daftar_ulang_selesai'].includes(d.status) ? 'Unduh Surat Keterangan Lulus dan lihat ketentuan daftar ulang' : 'Lihat pengumuman lengkap'}</small></span><i class="ph-duotone ph-arrow-right"></i></a>` : ''}
         <div class="hero-actions cek-aksi">
           ${terakhir?.hasil?.no_registrasi === d.no_registrasi ? '<a class="btn ghost" href="daftar.html"><i class="ph-duotone ph-file-pdf" style="color:var(--c7)"></i>Unduh ulang Bukti Pendaftaran</a>' : ''}
           ${noWA.length >= 10 ? `<a class="btn ghost" target="_blank" rel="noopener" href="${waTautan(`Assalamu'alaikum, saya ingin bertanya tentang pendaftaran SPMB nomor ${d.no_registrasi} atas nama ${d.nama_lengkap}.`)}"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>Tanya ${esc(namaWA)}</a>` : ''}

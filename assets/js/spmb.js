@@ -703,7 +703,7 @@
   const ISIAN_WA = [
     ['nama', 'Nama santri'], ['no_registrasi', 'Nomor registrasi'], ['jenjang', 'Jenjang'], ['gelombang', 'Gelombang'],
     ['catatan', 'Catatan petugas'], ['jadwal_tes', 'Jadwal tes'], ['tautan_status', 'Tautan Cek Status'],
-    ['tautan_pengumuman', 'Tautan Pengumuman'], ['tautan_daftar_ulang', 'Tautan Daftar Ulang'], ['nama_lembaga', 'Nama lembaga'], ['tahun_ajaran', 'Tahun ajaran']
+    ['tautan_pengumuman', 'Tautan Pengumuman'], ['jadwal_daftar_ulang', 'Jadwal daftar ulang'], ['tautan_daftar_ulang', 'Tautan Daftar Ulang'], ['nama_lembaga', 'Nama lembaga'], ['tahun_ajaran', 'Tahun ajaran']
   ];
   const IKON_WA = { diterima: ['ph-check-circle', 'var(--ok)'], berkas_kurang: ['ph-file-x', 'var(--c7)'], bayar_ok: ['ph-credit-card', 'var(--c5)'],
     jadwal_tes: ['ph-calendar-check', 'var(--c2)'], pengingat_tes: ['ph-alarm', 'var(--c3)'], lulus: ['ph-confetti', 'var(--ok)'], cadangan: ['ph-hourglass-medium', 'var(--c6)'],
@@ -716,7 +716,7 @@
     const contoh = {
       nama: 'Muhammad Fathir', no_registrasi: 'SPMB27-SMP-P-0001', jenjang: 'SMP', gelombang: 'Gelombang 1',
       catatan: '- Foto Kartu Keluarga kurang jelas', jadwal_tes: 'Sabtu, 9 Januari 2027 pukul 08.00 WITA (offline, kampus pondok)',
-      tautan_status: situs + '/cek-status.html', tautan_pengumuman: situs + '/pengumuman.html', tautan_daftar_ulang: situs + '/daftar-ulang.html',
+      tautan_status: situs + '/cek-status.html', tautan_pengumuman: situs + '/pengumuman.html', jadwal_daftar_ulang: '10 Oktober 2027 s.d. 17 Oktober 2027', tautan_daftar_ulang: situs + '/daftar-ulang.html',
       nama_lembaga: p.identitas?.nama_lembaga || 'Pondok Pesantren', tahun_ajaran: p.identitas?.tahun_ajaran || '2027/2028'
     };
     // jsonb tidak menjaga urutan kunci: urutkan sesuai alur pendaftaran

@@ -35,7 +35,7 @@
   };
 
   window.SPMB_HAL.daftar = async api => {
-    const { sb, fmt, esc, toast, konfirmasi, pesanGalat, cetakDokumen, unggahBerkasPendaftar, konfirmasiPendaftaran } = window.SPMB;
+    const { sb, fmt, esc, toast, konfirmasi, pesanGalat, cetakDokumen, unggahBerkasPendaftar, konfirmasiPendaftaran, ambilBuktiPdf, simpanPdf } = window.SPMB;
     const $ = (s, r = document) => r.querySelector(s);
     const S = api.S;
     const cfg = S.p.spmb || {};
@@ -53,7 +53,11 @@
     if (infoR.error) throw infoR.error;
     const info = infoR.data;
     let panitia = false;
-    if (sesi.data?.session) { const { data } = await sb.rpc('is_panitia'); panitia = !!data; }
+    let adminP = false;   // Admin/Superadmin: boleh menginput pendaftar sungguhan (berkas menyusul)
+    if (sesi.data?.session) {
+      const { data } = await sb.rpc('is_panitia'); panitia = !!data;
+      if (panitia) { const { data: peran } = await sb.rpc('peran_saya'); adminP = ['admin', 'superadmin'].includes(peran); }
+    }
     const gel = info.gelombang;
     const [biayaR, rekR] = await Promise.all([
       sb.from('rincian_biaya').select('*').eq('tahap', 'pendaftaran').eq('tampil', true).is('diarsipkan_pada', null).order('urutan'),
@@ -66,8 +70,9 @@
     // Hasil pendaftaran sebelumnya (untuk mencetak ulang bukti)
     let terakhir = null; try { terakhir = JSON.parse(localStorage.getItem(KUNCI_TERAKHIR) || 'null'); } catch (e) {}
 
-    /* ---------- Formulir tertutup ---------- */
-    if (!info.dibuka && !panitia) {
+    /* ---------- Formulir tertutup (dibangun paling akhir) ---------- */
+    const tertutup = !info.dibuka && !panitia;
+    function tampilTutup() {
       const b = info.berikutnya;
       W.innerHTML = `
         <div class="kartu daftar-tutup">
@@ -80,11 +85,11 @@
           ${terakhir ? `<p class="muted" style="margin-top:18px">Pendaftaran terakhir dari perangkat ini: <b>${esc(terakhir.hasil.no_registrasi)}</b>. <a href="#" id="lihatTerakhir">Lihat bukti</a></p>` : ''}
         </div>`;
       hitungMundur(W);
-      $('#lihatTerakhir')?.addEventListener('click', e => { e.preventDefault(); tampilSukses(terakhir.D, terakhir.hasil, true); });
-      return;
+      $('#lihatTerakhir')?.addEventListener('click', e => { e.preventDefault(); tampilSukses(terakhir.D, terakhir.hasil, true, terakhir.token); });
     }
-    const wajibUji = !info.dibuka && panitia;
+    const wajibUji = !info.dibuka && panitia && !adminP;
     const modeUji = () => panitia && (wajibUji || st.uji);
+    const manualNyata = () => adminP && !modeUji();
 
     /* ---------- Draf ---------- */
     const baru = () => ({ D: { _kode: {}, prestasi: [], pernah_mondok: false, pondok_sama: false, samakan_asal: false, hafalan_jenis: '', hafalan_juz: '', hafalan_surah: '', sumber_info: [], ada_rekomendasi: false }, langkah: 0, token: null, berkas: {}, ok: [], uji: true });
@@ -163,7 +168,7 @@
     const prestasiTerisi = () => D.prestasi.filter(p => (p.nama || '').trim());
     const syaratBerkas = b => b.kunci === 'rekomendasi' && D.ada_rekomendasi ? 'Wajib karena Anda mengisi pemberi rekomendasi.'
       : b.kunci === 'sertifikat' && prestasiTerisi().length ? 'Wajib karena Anda mengisi prestasi. Gabungkan semua bukti dalam satu berkas.' : '';
-    const wajibBerkas = b => !!b.wajib || !!syaratBerkas(b);
+    const wajibBerkas = b => !manualNyata() && (!!b.wajib || !!syaratBerkas(b));
     const acuanUsia = cfg.usia?.acuan || '2027-07-01';
     const batasUsia = j => ({ min: cfg.usia?.[j]?.min ?? (j === 'SMP' ? 11 : 14), maks: cfg.usia?.[j]?.maks ?? (j === 'SMP' ? 15 : 18) });
     const V = {
@@ -429,9 +434,7 @@
 
     /* ---------- Kerangka formulir ---------- */
     W.innerHTML = `
-      ${panitia ? `<div class="note info pita-uji"><i class="ph-duotone ph-flask"></i><div><b>Anda masuk sebagai panitia.</b> ${wajibUji
-        ? 'Pendaftaran belum dibuka untuk umum, sehingga kiriman dari formulir ini tersimpan sebagai <b>data uji coba</b> (nomor berawalan UJI-).'
-        : `<label class="check" style="margin:4px 0 0"><input type="checkbox" id="tandaUji" ${st.uji ? 'checked' : ''}>Simpan sebagai data uji coba (nomor berawalan UJI-). Hapus centang bila Anda menginput pendaftar sungguhan.</label>`}</div></div>` : ''}
+      <div id="pitaPanitia"></div>
       <div id="pitaDraf"></div>
       <div class="kartu daftar-kartu">
         <ol class="stepper-daftar" id="stepper"></ol>
@@ -452,7 +455,17 @@
         localStorage.removeItem(KUNCI_DRAF); location.reload();
       };
     }
-    $('#tandaUji')?.addEventListener('change', e => { st.uji = e.target.checked; simpanDraf(); });
+    function tampilPitaPanitia() {
+      const el = $('#pitaPanitia'); if (!el || !panitia) return;
+      el.innerHTML = `<div class="note info pita-uji"><i class="ph-duotone ${modeUji() ? 'ph-flask' : 'ph-user-circle-plus'}"></i><div><b>Anda masuk sebagai panitia.</b> ${wajibUji
+        ? 'Pendaftaran belum dibuka untuk umum, sehingga kiriman dari formulir ini tersimpan sebagai <b>data uji coba</b> (nomor berawalan UJI-).'
+        : `<label class="check" style="margin:4px 0 0"><input type="checkbox" id="tandaUji" ${st.uji ? 'checked' : ''}>Simpan sebagai data uji coba (nomor berawalan UJI-)</label>
+          ${adminP ? (modeUji() ? '<small class="muted">Hapus centang untuk menginput pendaftar sungguhan, misalnya yang mendaftar langsung di kantor.</small>'
+            : `<small><b>Input pendaftar sungguhan.</b> Berkas boleh dilengkapi kemudian di dashboard (menu Pendaftar).${!info.dibuka ? ' Pendaftaran untuk umum sedang ditutup; input panitia tetap tersimpan pada gelombang terakhir.' : ''}</small>`)
+          : '<small class="muted">Hapus centang bila Anda menginput pendaftar sungguhan.</small>'}`}</div></div>`;
+      $('#tandaUji')?.addEventListener('change', e => { st.uji = e.target.checked; simpanDraf(); tampilPitaPanitia(); render(); });
+    }
+    tampilPitaPanitia();
 
     const form = $('#fDaftar');
     const stepper = $('#stepper');
@@ -739,7 +752,7 @@
         perekomendasi: D.ada_rekomendasi ? (D.perekomendasi || '').replace(/\s+/g, ' ').trim() : '', perekomendasi_peran: D.ada_rekomendasi ? (D.perekomendasi_peran || '').trim() : '',
         prestasi: D.prestasi.filter(x => (x.nama || '').trim()).map(x => ({ nama: x.nama.trim(), tingkat: x.tingkat, tahun: +x.tahun })),
         berkas: Object.values(st.berkas).map(b => b.id), peringatan: daftarPeringatan(), setuju: !!D.setuju,
-        uji: modeUji()
+        uji: modeUji(), manual: adminP
       };
       try {
         if (!st.token) throw new Error('Sesi unggah tidak ditemukan. Unggah ulang berkas pada langkah Berkas.');
@@ -768,7 +781,19 @@
 
     /* ---------- Halaman sukses dan Bukti Pendaftaran ---------- */
     function tampilSukses(d, hasil, dariArsip, token) {
-      const kp = kontak.filter(k => !k.data.bagian || k.data.bagian === 'Umum' || k.data.bagian.toLowerCase() === d.bagian).slice(0, 2);
+      document.querySelectorAll('.toasts .toast').forEach(t => t.remove());   // bersihkan peringatan formulir sebelumnya
+      document.getElementById('waMelayang')?.style.setProperty('display', 'none');     // tombol konfirmasi WhatsApp sudah ada di halaman ini
+      // Tombol konfirmasi WhatsApp: ke Ketua Panitia (cadangan: kontak panitia sesuai putra/putri)
+      const kp = S.p.ketua_panitia || {};
+      const cadangan = kontak.find(k => k.data.no_wa && (!k.data.bagian || k.data.bagian === 'Umum' || k.data.bagian.toLowerCase() === d.bagian));
+      const noKetua = normalWA(kp.no_wa || cadangan?.data.no_wa || '');
+      const namaKetua = kp.no_wa ? (kp.nama || 'Ketua Panitia') : cadangan?.judul || '';
+      const pesanWA = [`Assalamu'alaikum warahmatullah.`, `Saya ingin mengonfirmasi pendaftaran SPMB ${ta}:`, '',
+        `Nomor registrasi: *${hasil.no_registrasi}*`, `Nama calon santri: ${hasil.nama_lengkap || d.nama_lengkap}`,
+        `Jenjang: ${d.jenjang} ${d.bagian === 'putra' ? 'Putra' : 'Putri'}`, `Gelombang: ${hasil.gelombang || gel?.nama || '-'}`, '',
+        'Bukti pendaftaran sudah saya simpan. Mohon arahan selanjutnya. Jazakumullahu khairan.'].join('\n');
+      const namaPdf = `Bukti Pendaftaran ${hasil.no_registrasi}.pdf`;
+      let pdfData = null;
       W.innerHTML = `
         <div class="kartu sukses-daftar">
           <span class="ic-sukses"><i class="ph-duotone ph-check-circle"></i></span>
@@ -777,28 +802,56 @@
           <div class="no-reg"><small>Nomor registrasi</small><b id="noReg">${esc(hasil.no_registrasi)}</b>
             <button type="button" class="btn sm ghost" id="salinNo"><i class="ph-duotone ph-copy"></i>Salin</button></div>
           ${hasil.uji ? '<p class="pill" style="--tone:var(--c6);margin:0 auto 10px">Data uji coba panitia</p>' : ''}
-          <p class="muted" id="statusEmail">${dariArsip ? '' : '<span class="spinner" style="width:14px;height:14px"></span> Mengirim email konfirmasi…'}</p>
-          <div class="hero-actions" style="justify-content:center">
-            <button type="button" class="btn" id="cetakBukti"><i class="ph-duotone ph-printer"></i>Cetak / simpan PDF bukti</button>
-            <a class="btn ghost" href="cek-status.html?no=${encodeURIComponent(hasil.no_registrasi)}"><i class="ph-duotone ph-magnifying-glass"></i>Cek status</a>
+          <div class="aksi-sukses">
+            <button type="button" class="aksi-besar" id="unduhPdf" style="--tone:var(--c7)" ${!dariArsip ? 'disabled' : ''}>
+              <span class="ic-box"><i class="ph-duotone ph-file-pdf"></i></span>
+              <span><b>Unduh Bukti Pendaftaran</b><small id="pdfKet">${dariArsip ? 'Berkas PDF ukuran F4' : '<span class="spinner" style="width:12px;height:12px"></span> Menyiapkan berkas PDF…'}</small></span>
+              <i class="ph-duotone ph-download-simple panah"></i></button>
+            ${noKetua.length >= 10 ? `<a class="aksi-besar wa" id="konfirmasiWA" style="--tone:#16a34a" target="_blank" rel="noopener" href="https://wa.me/${noKetua}?text=${encodeURIComponent(pesanWA)}">
+              <span class="ic-box"><i class="ph-duotone ph-whatsapp-logo"></i></span>
+              <span><b>Konfirmasi via WhatsApp</b><small>Kirim konfirmasi ke ${esc(namaKetua)}</small></span>
+              <i class="ph-duotone ph-paper-plane-tilt panah"></i></a>` : ''}
           </div>
+          <p class="muted" id="statusEmail" style="font-size:13.5px">${dariArsip ? '' : '<span class="spinner" style="width:14px;height:14px"></span> Mengirim email konfirmasi…'}</p>
           <div class="langkah-lanjut">
             <b>Langkah berikutnya</b>
-            <ol><li>Simpan nomor registrasi dan bukti pendaftaran (tekan <b>Cetak</b>, lalu pilih <i>Simpan sebagai PDF</i> bila tidak ada printer).</li>
+            <ol><li><b>Unduh Bukti Pendaftaran</b> (berkas PDF) dan simpan di HP atau laptop.</li>
+              ${noKetua.length >= 10 ? '<li>Tekan <b>Konfirmasi via WhatsApp</b> untuk memberi tahu Ketua Panitia bahwa Anda sudah mendaftar.</li>' : ''}
               <li>Panitia memeriksa berkas dan bukti pembayaran. Bila perlu perbaikan, kami menghubungi melalui WhatsApp ${d.no_wa ? `<b>+${esc(normalWA(d.no_wa))}</b>` : ''}.</li>
-              <li>Pantau status dan jadwal tes di halaman <a href="cek-status.html">Cek Status</a> dengan nomor registrasi dan tanggal lahir santri.</li></ol>
+              <li>Pantau status dan jadwal tes di halaman <a href="cek-status.html?no=${encodeURIComponent(hasil.no_registrasi)}">Cek Status</a> dengan nomor registrasi dan tanggal lahir santri.</li></ol>
           </div>
-          ${kp.length ? `<div class="hero-actions" style="justify-content:center">${kp.map(k => `<a class="btn sm ghost" target="_blank" rel="noopener" href="https://wa.me/${esc(k.data.no_wa)}?text=${encodeURIComponent(`Assalamu'alaikum, saya sudah mendaftar SPMB dengan nomor ${hasil.no_registrasi} atas nama ${hasil.nama_lengkap || d.nama_lengkap}.`)}"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>${esc(k.judul)}</a>`).join('')}</div>` : ''}
-          ${dariArsip ? '' : '<p class="muted" style="font-size:12.5px;margin-top:14px">Ingin mendaftarkan anak lain? <a href="daftar.html">Isi formulir baru</a></p>'}
+          <p class="muted" style="font-size:12.5px;margin:0">PDF tidak dapat diunduh? <button type="button" class="tautan-btn" id="cetakBukti">Cetak bukti langsung dari peramban</button></p>
+          ${adminP && hasil.id ? `<p style="margin:12px 0 0"><a class="btn sm ghost" href="dashboard.html#/pendaftar/${esc(hasil.id)}"><i class="ph-duotone ph-identification-card" style="color:var(--c4)"></i>Buka data ini di dashboard</a></p>` : ''}
+          ${dariArsip ? '' : '<p class="muted" style="font-size:12.5px;margin-top:10px">Ingin mendaftarkan anak lain? <a href="daftar.html">Isi formulir baru</a></p>'}
         </div>`;
       window.scrollTo({ top: 0, behavior: 'smooth' });
       $('#salinNo').onclick = () => navigator.clipboard?.writeText(hasil.no_registrasi).then(() => toast('Nomor registrasi disalin.'), () => {});
       $('#cetakBukti').onclick = () => cetakBukti(d, hasil);
+      $('#konfirmasiWA')?.addEventListener('click', () => toast('WhatsApp dibuka. Tekan kirim pada pesan yang sudah terisi.', 'info'));
+      const tombolPdf = $('#unduhPdf'), ket = $('#pdfKet');
+      const siapUnduh = () => { tombolPdf.disabled = false; ket.textContent = 'Berkas PDF ukuran F4 · siap diunduh'; };
+      tombolPdf.onclick = async () => {
+        try {
+          if (!pdfData) {
+            if (!token) throw new Error('Sesi formulir tidak ditemukan.');
+            tombolPdf.disabled = true; ket.innerHTML = '<span class="spinner" style="width:12px;height:12px"></span> Menyiapkan berkas PDF…';
+            pdfData = (await ambilBuktiPdf({ token })).pdf;
+            if (!pdfData) throw new Error('PDF belum dapat dibuat.');
+          }
+          simpanPdf(pdfData, namaPdf); siapUnduh();
+          toast('Bukti Pendaftaran tersimpan di folder Unduhan (Download).');
+        } catch (err) {
+          siapUnduh(); ket.textContent = 'Coba lagi, atau pakai "Cetak bukti langsung" di bawah';
+          toast(`${pesanGalat(err)} Gunakan tombol "Cetak bukti langsung", lalu pilih Simpan sebagai PDF.`, 'err', 8000);
+        }
+      };
       if (!dariArsip && token) {
         konfirmasiPendaftaran(token).then(k => {
-          $('#statusEmail').innerHTML = k.email ? `<i class="ph-duotone ph-envelope-simple-open" style="color:var(--ok)"></i> Email konfirmasi dan bukti pendaftaran terkirim ke <b>${esc((d.email || '').trim().toLowerCase())}</b>. Periksa juga folder Spam.`
-            : `<i class="ph-duotone ph-info"></i> ${esc(k.pesan || 'Email konfirmasi tidak terkirim.')} Simpan bukti di halaman ini.`;
-        }).catch(() => { $('#statusEmail').innerHTML = '<i class="ph-duotone ph-info"></i> Email konfirmasi belum terkirim. Pendaftaran tetap tersimpan; simpan bukti di halaman ini.'; });
+          if (k.pdf) pdfData = k.pdf;
+          siapUnduh();
+          $('#statusEmail').innerHTML = k.email ? `<i class="ph-duotone ph-envelope-simple-open" style="color:var(--ok)"></i> Email konfirmasi dan bukti pendaftaran juga terkirim ke <b>${esc((d.email || '').trim().toLowerCase())}</b>. Periksa juga folder Spam.`
+            : `<i class="ph-duotone ph-info"></i> ${esc(k.pesan || 'Email konfirmasi tidak terkirim.')} Simpan bukti dengan tombol di atas.`;
+        }).catch(() => { siapUnduh(); $('#statusEmail').innerHTML = '<i class="ph-duotone ph-info"></i> Email konfirmasi belum terkirim. Pendaftaran tetap tersimpan; simpan bukti dengan tombol di atas.'; });
       }
     }
 
@@ -827,7 +880,13 @@
     }
     const terakhirBerkas = hasil => { try { const x = JSON.parse(localStorage.getItem(KUNCI_TERAKHIR) || 'null'); return x?.hasil?.no_registrasi === hasil.no_registrasi ? x.berkas : null; } catch (e) { return null; } };
 
-    render();
+    // Pendaftaran terakhir dari perangkat ini: tautan untuk mengunduh ulang buktinya
+    if (!tertutup && terakhir?.hasil && !dipulihkan) {
+      $('#pitaDraf').innerHTML = `<div class="note info"><i class="ph-duotone ph-receipt"></i><div>Pendaftaran terakhir dari perangkat ini: <b>${esc(terakhir.hasil.no_registrasi)}</b> (${esc(terakhir.hasil.nama_lengkap || '')}).
+        <button type="button" class="tautan-btn" id="lihatTerakhir">Unduh ulang buktinya</button></div></div>`;
+      $('#lihatTerakhir').onclick = () => tampilSukses(terakhir.D, terakhir.hasil, true, terakhir.token);
+    }
+    if (tertutup) tampilTutup(); else render();
   };
 
   /* ---------- Bantu umum ---------- */

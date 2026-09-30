@@ -1,7 +1,7 @@
 /* =====================================================================
    DASHBOARD PANITIA SPMB (Fase 3)
-   Menu: Beranda, Notifikasi, Konten Situs, Pengaturan SPMB, Pengguna, Pengaturan, Log Aktivitas, Profil
-   Halaman Konten Situs ada di berkas konten.js, Pengaturan SPMB di spmb.js
+   Menu: Beranda, Notifikasi, Pendaftar, Konten Situs, Pengaturan SPMB, Pengguna, Pengaturan, Log Aktivitas, Profil
+   Halaman Konten Situs ada di berkas konten.js, Pengaturan SPMB di spmb.js, Pendaftar di pendaftar.js
    ===================================================================== */
 (function () {
   'use strict';
@@ -22,6 +22,7 @@
   const MENU = [
     { id: 'beranda',    label: 'Beranda',       ikon: 'ph-squares-four',            tone: 'var(--c1)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Ringkasan dan statistik langsung' },
     { id: 'notifikasi', label: 'Notifikasi',    ikon: 'ph-bell-ringing',            tone: 'var(--c3)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Pemberitahuan untuk akun Anda' },
+    { id: 'pendaftar',  label: 'Pendaftar',     ikon: 'ph-identification-card',     tone: 'var(--c4)', peran: ['superadmin', 'admin'], sub: 'Data calon santri, verifikasi berkas dan pembayaran' },
     { id: 'konten',     label: 'Konten Situs',  ikon: 'ph-browsers',                tone: 'var(--c7)', peran: ['superadmin'], sub: 'Isi landing page, profil, berita, dan berkas' },
     { id: 'spmb',       label: 'Pengaturan SPMB', ikon: 'ph-flag-banner',          tone: 'var(--c3)', peran: ['superadmin'], sub: 'Gelombang, kuota, biaya, rekening, formulir, dan templat WhatsApp' },
     { id: 'pengguna',   label: 'Pengguna',      ikon: 'ph-users-three',             tone: 'var(--c2)', peran: ['superadmin'], sub: 'Akun Admin dan Penguji' },
@@ -31,12 +32,11 @@
   ];
   // Menu fase berikutnya, ditampilkan sebagai penanda saja
   const SEGERA = [
-    ['Pendaftar', 'ph-identification-card', 'Fase 3'], ['Verifikasi', 'ph-seal-check', 'Fase 3'],
     ['Seleksi', 'ph-exam', 'Fase 4'], ['Pengumuman', 'ph-megaphone', 'Fase 4'],
     ['Daftar Ulang', 'ph-clipboard-text', 'Fase 5']
   ];
 
-  const S = { user: null, profil: null, pengaturan: {}, unread: 0, notifTerbaru: [], kanal: null, jamTimer: null, statTimer: null };
+  const S = { user: null, profil: null, pengaturan: {}, unread: 0, notifTerbaru: [], kanal: null, jamTimer: null, statTimer: null, param: '' };
   const bolehMenu = m => m.peran.includes(S.profil.peran);
 
   /* =================================================================
@@ -116,11 +116,11 @@
     });
 
     // Navigasi bawah HP: maksimal 4 menu + "Lainnya"
-    const pilihan = ['beranda', 'notifikasi', S.profil.peran === 'superadmin' ? 'pengguna' : 'profil']
+    const pilihan = (S.profil.peran === 'penguji' ? ['beranda', 'notifikasi', 'profil'] : ['beranda', 'pendaftar', 'notifikasi'])
       .map(id => MENU.find(m => m.id === id));
     $('#bottomNav').innerHTML = pilihan.map(m => `
       <a href="#/${m.id}" data-menu="${m.id}" style="--tone:${m.tone}">
-        <span class="pill-ic"><i class="ph-duotone ${m.ikon}"></i></span>${m.id === 'profil' ? 'Profil' : m.label}
+        <span class="pill-ic"><i class="ph-duotone ${m.ikon}"></i></span>${m.id === 'profil' ? 'Profil' : m.id === 'notifikasi' ? 'Notif' : m.label}
         ${m.id === 'notifikasi' ? '<span class="count hidden" data-count></span>' : ''}</a>`).join('') + `
       <button type="button" id="btnLainnya" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>`;
     $('#btnLainnya').onclick = () => document.body.classList.add('nav-open');
@@ -135,9 +135,13 @@
      ================================================================= */
   const HALAMAN = {};
   function rute() {
-    const id = (location.hash.replace(/^#\/?/, '').split('?')[0]) || 'beranda';
+    const [id = 'beranda', ...sisa] = (location.hash.replace(/^#\/?/, '').split('?')[0] || 'beranda').split('/');
+    S.param = sisa.join('/');
     let m = MENU.find(x => x.id === id);
-    if (!m || !bolehMenu(m)) { m = MENU[0]; history.replaceState(null, '', '#/beranda'); }
+    if (!m || !bolehMenu(m)) { m = MENU[0]; S.param = ''; history.replaceState(null, '', '#/beranda'); }
+    // Pindah tab di dalam halaman detail yang sama tidak perlu memuat ulang
+    if (S.halamanKini === location.hash.split('?')[0] && S.param && k0()) return;
+    S.halamanKini = location.hash.split('?')[0];
     clearInterval(S.jamTimer); clearInterval(S.statTimer);
     $('#pgJudul').textContent = m.label;
     $('#pgSub').textContent = m.sub;
@@ -151,6 +155,7 @@
       k.innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>${esc(pesanGalat(err))}</div></div>`;
     });
   }
+  const k0 = () => document.querySelector('#konten [role=tablist]');
   function setFab(aksi, ikon = 'ph-plus', label = 'Tambah') {
     const f = $('#fab');
     if (!aksi) { f.classList.add('hidden'); f.onclick = null; return; }
@@ -180,6 +185,8 @@
           <div class="card-head"><div class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-lightning"></i></div><div><h3>Aksi cepat</h3><p>Menu yang sering dipakai</p></div></div>
           <div class="quick">
             <a href="#/notifikasi"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-bell-ringing"></i></span>Notifikasi</a>
+            ${isAdmin ? `<a href="#/pendaftar"><span class="ic-box" style="--tone:var(--c4);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-identification-card"></i></span>Data pendaftar</a>
+            <a href="daftar.html" target="_blank"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-user-plus"></i></span>Input pendaftar</a>` : ''}
             ${isSuper ? `<a href="#/konten"><span class="ic-box" style="--tone:var(--c7);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-browsers"></i></span>Konten situs</a>
             <a href="#/konten?m=berita"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-line"></i></span>Tulis berita</a>
             <a href="#/spmb?tab=gelombang"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-flag-banner"></i></span>Gelombang dan kuota</a>
@@ -245,6 +252,7 @@
         [!!id.logo, 'Unggah logo pondok (logo situs, ikon tab, dan kop surat)', '#/pengaturan?tab=identitas'],
         [(jmlAdmin || 0) > 0, 'Tambahkan akun Admin panitia', '#/pengguna'],
         [!!kp.nama, 'Tunjuk Ketua Panitia (penanda tangan dokumen)', '#/pengaturan?tab=ketua'],
+        [!!kp.no_wa, 'Isi nomor WhatsApp Ketua Panitia (tombol konfirmasi pendaftar)', '#/pengaturan?tab=ketua'],
         [jmlGel > 0, 'Atur gelombang: jadwal buka–tutup pendaftaran dan kuota', '#/spmb?tab=gelombang'],
         [jmlBiaya > 0, 'Isi rincian biaya tahap Pendaftaran', '#/spmb?tab=biaya'],
         [jmlRek > 0, 'Tambahkan rekening pembayaran', '#/spmb?tab=rekening']
@@ -284,6 +292,7 @@
         await muatNotif();
         if (location.hash.startsWith('#/notifikasi')) HALAMAN.notifikasi.muatDaftar?.();
         HALAMAN.beranda.segarkanStat && location.hash.match(/^#?\/?(beranda)?$/) && HALAMAN.beranda.segarkanStat();
+        if (/^#\/pendaftar\/?(\?|$)/.test(location.hash)) window.SPMB_MODUL.pendaftar?.segarkan?.();
         if ($('.notif-panel')) isiPanelNotif();
       })
       .subscribe();
@@ -388,6 +397,11 @@
      PENGATURAN SPMB (Superadmin) · isi di spmb.js
      ================================================================= */
   HALAMAN.spmb = k => window.SPMB_MODUL.spmb(k, { S, setFab, simpanPengaturan });
+
+  /* =================================================================
+     PENDAFTAR DAN VERIFIKASI (Admin, Superadmin) · isi di pendaftar.js
+     ================================================================= */
+  HALAMAN.pendaftar = k => window.SPMB_MODUL.pendaftar(k, { S, setFab, param: S.param });
 
   /* =================================================================
      PENGGUNA (Superadmin)
@@ -702,26 +716,28 @@
 
   async function tabKetua(el) {
     const kp = S.pengaturan.ketua_panitia || {};
-    const { data: admin } = await sb.from('profil_pengguna').select('id,nama_lengkap,email,niy').eq('peran', 'admin').eq('aktif', true).order('nama_lengkap');
+    const { data: admin } = await sb.from('profil_pengguna').select('id,nama_lengkap,email,niy,no_wa').eq('peran', 'admin').eq('aktif', true).order('nama_lengkap');
     el.innerHTML = `
       <form class="card" id="fKetua" novalidate style="max-width:640px">
         <div class="card-head"><div class="ic-box" style="--tone:var(--c6)"><i class="ph-duotone ph-seal-check"></i></div><div><h3>Ketua Panitia</h3><p>Satu-satunya penanda tangan di semua dokumen cetak</p></div></div>
         ${!admin?.length ? `<div class="note"><i class="ph-duotone ph-warning"></i><div>Belum ada akun Admin aktif. Tambahkan Admin di menu <a href="#/pengguna">Pengguna</a>, lalu kembali ke sini.</div></div>` : ''}
         <div class="field"><label for="kSel">Pilih dari akun Admin</label>
           <select class="select" id="kSel" name="pengguna_id"><option value="">— Pilih Admin —</option>
-          ${(admin || []).map(a => `<option value="${a.id}" data-nama="${esc(a.nama_lengkap)}" data-niy="${esc(a.niy || '')}" ${kp.pengguna_id === a.id ? 'selected' : ''}>${esc(a.nama_lengkap || a.email)}</option>`).join('')}</select></div>
+          ${(admin || []).map(a => `<option value="${a.id}" data-nama="${esc(a.nama_lengkap)}" data-niy="${esc(a.niy || '')}" data-wa="${esc(a.no_wa || '')}" ${kp.pengguna_id === a.id ? 'selected' : ''}>${esc(a.nama_lengkap || a.email)}</option>`).join('')}</select></div>
         ${inp('nama', 'Nama lengkap bergelar (seperti tertulis di dokumen)', kp.nama)}
         ${inp('niy', 'NIY', kp.niy)}
+        ${inp('no_wa', 'Nomor WhatsApp Ketua Panitia', kp.no_wa ? '0' + String(kp.no_wa).replace(/^62/, '') : '', 'inputmode="tel" placeholder="08xxxxxxxxxx"', 'Dipakai tombol <b>Konfirmasi via WhatsApp</b> setelah pendaftar mengirim formulir.')}
         <div style="display:flex;justify-content:flex-end"><button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan Ketua Panitia</button></div>
       </form>`;
     const f = $('#fKetua');
     $('#kSel').onchange = e => {
       const o = e.target.selectedOptions[0];
-      if (o?.dataset.nama) { f.elements.nama.value = o.dataset.nama; if (o.dataset.niy) f.elements.niy.value = o.dataset.niy; }
+      if (o?.dataset.nama) { f.elements.nama.value = o.dataset.nama; if (o.dataset.niy) f.elements.niy.value = o.dataset.niy; if (o.dataset.wa) f.elements.no_wa.value = '0' + o.dataset.wa.replace(/^62/, ''); }
     };
     f.onsubmit = async e => {
       e.preventDefault();
-      const nilai = { pengguna_id: f.elements.pengguna_id.value || null, nama: f.elements.nama.value.trim(), niy: f.elements.niy.value.trim() };
+      const nilai = { pengguna_id: f.elements.pengguna_id.value || null, nama: f.elements.nama.value.trim(), niy: f.elements.niy.value.trim(), no_wa: SPMB.nomorWA(f.elements.no_wa.value) };
+      if (nilai.no_wa && !/^628\d{7,11}$/.test(nilai.no_wa)) return toast('Nomor WhatsApp Ketua Panitia diawali 08, 10–13 digit.', 'err');
       if (!nilai.pengguna_id) return toast('Pilih akun Admin terlebih dahulu.', 'err');
       if (nilai.nama.length < 3) return toast('Nama Ketua Panitia wajib diisi.', 'err');
       try {
@@ -760,7 +776,7 @@
       box.innerHTML = '<div class="note info"><span class="spinner" style="width:18px;height:18px"></span><div>Menghubungi Apps Script…</div></div>';
       try {
         const j = await SPMB.kirimKeJembatan({ aksi: 'periksa' });
-        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>.${j.kuota_email != null ? ` Sisa kuota email hari ini: <b>${j.kuota_email}</b>.` : ''}${/^[12]\./.test(j.versi) ? '<br><b>Perhatian:</b> ini masih versi lama. Terapkan Apps Script versi 3.0 (Fase 3 Langkah 3).' : ''}</div></div>`;
+        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>.${j.kuota_email != null ? ` Sisa kuota email hari ini: <b>${j.kuota_email}</b>.` : ''}${/^([12]\.|3\.0)/.test(j.versi) ? '<br><b>Perhatian:</b> ini masih versi lama. Terapkan Apps Script versi 3.1 (Fase 3 Langkah 5).' : ''}</div></div>`;
       } catch (err) {
         box.innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div><b>Belum terhubung.</b> ${esc(pesanGalat(err))}</div></div>`;
       }

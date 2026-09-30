@@ -91,6 +91,7 @@
     t.innerHTML = `<i class="ph-duotone ${ikon}"></i><div>${esc(pesan)}</div>`;
     box.appendChild(t);
     setTimeout(() => t.remove(), lama);
+    return t;
   }
 
   /* ---------- Dialog ---------- */
@@ -310,6 +311,29 @@
   const konfirmasiPendaftaran = token => kirimKeJembatan({ aksi: 'konfirmasi', token_unggah: token }, { publik: true });
   // Admin melihat berkas pendaftar (privat di Drive). Hasil: { nama, mime, data: dataURL }
   const lihatBerkasPendaftar = driveId => kirimKeJembatan({ aksi: 'lihat', id: driveId });
+  // Bukti Pendaftaran PDF dari Apps Script: pendaftar memakai token formulirnya, panitia memakai id pendaftar
+  const ambilBuktiPdf = ({ token, id }) => token
+    ? kirimKeJembatan({ aksi: 'bukti', token_unggah: token }, { publik: true })
+    : kirimKeJembatan({ aksi: 'bukti', id });
+  // Simpan data:application/pdf;base64,... sebagai berkas di perangkat
+  function simpanPdf(dataURL, nama) {
+    const b64 = String(dataURL).split(',')[1] || '';
+    const bin = atob(b64), arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([arr], { type: 'application/pdf' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: nama.replace(/[\\/:*?"<>|]/g, '-') });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  // Admin menambah/mengganti berkas milik pendaftar (tersimpan di folder santri, privat)
+  async function unggahBerkasAdmin(file, { no, jenis }) {
+    const t = (file.type || '').toLowerCase();
+    if (/heic|heif/.test(t) || /\.(heic|heif)$/i.test(file.name)) throw new Error('Foto format HEIC belum didukung. Gunakan JPG atau PNG.');
+    if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(t)) throw new Error('Gunakan foto (JPG/PNG) atau PDF.');
+    const siap = t.startsWith('image/') ? await kompresGambar(file, { maksSisi: 1600, kualitas: 0.8 }) : file;
+    if (siap.size > 10 * 1024 * 1024) throw new Error('Ukuran berkas melebihi 10 MB.');
+    return kirimKeJembatan({ aksi: 'unggah', keperluan: 'pendaftar_admin', bagian: no, nama: `${jenis}-${siap.name}`, mime: siap.type, data: await bacaDataURL(siap) });
+  }
   // Superadmin membuang banyak berkas pendaftar ke Sampah Drive (misalnya data uji)
   const hapusBerkasPendaftar = ids => ids.length ? kirimKeJembatan({ aksi: 'hapus', keperluan: 'pendaftar_admin', ids }) : Promise.resolve({ jumlah: 0 });
 
@@ -399,6 +423,7 @@
     isiTanggalBawaan, setTheme, getTheme, themeSegHTML,
     alamatUnggah, kirimKeJembatan, kompresGambar, unggahBerkas, hapusBerkasDrive, gambar, youtubeId,
     unggahBerkasPendaftar, konfirmasiPendaftaran, lihatBerkasPendaftar, hapusBerkasPendaftar,
+    ambilBuktiPdf, simpanPdf, unggahBerkasAdmin,
     slugDari, nomorWA, teksBerformat, pasangFavicon, WARNA, IKON_PILIHAN
   };
 })();

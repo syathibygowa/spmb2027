@@ -1,5 +1,5 @@
 /* =====================================================================
-   SPMB 2027/2028 · JEMBATAN UNGGAH (Google Apps Script) · versi 3.0
+   SPMB 2027/2028 · JEMBATAN UNGGAH (Google Apps Script) · versi 3.1
    Pondok Pesantren Tahfizhul Qur'an Imam Asy-Syathiby Wahdah Islamiyah Gowa
 
    Tugas:
@@ -11,6 +11,8 @@
                       Pendaftaran (PDF ukuran F4).
    4. Lihat berkas  : Admin/Superadmin melihat berkas pendaftar yang
                       tersimpan privat di Drive.
+   4b. Bukti PDF    : Bukti Pendaftaran (PDF F4) untuk diunduh pendaftar
+                      (dengan token unggahnya) atau panitia (sesi masuk).
    5. Penjaga       : menyapa Supabase setiap hari agar tidak dijeda.
 
    Keamanan: berkas pendaftar TIDAK dibagikan ke publik. Berkas ini TIDAK
@@ -23,7 +25,7 @@ const PENGATURAN = {
   FOLDER_INDUK: '1CDoSwzcKma-GfGoR50ocI8EpSsvrl30w',                // folder "SPMB 2027"
   ALAMAT_SITUS: 'https://syathibygowa.github.io/spmb2027',
   ZONA_WAKTU: 'Asia/Makassar',
-  VERSI: '3.0 (Fase 3)'
+  VERSI: '3.1 (Fase 3)'
 };
 
 const FOLDER_PENDAFTAR = 'Berkas Pendaftar';
@@ -35,7 +37,7 @@ const KEPERLUAN = {
     jenis: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
   },
   pendaftar_admin: {           // Admin mengganti/menambah berkas milik pendaftar
-    folder: FOLDER_PENDAFTAR, peran: ['superadmin', 'admin'], peranHapus: ['superadmin'], publik: false, maksMB: 10,
+    folder: FOLDER_PENDAFTAR, peran: ['superadmin', 'admin'], peranHapus: ['superadmin', 'admin'], publik: false, maksMB: 10,
     jenis: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
   }
 };
@@ -62,6 +64,7 @@ function doPost(e) {
       case 'hapus':      return jawab(hapus(req));
       case 'konfirmasi': return jawab(konfirmasi(req));
       case 'lihat':      return jawab(lihat(req));
+      case 'bukti':      return jawab(bukti(req));
       case 'periksa':    return jawab({ ok: true, peran: periksaPeran(req.token), versi: PENGATURAN.VERSI, kuota_email: MailApp.getRemainingDailyQuota() });
       default:           return jawab({ ok: false, error: 'Perintah tidak dikenal.' });
     }
@@ -156,7 +159,12 @@ function konfirmasi(req) {
     }
   });
 
-  // b. Email (sekali saja)
+  // b. Bukti Pendaftaran PDF (dipakai untuk lampiran email dan unduhan di formulir)
+  const peng = pengaturanPublik();
+  let pdf = null;
+  try { pdf = buktiPdf(p, d.berkas, peng); } catch (e) { Logger.log('PDF gagal dibuat: ' + e); }
+
+  // c. Email (sekali saja)
   let email = false, pesan = '';
   if (d.sudah_email) {
     pesan = 'Email konfirmasi sudah pernah dikirim.';
@@ -165,15 +173,14 @@ function konfirmasi(req) {
   } else if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(p.email || '')) {
     pesan = 'Alamat email tidak valid.';
   } else {
-    kirimEmailKonfirmasi(p, d.berkas);
+    kirimEmailKonfirmasi(p, pdf, peng);
     rpc('tandai_email_terkirim', { p_token: token });
     email = true;
   }
-  return { ok: true, email: email, pesan: pesan, no_registrasi: p.no_registrasi };
+  return { ok: true, email: email, pesan: pesan, no_registrasi: p.no_registrasi, pdf: pdfDataURL(pdf) };
 }
 
-function kirimEmailKonfirmasi(p, berkas) {
-  const peng = pengaturanPublik();
+function kirimEmailKonfirmasi(p, pdf, peng) {
   const id = peng.identitas || {}, kp = peng.ketua_panitia || {};
   const lembaga = id.nama_lembaga || 'Pondok Pesantren Imam Asy-Syathiby';
   const ta = id.tahun_ajaran || '';
@@ -208,8 +215,7 @@ function kirimEmailKonfirmasi(p, berkas) {
     '<p style="margin-bottom:0">Jazakumullahu khairan.<br>Panitia SPMB ' + esc(ta) + (kp.nama ? '<br>' + esc(kp.nama) : '') + '</p></div>' +
     '<p style="font-size:11px;color:#9a8a86;text-align:center">Email ini dikirim otomatis. Mohon tidak membalas email ini.</p></div>';
 
-  let lampiran = [];
-  try { lampiran = [buktiPdf(p, berkas, peng)]; } catch (e) { Logger.log('PDF gagal dibuat: ' + e); }
+  const lampiran = pdf ? [pdf] : [];
 
   MailApp.sendEmail({
     to: p.email,
@@ -337,6 +343,32 @@ function tabelRapi(t, proporsi, lebar) {
 
 
 /* =====================================================================
+   4b. BUKTI PENDAFTARAN PDF UNTUK DIUNDUH
+   - pendaftar: { aksi:'bukti', token_unggah }  (token dari formulirnya)
+   - panitia  : { aksi:'bukti', id, token }      (sesi masuk dashboard)
+   ===================================================================== */
+function bukti(req) {
+  let d;
+  if (req.token_unggah) {
+    const token = String(req.token_unggah);
+    if (!/^[0-9a-f-]{36}$/.test(token)) throw new Error('Sesi formulir tidak dikenal.');
+    d = rpc('data_konfirmasi', { p_token: token });
+  } else {
+    const peran = periksaPeran(req.token);
+    if (['superadmin', 'admin'].indexOf(peran) < 0) throw new Error('Akun Anda tidak berhak mengunduh bukti pendaftaran.');
+    d = rpcSesi(req.token, 'data_bukti', { p_id: String(req.id || '') });
+  }
+  if (!d || !d.ok) throw new Error((d && d.error) || 'Data pendaftaran tidak ditemukan.');
+  const pdf = buktiPdf(d.pendaftar, d.berkas, pengaturanPublik());
+  return { ok: true, nama: pdf.getName(), pdf: pdfDataURL(pdf) };
+}
+
+function pdfDataURL(pdf) {
+  return pdf ? 'data:application/pdf;base64,' + Utilities.base64Encode(pdf.getBytes()) : null;
+}
+
+
+/* =====================================================================
    4. LIHAT BERKAS PENDAFTAR (Admin/Superadmin)
    ===================================================================== */
 function lihat(req) {
@@ -388,6 +420,17 @@ function periksaPeran(token) {
   const peran = JSON.parse(res.getContentText() || 'null');
   if (!peran) throw new Error('Akun Anda tidak aktif.');
   return peran;
+}
+
+// Panggil fungsi Supabase dengan sesi panitia yang sedang masuk
+function rpcSesi(token, nama, args) {
+  const res = UrlFetchApp.fetch(PENGATURAN.SUPABASE_URL + '/rest/v1/rpc/' + nama, {
+    method: 'post', contentType: 'application/json', payload: JSON.stringify(args || {}),
+    headers: { apikey: PENGATURAN.SUPABASE_KEY, Authorization: 'Bearer ' + token }, muteHttpExceptions: true
+  });
+  let j = null; try { j = JSON.parse(res.getContentText() || 'null'); } catch (e) {}
+  if (res.getResponseCode() >= 300) throw new Error((j && j.message) || 'Supabase menolak permintaan (' + res.getResponseCode() + ').');
+  return j;
 }
 
 // Panggil fungsi Supabase sebagai pengunjung (kunci publik saja)

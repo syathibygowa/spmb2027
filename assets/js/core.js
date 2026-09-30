@@ -230,16 +230,21 @@
     return (p.integrasi?.apps_script_url || CFG.appsScriptUrl || '').trim();
   }
 
-  async function kirimKeJembatan(data) {
+  // publik = true: dipakai pengunjung tanpa akun (formulir pendaftaran), tanpa sesi Supabase
+  async function kirimKeJembatan(data, { publik = false } = {}) {
     const url = await alamatUnggah();
-    if (!url) throw new Error('Alamat Apps Script belum diatur (Pengaturan > Integrasi).');
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) throw new Error('Sesi Anda berakhir. Silakan masuk kembali.');
+    if (!url) throw new Error(publik ? 'Layanan unggah belum siap. Silakan hubungi panitia.' : 'Alamat Apps Script belum diatur (Pengaturan > Integrasi).');
+    let token;
+    if (!publik) {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) throw new Error('Sesi Anda berakhir. Silakan masuk kembali.');
+      token = session.access_token;
+    }
     let res;
     try {
       // text/plain agar tidak memicu pemeriksaan CORS tambahan dari browser
-      res = await fetch(url, { method: 'POST', body: JSON.stringify({ ...data, token: session.access_token }) });
-    } catch (e) { throw new Error('Tidak dapat terhubung ke layanan unggah (Apps Script). Periksa koneksi atau alamat Apps Script.'); }
+      res = await fetch(url, { method: 'POST', body: JSON.stringify(token ? { ...data, token } : data) });
+    } catch (e) { throw new Error('Tidak dapat terhubung ke layanan unggah. Periksa koneksi internet lalu coba lagi.'); }
     let j;
     try { j = await res.json(); } catch (e) { throw new Error('Layanan unggah tidak memberi jawaban yang benar. Pastikan Apps Script diterapkan dengan akses "Siapa saja".'); }
     if (!j.ok) throw new Error(j.error || 'Unggah gagal.');
@@ -284,6 +289,29 @@
     await kirimKeJembatan({ aksi: 'hapus', keperluan, id: driveId });
     await sb.from('berkas_unggahan').delete().eq('drive_id', driveId);
   }
+
+  /* ---------- FASE 3: berkas pendaftar ---------- */
+  // Unggah satu berkas dari formulir pendaftaran (pengunjung tanpa akun).
+  // token: token unggah dari fungsi minta_token_unggah; jenis: kunci berkas (pas_foto, kk, ...).
+  async function unggahBerkasPendaftar(file, { token, jenis, hanyaGambar = false }) {
+    const t = (file.type || '').toLowerCase();
+    if (/heic|heif/.test(t) || /\.(heic|heif)$/i.test(file.name)) throw new Error('Foto format HEIC belum didukung. Ubah pengaturan kamera ke JPG atau kirim tangkapan layarnya.');
+    const izin = hanyaGambar ? ['image/jpeg', 'image/png', 'image/webp'] : ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!izin.includes(t)) throw new Error(hanyaGambar ? 'Gunakan foto berformat JPG atau PNG.' : 'Gunakan foto (JPG/PNG) atau PDF.');
+    let siap = file;
+    if (t.startsWith('image/')) {
+      siap = await kompresGambar(file, { maksSisi: 1600, kualitas: 0.8 });
+      if (siap.size > 1024 * 1024) siap = await kompresGambar(file, { maksSisi: 1280, kualitas: 0.7 });
+      if (siap.size > 3 * 1024 * 1024) throw new Error('Foto terlalu besar. Coba potong atau foto ulang dengan resolusi lebih kecil.');
+    } else if (siap.size > 5 * 1024 * 1024) throw new Error('Ukuran PDF melebihi 5 MB. Perkecil dulu (misalnya dengan aplikasi pemindai atau ilovepdf.com).');
+    return kirimKeJembatan({ aksi: 'unggah', keperluan: 'pendaftar', token_unggah: token, jenis, nama: siap.name, mime: siap.type, data: await bacaDataURL(siap) }, { publik: true });
+  }
+  // Setelah formulir terkirim: rapikan folder berkas dan kirim email konfirmasi
+  const konfirmasiPendaftaran = token => kirimKeJembatan({ aksi: 'konfirmasi', token_unggah: token }, { publik: true });
+  // Admin melihat berkas pendaftar (privat di Drive). Hasil: { nama, mime, data: dataURL }
+  const lihatBerkasPendaftar = driveId => kirimKeJembatan({ aksi: 'lihat', id: driveId });
+  // Superadmin membuang banyak berkas pendaftar ke Sampah Drive (misalnya data uji)
+  const hapusBerkasPendaftar = ids => ids.length ? kirimKeJembatan({ aksi: 'hapus', keperluan: 'pendaftar_admin', ids }) : Promise.resolve({ jumlah: 0 });
 
   // Gambar Drive (lh3) dengan lebar tertentu agar ringan; tautan lain dibiarkan
   function gambar(url, lebar) {
@@ -370,6 +398,7 @@
     muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen,
     isiTanggalBawaan, setTheme, getTheme, themeSegHTML,
     alamatUnggah, kirimKeJembatan, kompresGambar, unggahBerkas, hapusBerkasDrive, gambar, youtubeId,
+    unggahBerkasPendaftar, konfirmasiPendaftaran, lihatBerkasPendaftar, hapusBerkasPendaftar,
     slugDari, nomorWA, teksBerformat, pasangFavicon, WARNA, IKON_PILIHAN
   };
 })();

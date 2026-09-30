@@ -747,7 +747,7 @@
           <button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan</button>
         </div>
       </form>
-      <div class="note info" style="max-width:760px;margin-top:16px"><i class="ph-duotone ph-shield-check"></i><div>Setiap unggahan membawa sesi masuk Anda dan diperiksa ke Supabase oleh Apps Script. Pengunjung situs tidak dapat mengunggah atau menghapus berkas konten.</div></div>`;
+      <div class="note info" style="max-width:760px;margin-top:16px"><i class="ph-duotone ph-shield-check"></i><div>Unggahan konten membawa sesi masuk Anda dan diperiksa ke Supabase oleh Apps Script. Pendaftar mengunggah berkas memakai token sekali pakai dari formulir; berkasnya tersimpan <b>privat</b> di folder Berkas Pendaftar dan hanya dapat dibuka panitia.</div></div>`;
     const f = $('#fIntegrasi');
     f.onsubmit = async e => {
       e.preventDefault();
@@ -760,10 +760,111 @@
       box.innerHTML = '<div class="note info"><span class="spinner" style="width:18px;height:18px"></span><div>Menghubungi Apps Script…</div></div>';
       try {
         const j = await SPMB.kirimKeJembatan({ aksi: 'periksa' });
-        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>. Unggah gambar siap dipakai.</div></div>`;
+        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>.${j.kuota_email != null ? ` Sisa kuota email hari ini: <b>${j.kuota_email}</b>.` : ''}${/^[12]\./.test(j.versi) ? '<br><b>Perhatian:</b> ini masih versi lama. Terapkan Apps Script versi 3.0 (Fase 3 Langkah 3).' : ''}</div></div>`;
       } catch (err) {
         box.innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div><b>Belum terhubung.</b> ${esc(pesanGalat(err))}</div></div>`;
       }
+    };
+    ujiAlurPendaftaran(el);
+  }
+
+  /* ---------- Uji alur pendaftaran (Fase 3): unggah tanpa akun, kirim, email ---------- */
+  function ujiAlurPendaftaran(el) {
+    el.insertAdjacentHTML('beforeend', `
+      <div class="card" style="max-width:760px;margin-top:16px">
+        <div class="card-head"><div class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-flask"></i></div>
+          <div><h3>Uji alur pendaftaran</h3><p>Membuat satu pendaftar <b>uji coba</b> lengkap dengan 5 berkas contoh, lalu mengirim email konfirmasi ke ${esc(S.user.email)}</p></div></div>
+        <ol class="uji-langkah" id="ujiLangkah">
+          ${['Meminta token unggah', 'Mengunggah 5 berkas contoh ke Google Drive (tanpa sesi masuk, seperti pengunjung)', 'Mengirim formulir uji dan membuat nomor registrasi', 'Merapikan folder berkas dan mengirim email + Bukti Pendaftaran PDF']
+            .map((t, i) => `<li data-l="${i}"><span class="st"><i class="ph-duotone ph-circle-dashed"></i></span>${t}</li>`).join('')}
+        </ol>
+        <div id="ujiHasil"></div>
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
+          <span class="muted" id="ujiJumlah" style="font-size:13px"></span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn ghost" type="button" id="btnHapusUji"><i class="ph-duotone ph-trash" style="color:var(--danger)"></i>Hapus data uji</button>
+            <button class="btn" type="button" id="btnUjiAlur"><i class="ph-duotone ph-play-circle"></i>Jalankan uji</button>
+          </div>
+        </div>
+      </div>`);
+
+    const tanda = (i, st) => {
+      const li = el.querySelector(`#ujiLangkah [data-l="${i}"]`); if (!li) return;
+      li.className = st;
+      li.querySelector('.st').innerHTML = { jalan: '<span class="spinner" style="width:16px;height:16px"></span>', ok: '<i class="ph-duotone ph-check-circle"></i>', gagal: '<i class="ph-duotone ph-x-circle"></i>' }[st] || '<i class="ph-duotone ph-circle-dashed"></i>';
+    };
+    const segarJumlah = async () => {
+      const { data } = await sb.rpc('statistik_dashboard');
+      const n = data?.data_uji ?? 0;
+      $('#ujiJumlah').textContent = `Data uji tersimpan: ${n} pendaftar`;
+      $('#btnHapusUji').disabled = !n;
+    };
+    segarJumlah().catch(() => {});
+
+    // Gambar contoh bertuliskan nama berkas
+    const gambarContoh = label => new Promise(ok => {
+      const c = Object.assign(document.createElement('canvas'), { width: 600, height: 400 });
+      const g = c.getContext('2d');
+      const grad = g.createLinearGradient(0, 0, 600, 400); grad.addColorStop(0, '#b8262a'); grad.addColorStop(1, '#f4a04f');
+      g.fillStyle = grad; g.fillRect(0, 0, 600, 400);
+      g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'bold 34px sans-serif'; g.fillText('BERKAS UJI COBA', 300, 170);
+      g.font = '26px sans-serif'; g.fillText(label, 300, 220); g.font = '18px sans-serif'; g.fillText(fmt.tglJam(new Date()), 300, 260);
+      c.toBlob(b => ok(new File([b], label.toLowerCase().replace(/\W+/g, '-') + '.jpg', { type: 'image/jpeg' })), 'image/jpeg', 0.8);
+    });
+
+    $('#btnUjiAlur').onclick = async e => {
+      const tombol = e.currentTarget; tombol.disabled = true;
+      el.querySelectorAll('#ujiLangkah li').forEach((li, i) => tanda(i, ''));
+      $('#ujiHasil').innerHTML = '';
+      let langkah = 0;
+      try {
+        const cfg = (await muatPengaturan(true)).spmb || {};
+        tanda(0, 'jalan');
+        const { data: token, error: eTok } = await sb.rpc('minta_token_unggah', { p_token_lama: null });
+        if (eTok) throw eTok;
+        tanda(0, 'ok'); langkah = 1; tanda(1, 'jalan');
+
+        const wajib = (cfg.berkas || []).filter(b => b.wajib);
+        const ids = [];
+        for (const b of wajib) {
+          const h = await SPMB.unggahBerkasPendaftar(await gambarContoh(b.label), { token, jenis: b.kunci });
+          ids.push(h.id);
+        }
+        tanda(1, 'ok'); langkah = 2; tanda(2, 'jalan');
+
+        const acuan = new Date((cfg.usia?.acuan || '2027-07-01') + 'T00:00:00');
+        const lahir = new Date(acuan); lahir.setFullYear(acuan.getFullYear() - ((cfg.usia?.SMP?.min || 11) + 1));
+        const acak = n => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
+        const { data: hasil, error: eKirim } = await sb.rpc('kirim_pendaftaran', { p_token: token, p_data: {
+          uji: true, setuju: true, jenjang: 'SMP', bagian: 'putra', nama_lengkap: 'Santri Uji Coba', nisn: acak(10), nik: '7306' + acak(12),
+          tempat_lahir: 'Kab. Gowa', tanggal_lahir: fmt.isoTgl(lahir), asal_provinsi: 'Sulawesi Selatan', asal_kabupaten: 'Kab. Gowa',
+          alamat_jalan: 'Jl. Uji Coba No. 1', rt: '1', rw: '1', desa: 'Desa Uji', kecamatan: 'Kecamatan Uji', kabupaten: 'Kab. Gowa', provinsi: 'Sulawesi Selatan',
+          kode_pos: '92111', asal_sekolah: 'SD Uji Coba', nama_ayah: 'Ayah Uji Coba', nama_ibu: 'Ibu Uji Coba', pekerjaan_ayah: 'Lainnya', pekerjaan_ibu: 'Lainnya',
+          email: S.user.email, no_wa: S.profil.no_wa || '6281234567890', sumber_info: 'Lainnya', berkas: ids } });
+        if (eKirim) throw eKirim;
+        tanda(2, 'ok'); langkah = 3; tanda(3, 'jalan');
+
+        const k = await SPMB.konfirmasiPendaftaran(token);
+        tanda(3, k.email ? 'ok' : 'gagal');
+        $('#ujiHasil').innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div>
+          <b>Alur berhasil.</b> Nomor registrasi uji: <b>${esc(hasil.no_registrasi)}</b>.<br>
+          ${k.email ? `Periksa kotak masuk <b>${esc(S.user.email)}</b> (juga folder Spam): email berisi lampiran Bukti Pendaftaran PDF.` : `Email tidak terkirim: ${esc(k.pesan)}`}<br>
+          Berkas tersimpan di Google Drive: <b>SPMB 2027 › Berkas Pendaftar › _Uji Coba</b>. Notifikasi "Pendaftar uji coba" juga masuk ke lonceng.</div></div>`;
+      } catch (err) {
+        tanda(langkah, 'gagal');
+        $('#ujiHasil').innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div><b>Gagal pada langkah ${langkah + 1}.</b> ${esc(pesanGalat(err))}</div></div>`;
+      } finally { tombol.disabled = false; segarJumlah().catch(() => {}); }
+    };
+
+    $('#btnHapusUji').onclick = async () => {
+      if (!(await konfirmasi('Hapus semua data uji?', 'Semua pendaftar bernomor UJI- beserta riwayatnya dihapus dari database, dan berkasnya dipindah ke Sampah Google Drive. Data pendaftar sungguhan tidak tersentuh.', 'Hapus data uji', true))) return;
+      try {
+        const { data, error } = await sb.rpc('hapus_data_uji'); if (error) throw error;
+        let pesan = `${data.jumlah} pendaftar uji dihapus.`;
+        try { const h = await SPMB.hapusBerkasPendaftar(data.drive_ids || []); pesan += ` ${h.jumlah} berkas dipindah ke Sampah Drive.`; }
+        catch (e2) { pesan += ' Berkas di Drive belum terhapus: ' + pesanGalat(e2); }
+        toast(pesan, 'ok', 6000); segarJumlah();
+      } catch (err) { toast(pesanGalat(err), 'err'); }
     };
   }
 

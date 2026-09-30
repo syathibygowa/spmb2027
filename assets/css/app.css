@@ -1207,3 +1207,9 @@ img.avatar{object-fit:cover}
 }
 .rek-item .ic-box{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:23px}
 .rek-item .ic-box i{font-size:23px;line-height:1}
+.uji-langkah{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:8px}
+.uji-langkah li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--muted)}
+.uji-langkah .st{width:22px;display:grid;place-items:center;font-size:20px;color:var(--faint);flex:none}
+.uji-langkah li.jalan{color:var(--text);font-weight:600}
+.uji-langkah li.ok{color:var(--text)}.uji-langkah li.ok .st{color:var(--ok)}
+.uji-langkah li.gagal{color:var(--danger);font-weight:600}.uji-langkah li.gagal .st{color:var(--danger)}

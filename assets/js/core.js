@@ -155,14 +155,15 @@
     cachePengaturan = Object.fromEntries((data || []).map(r => [r.kunci, r.nilai || {}]));
     return cachePengaturan;
   }
-  const LOGO_BAWAAN = 'assets/img/logo-pondok.png';
+  // Logo diunggah Superadmin di Pengaturan > Identitas (tersimpan di Google Drive)
   function logoPondok(p) {
-    return (p?.identitas?.logo) || (p?.kop_surat?.logo_kanan) || LOGO_BAWAAN;
+    return (p?.identitas?.logo) || (p?.kop_surat?.logo_kanan) || '';
   }
-  // Pasang logo pada elemen .brand-logo; bila gagal dimuat, tampilkan ikon
+  // Pasang logo pada elemen .brand-logo; bila kosong atau gagal dimuat, tampilkan ikon
   function pasangLogo(el, url) {
     if (!el) return;
-    el.innerHTML = `<img alt="Logo pondok" src="${esc(url)}">`;
+    if (!url) { el.innerHTML = '<i class="ph-duotone ph-mosque"></i>'; return; }
+    el.innerHTML = `<img alt="Logo pondok" src="${esc(gambar(url, 128))}">`;
     el.querySelector('img').onerror = () => { el.innerHTML = '<i class="ph-duotone ph-mosque"></i>'; };
   }
 

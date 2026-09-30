@@ -176,6 +176,7 @@
      ================================================================= */
   const F = (k, l, t = 'teks', o = {}) => ({ k, l, t, ...o });
   const KOLOM = ['judul', 'isi', 'gambar'];
+  const rupiah = n => n == null || n === '' ? '' : 'Rp ' + fmt.angka(n);
   const potong = (s, n = 90) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 
   const MODUL = {
@@ -223,6 +224,22 @@
       bidang: [F('judul', 'Pertanyaan', 'teks', { wajib: 1, maks: 200 }), F('isi', 'Jawaban', 'panjang', { wajib: 1, maks: 1500 }),
         F('kategori', 'Kategori', 'teks', { maks: 40, contoh: 'Pendaftaran', daftar: 1 })],
       sub: x => [x.data.kategori, potong(x.isi, 70)].filter(Boolean).join(' · ') },
+    biaya: { label: 'Biaya', ikon: 'ph-wallet', tone: 'var(--c3)', bagian: 'biaya',
+      bidang: [F('judul', 'Komponen biaya', 'teks', { wajib: 1, maks: 80, contoh: 'Uang pendaftaran' }),
+        F('tahap', 'Tahap pembayaran', 'pilihan', { pilihan: ['Pendaftaran', 'Daftar ulang', 'Bulanan', 'Tahunan', 'Lainnya'] }),
+        F('jenjang', 'Jenjang', 'pilihan', { pilihan: ['Semua jenjang', 'SMP', 'SMA'] }),
+        F('bagian', 'Berlaku untuk', 'pilihan', { pilihan: ['Putra dan putri', 'Putra', 'Putri'] }),
+        F('nominal', 'Nominal (Rp)', 'angka', { wajib: 1, min: 0, maks: 100000000, bantuan: 'Tulis angka saja, tanpa titik. Contoh: 250000' }),
+        F('wajib', 'Biaya wajib', 'cek', { bawaan: true }),
+        F('isi', 'Keterangan', 'panjang', { maks: 300, contoh: 'Dapat diangsur 3 kali' })],
+      sub: x => [x.data.tahap, x.data.jenjang, x.data.bagian !== 'Putra dan putri' && x.data.bagian, rupiah(x.data.nominal), x.data.wajib === false && 'opsional'].filter(Boolean).join(' · ') },
+    jadwal: { label: 'Jadwal', ikon: 'ph-calendar-dots', tone: 'var(--c2)', bagian: 'jadwal',
+      bidang: [F('gelombang', 'Gelombang', 'teks', { wajib: 1, maks: 40, contoh: 'Gelombang 1', daftar: 1 }),
+        F('judul', 'Kegiatan', 'teks', { wajib: 1, maks: 80, contoh: 'Pendaftaran online' }),
+        F('mulai', 'Tanggal mulai', 'tanggal', { wajib: 1, hariIni: 1 }),
+        F('selesai', 'Tanggal selesai', 'tanggal', { bantuan: 'Kosongkan bila kegiatan hanya satu hari.' }),
+        F('isi', 'Keterangan', 'panjang', { maks: 300, contoh: 'Tes dilaksanakan di kampus pondok atau secara online' })],
+      sub: x => [x.data.gelombang, x.data.mulai && (fmt.tgl(x.data.mulai) + (x.data.selesai ? ' s.d. ' + fmt.tgl(x.data.selesai) : ''))].filter(Boolean).join(' · ') },
     video: { label: 'Video', ikon: 'ph-youtube-logo', tone: 'var(--c7)', bagian: 'video',
       bidang: [F('youtube', 'Tautan YouTube', 'youtube', { wajib: 1 }), F('judul', 'Judul video', 'teks', { maks: 120 }),
         F('utama', 'Jadikan video utama di halaman depan', 'cek')],
@@ -240,7 +257,7 @@
 
   // Susunan menu modul (kisi ikon berwarna)
   const KELOMPOK = [
-    ['Halaman depan', [['beranda', 'Beranda dan Susunan', 'ph-layout', 'var(--primary)'], ...['keunggulan', 'jaminan', 'program', 'prestasi', 'flyer', 'alur', 'testimoni', 'galeri', 'faq', 'video'].map(k => [k, MODUL[k].label, MODUL[k].ikon, MODUL[k].tone])]],
+    ['Halaman depan', [['beranda', 'Beranda dan Susunan', 'ph-layout', 'var(--primary)'], ...['keunggulan', 'jaminan', 'program', 'prestasi', 'flyer', 'biaya', 'jadwal', 'alur', 'testimoni', 'galeri', 'faq', 'video'].map(k => [k, MODUL[k].label, MODUL[k].ikon, MODUL[k].tone])]],
     ['Halaman lain', [['profil', 'Profil Lembaga', 'ph-identification-badge', 'var(--c1)'], ['pimpinan', 'Pimpinan', MODUL.pimpinan.ikon, MODUL.pimpinan.tone],
       ['kontak_panitia', 'Kontak Panitia', MODUL.kontak_panitia.ikon, MODUL.kontak_panitia.tone], ['berita', 'Berita', 'ph-newspaper', 'var(--c3)']]],
     ['Penyimpanan', [['berkas', 'Berkas Unggahan', 'ph-folder-open', 'var(--c8)']]]
@@ -443,7 +460,7 @@
             if (KOLOM.includes(b.k)) baris[b.k] = v || (b.k === 'gambar' ? null : '');
             else baris.data[b.k] = v === '' ? null : v;
           }
-          if (baris.data.mulai && baris.data.selesai && baris.data.selesai < baris.data.mulai) err.push('Tanggal "tampil sampai" tidak boleh sebelum "tampil mulai".');
+          if (baris.data.mulai && baris.data.selesai && baris.data.selesai < baris.data.mulai) err.push('Tanggal selesai tidak boleh sebelum tanggal mulai.');
           root.querySelector('#fErr').innerHTML = err.length ? `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>${err.map(esc).join('<br>')}</div></div>` : '';
           if (err.length) return false;
 
@@ -475,12 +492,12 @@
   };
   const CATATAN_BAGIAN = {
     statistik: 'Berisi angka pendaftar langsung. Aktif setelah Fase 3 (pendaftaran online).',
-    biaya: 'Diisi dari rincian biaya Fase 3; sebelum itu tampil "Segera diumumkan".',
-    jadwal: 'Diisi dari data gelombang Fase 3; sebelum itu tampil "Segera diumumkan".',
+    biaya: 'Isi sementara dari modul Biaya. Tampil "Segera diumumkan" bila kosong.',
+    jadwal: 'Isi sementara dari modul Jadwal. Status berjalan/selesai dihitung otomatis dari tanggal.',
     berita: 'Menampilkan 3 berita terbaru yang sudah terbit.',
     kontak: 'Alamat, telepon, media sosial, dan peta dari Pengaturan > Identitas, ditambah Kontak Panitia.'
   };
-  const MODUL_BAGIAN = { keunggulan: 'keunggulan', jaminan: 'jaminan', program: 'program', prestasi: 'prestasi', flyer: 'flyer', alur: 'alur', testimoni: 'testimoni', galeri: 'galeri', faq: 'faq', video: 'video', berita: 'berita', kontak: 'kontak_panitia' };
+  const MODUL_BAGIAN = { keunggulan: 'keunggulan', jaminan: 'jaminan', program: 'program', prestasi: 'prestasi', flyer: 'flyer', alur: 'alur', testimoni: 'testimoni', galeri: 'galeri', faq: 'faq', video: 'video', berita: 'berita', kontak: 'kontak_panitia', biaya: 'biaya', jadwal: 'jadwal' };
 
   async function halBeranda(el, ctx) {
     const p = await muatPengaturan(true);
@@ -501,7 +518,7 @@
           <div class="field"><label>Hitung mundur sampai</label><input class="input" type="datetime-local" name="hitung_mundur" value="${esc(keLokal(h.hitung_mundur))}"><small>Kosongkan bila tidak ada hitung mundur. Jam mengikuti WITA.</small></div>
           <div class="field"><label>Keterangan hitung mundur</label><input class="input" name="label_hitung_mundur" value="${esc(h.label_hitung_mundur || '')}" maxlength="60"></div>
         </div>
-        <div class="note info" style="margin:0 0 12px"><i class="ph-duotone ph-info"></i><div>Sebelum Fase 3, tombol utama mengarah ke informasi alur pendaftaran. Setelah formulir online aktif, tombol otomatis membuka formulir.</div></div>
+        <div class="note info" style="margin:0 0 12px"><i class="ph-duotone ph-info"></i><div>Sebelum Fase 3, tombol utama mengarah ke bagian Alur Pendaftaran dan tombol kedua ke bagian Gelombang dan Jadwal. Setelah formulir online dan pengumuman aktif, keduanya otomatis membuka halaman yang sesuai.</div></div>
         <div style="display:flex;justify-content:flex-end"><button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan bagian pembuka</button></div>
       </form>
 

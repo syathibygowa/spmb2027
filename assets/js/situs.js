@@ -154,7 +154,7 @@
       <nav class="situs-bawah" aria-label="Navigasi bawah">
         <a href="index.html" class="${HAL === 'beranda' ? 'aktif' : ''}" style="--tone:var(--c7)"><span class="pill-ic"><i class="ph-duotone ph-house"></i></span>Beranda</a>
         <a href="profil.html" class="${HAL === 'profil' ? 'aktif' : ''}" style="--tone:var(--c1)"><span class="pill-ic"><i class="ph-duotone ph-identification-badge"></i></span>Profil</a>
-        <a href="${tautanDaftar()}" class="daftar"><span class="pill-ic"><i class="ph-duotone ph-note-pencil"></i></span>Daftar</a>
+        <a href="${tautanDaftar()}" class="daftar${HAL === 'daftar' ? ' aktif' : ''}"><span class="pill-ic"><i class="ph-duotone ph-note-pencil"></i></span>Daftar</a>
         <a href="berita.html" class="${HAL === 'berita' ? 'aktif' : ''}" style="--tone:var(--c5)"><span class="pill-ic"><i class="ph-duotone ph-newspaper"></i></span>Berita</a>
         <button type="button" id="btnLainnya" class="${HAL === 'kontak' ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
       </nav>
@@ -855,7 +855,10 @@
     if (HAL === 'beranda') tugas.push(queryBerita().order('terbit_pada', { ascending: false }).limit(3).then(({ data }) => { S.beritaTerbaru = data || []; }));
     await Promise.all(tugas);
     pasangKerangka();
-    await ({ beranda: halBeranda, profil: halProfil, berita: halBerita, kontak: halKontak }[HAL] || halBeranda)();
+    // Halaman tambahan (Fase 3): daftar.js dan lainnya mendaftar di window.SPMB_HAL
+    const tambahan = (window.SPMB_HAL || {})[HAL];
+    if (tambahan) await tambahan({ S, kepalaHalaman, pasangInteraksi });
+    else await ({ beranda: halBeranda, profil: halProfil, berita: halBerita, kontak: halKontak }[HAL] || halBeranda)();
     // gulir ke bagian yang dituju setelah isi termuat
     if (location.hash.length > 1) { const t = document.getElementById(decodeURIComponent(location.hash.slice(1))); if (t) setTimeout(() => t.scrollIntoView(), 60); }
   }

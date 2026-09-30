@@ -400,11 +400,11 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
   .doc th{font-weight:700;text-align:center}
   .doc thead{display:table-header-group}
   .doc tr{break-inside:avoid}
-  .doc .sign{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:14mm;font-size:10.5pt;break-inside:avoid}
+  .doc .sign{display:grid;grid-template-columns:1fr 1fr;gap:20mm;margin-top:9mm;font-size:10.5pt;break-inside:avoid}
   .doc .sign>div{text-align:center}
-  .doc .sign .space{height:22mm}
+  .doc .sign .space{height:20mm}
   .doc .sign b{text-decoration:underline}
-  .doc .foot{margin-top:10mm;font-size:8.5pt;color:#444;border-top:.5pt solid #999;padding-top:4pt}
+  .doc .foot{margin-top:6mm;font-size:8.5pt;color:#444;border-top:.5pt solid #999;padding-top:4pt}
 }
 
 /* =====================================================================
@@ -1213,3 +1213,150 @@ img.avatar{object-fit:cover}
 .uji-langkah li.jalan{color:var(--text);font-weight:600}
 .uji-langkah li.ok{color:var(--text)}.uji-langkah li.ok .st{color:var(--ok)}
 .uji-langkah li.gagal{color:var(--danger);font-weight:600}.uji-langkah li.gagal .st{color:var(--danger)}
+
+/* =====================================================================
+   FASE 3 · LANGKAH 4 — FORMULIR PENDAFTARAN (daftar.html)
+   ===================================================================== */
+.daftar-sek .wadah{max-width:920px}
+.daftar-kartu{padding:22px 24px 18px}
+.pita-uji{background:var(--info-soft);border-color:color-mix(in srgb,var(--info) 35%,transparent)}
+.pita-uji>i{color:var(--info)}
+.tautan-btn{background:none;border:0;padding:0;color:var(--primary);font:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+/* penunjuk langkah */
+.stepper-daftar{list-style:none;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:0 0 22px;padding:0;counter-reset:l}
+.stepper-daftar li{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-size:12.5px;font-weight:700;color:var(--muted)}
+.stepper-daftar li::before{content:"";position:absolute;top:17px;right:calc(50% + 22px);left:calc(-50% + 22px);height:3px;border-radius:2px;background:var(--border)}
+.stepper-daftar li:first-child::before{display:none}
+.stepper-daftar li.selesai::before,.stepper-daftar li.aktif::before{background:var(--tone)}
+.stepper-daftar .no{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;border:2px solid var(--border);background:var(--surface);font-size:14px;transition:.15s}
+.stepper-daftar li.aktif{color:var(--text)}
+.stepper-daftar li.aktif .no{border-color:var(--tone);background:var(--tone);color:#fff;box-shadow:0 4px 14px color-mix(in srgb,var(--tone) 40%,transparent)}
+.stepper-daftar li.selesai .no{border-color:var(--tone);color:var(--tone);background:color-mix(in srgb,var(--tone) 12%,var(--surface))}
+.stepper-daftar li.bisa{cursor:pointer}
+.stepper-daftar li.bisa:hover .no{transform:translateY(-2px)}
+.stepper-hp{display:none}
+.daftar-sub{display:flex;align-items:center;gap:8px;font-size:15.5px;margin:20px 0 12px;padding-top:14px;border-top:1px dashed var(--border)}
+#isiLangkah>.daftar-sub:first-child{margin-top:0;padding-top:0;border-top:0}
+.daftar-sub i{font-size:22px}
+.field small.bantu{color:var(--muted)}
+.field small.pesan:empty{display:none}
+.field small.pesan.err,small.pesan.err{color:var(--danger);font-weight:600;font-size:12.5px}
+.field small.pesan.wrn,small.pesan.wrn{color:var(--warn);font-weight:600;font-size:12.5px}
+.input.warn,.select.warn{border-color:var(--warn)}
+.select.bad{border-color:var(--danger)}
+.input.good{border-color:color-mix(in srgb,var(--ok) 55%,var(--border))}
+.field.tiga{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:0 12px}
+.field.tiga>div{display:flex;flex-direction:column;gap:6px}
+.field.tiga label{font-size:13px;font-weight:700}
+.field.tiga .req{color:var(--danger)}
+/* kartu pilihan jenjang/bagian */
+.pilih-kisi{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px}
+.pilih-kartu{position:relative;display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--border);border-radius:16px;background:var(--surface);cursor:pointer;transition:.15s}
+.pilih-kartu input{position:absolute;opacity:0;pointer-events:none}
+.pilih-kartu b{display:block;font-size:16px}
+.pilih-kartu small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.pilih-kartu .centang{margin-left:auto;font-size:24px;color:var(--tone);opacity:0;transition:.15s}
+.pilih-kartu:hover{border-color:color-mix(in srgb,var(--tone) 50%,var(--border))}
+.pilih-kartu:has(input:checked){border-color:var(--tone);background:color-mix(in srgb,var(--tone) 8%,var(--surface))}
+.pilih-kartu:has(input:checked) .centang{opacity:1}
+.pilih-kartu:has(input:focus-visible){outline:3px solid color-mix(in srgb,var(--tone) 40%,transparent);outline-offset:2px}
+.pilih-kartu.mati{opacity:.5;cursor:not-allowed}
+.gel-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:14px;border-radius:16px;background:var(--surface-2)}
+.gel-info small{display:block;color:var(--muted);font-size:12px}
+.gel-info b{display:block}
+.gel-info span{font-size:12.5px;color:var(--muted)}
+.gel-biaya{margin-left:auto;text-align:right}
+.gel-biaya b{font-size:18px;color:var(--primary)}
+/* kombo pencarian wilayah */
+.kombo-wadah{position:relative}
+.kombo-wadah .input{padding-right:36px}
+.kombo-ikon{position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:18px}
+.kombo-daftar{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:264px;overflow:auto;margin:0;padding:6px;list-style:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.kombo-daftar li{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+.kombo-daftar li small{color:var(--muted);font-size:12px;white-space:nowrap}
+.kombo-daftar li:hover,.kombo-daftar li.aktif{background:var(--primary-soft);color:var(--primary)}
+.kombo-daftar li.kosong{cursor:default;color:var(--muted);font-size:13px;justify-content:flex-start}
+.kombo-daftar li.kosong:hover{background:none;color:var(--muted)}
+/* prestasi */
+.prestasi-baris{display:grid;grid-template-columns:minmax(0,1fr) 150px 96px 38px;gap:8px;margin-bottom:8px;align-items:center}
+/* pembayaran & berkas */
+.bayar-kotak{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;margin-bottom:18px}
+.bayar-rincian{padding:14px;border-radius:16px;background:var(--surface-2)}
+.bayar-rincian>small{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:6px;text-transform:capitalize}
+.bayar-rincian>div{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0}
+.bayar-rincian .total{border-top:1px dashed var(--border);margin-top:6px;padding-top:8px}
+.bayar-rincian .total b{color:var(--primary);font-size:17px}
+.bayar-rek{display:flex;flex-direction:column;gap:10px}
+.bayar-rek .rek-item{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:14px}
+.bayar-rek .rek-item>div{flex:1;min-width:0}
+.bayar-rek .rek-item small,.bayar-rek .rek-item span,.bayar-rek .rek-item em{display:block;font-size:12.5px;color:var(--muted)}
+.bayar-rek .rek-item b{font-size:17px;letter-spacing:.5px}
+.berkas-daftar{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.berkas-kartu{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px dashed var(--border);border-radius:16px;background:var(--surface);transition:.15s}
+.berkas-kartu.ada{border-style:solid;border-color:color-mix(in srgb,var(--ok) 50%,var(--border));background:color-mix(in srgb,var(--ok) 5%,var(--surface))}
+.berkas-kartu.salah{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 5%,var(--surface))}
+.berkas-kartu.sibuk{opacity:.75;pointer-events:none}
+.berkas-prev{width:56px;height:56px;flex:none;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:var(--surface-2);font-size:28px;color:var(--c4)}
+.berkas-prev img{width:100%;height:100%;object-fit:cover}
+.berkas-teks{flex:1;min-width:0}
+.berkas-teks b{display:block;font-size:14px}
+.berkas-teks .req{color:var(--danger)}
+.berkas-status{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.berkas-teks .pesan{display:block}
+.berkas-kartu label.btn{flex:none}
+/* ringkasan */
+.ringkas-blok{border:1px solid var(--border);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.ringkas-kepala{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2)}
+.ringkas-kepala .ic-box{width:34px;height:34px;font-size:18px;border-radius:10px}
+.ringkas-kepala .btn{margin-left:auto}
+.ringkas-isi{padding:6px 14px 10px}
+.ringkas-isi>div{display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px;padding:6px 0;font-size:14px;border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.ringkas-isi>div:last-child{border-bottom:0}
+.ringkas-isi span{color:var(--muted)}
+.ringkas-isi b{font-weight:600;overflow-wrap:anywhere}
+.pernyataan{align-items:flex-start;padding:14px;border-radius:14px;background:var(--primary-soft);margin-top:14px;line-height:1.5}
+.pernyataan input{margin-top:2px;flex:none}
+/* aksi bawah */
+.daftar-aksi{display:flex;align-items:center;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--border)}
+.daftar-aksi #btnLanjut{margin-left:auto}
+.simpan-status{font-size:12.5px}
+/* tertutup & sukses */
+.daftar-tutup,.sukses-daftar{text-align:center;padding:34px 24px}
+.daftar-tutup .ic-box{width:64px;height:64px;font-size:34px;margin:0 auto 12px;border-radius:20px}
+.daftar-tutup h2,.sukses-daftar h2{margin:0 0 8px}
+.daftar-tutup p,.sukses-daftar>p{max-width:560px;margin:0 auto 14px;color:var(--muted)}
+.hitung-kecil{display:flex;justify-content:center;gap:10px;margin:6px 0 20px}
+.hitung-kecil span{display:flex;flex-direction:column;align-items:center;min-width:64px;padding:10px 6px;border-radius:14px;background:var(--surface-2);font-size:12px;color:var(--muted)}
+.hitung-kecil b{font-size:24px;color:var(--primary)}
+.ic-sukses{display:grid;place-items:center;width:78px;height:78px;margin:0 auto 12px;border-radius:26px;background:color-mix(in srgb,var(--ok) 14%,var(--surface));color:var(--ok);font-size:48px}
+.no-reg{display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;padding:14px 18px;margin:4px auto 14px;border-radius:18px;border:2px dashed color-mix(in srgb,var(--primary) 50%,var(--border));background:var(--primary-soft)}
+.no-reg small{display:block;width:100%;font-size:12px;color:var(--muted);font-weight:700}
+.no-reg b{font-size:26px;letter-spacing:1px;color:var(--primary);font-family:ui-monospace,Consolas,monospace}
+.langkah-lanjut{text-align:left;max-width:600px;margin:18px auto 14px;padding:14px 16px;border-radius:16px;background:var(--surface-2);font-size:14px}
+.langkah-lanjut ol{margin:6px 0 0;padding-left:20px;line-height:1.6}
+@media (max-width:760px){
+  .daftar-kartu{padding:16px 14px 14px;border-radius:20px}
+  .stepper-daftar{display:none}
+  .stepper-hp{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:0 0 16px}
+  .stepper-hp b{font-size:17px}
+  .stepper-hp span{font-size:12.5px;color:var(--muted);font-weight:700}
+  .stepper-hp .bar{grid-column:1/-1;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+  .stepper-hp .bar i{display:block;height:100%;background:var(--grad);border-radius:3px;transition:width .3s}
+  .pilih-kisi{gap:8px}
+  .pilih-kartu{flex-direction:column;align-items:flex-start;gap:8px;padding:12px}
+  .pilih-kartu .centang{position:absolute;right:10px;top:10px}
+  .gel-biaya{margin-left:0;text-align:left;width:100%}
+  .bayar-kotak,.berkas-daftar{grid-template-columns:minmax(0,1fr)}
+  .prestasi-baris{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 38px;padding:10px;border:1px solid var(--border);border-radius:12px}
+  .prestasi-baris>input{grid-column:1/-1}
+  .ringkas-isi>div{grid-template-columns:minmax(0,1fr);gap:2px}
+  .daftar-aksi{position:sticky;bottom:calc(72px + env(safe-area-inset-bottom));z-index:5;margin:18px -14px -14px;padding:12px 14px;background:var(--surface);border-radius:0 0 20px 20px;box-shadow:0 -6px 16px rgba(0,0,0,.06)}
+  .daftar-aksi .btn{flex:1;justify-content:center;padding-inline:10px}
+  .daftar-aksi #btnKembali{flex:0 0 auto}
+  .simpan-status{display:none}
+  .no-reg b{font-size:22px}
+  .field.tiga{grid-template-columns:1fr 1fr}
+  .field.tiga>div:last-child{grid-column:1/-1}
+}
+#samakanAsal{white-space:normal;text-align:left;height:auto;min-height:36px;line-height:1.35;padding-block:7px;max-width:100%}
+.daftar-kartu,.daftar-kartu *{min-width:0}

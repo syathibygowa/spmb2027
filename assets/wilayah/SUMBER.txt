@@ -1,0 +1,10 @@
+Data wilayah administrasi Indonesia (provinsi, kabupaten/kota, kecamatan, desa/kelurahan)
+sesuai Kepmendagri No. 300.2.2-2430 Tahun 2025, beserta kode pos per desa/kelurahan.
+
+Sumber: https://github.com/cahyadsn/wilayah dan https://github.com/cahyadsn/wilayah_kodepos
+Lisensi MIT, Copyright (c) 2017-2025 Cahya DSN.
+
+Susunan berkas:
+  provinsi.json  [[kode, nama]]
+  kabkota.json   [[kode, nama, kode_provinsi]]
+  p/<kode_provinsi>.json  { "kode_kab": [[akhiran_kec, nama_kec, [[akhiran_desa, nama_desa, kode_pos], ...]], ...] }

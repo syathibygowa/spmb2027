@@ -57,6 +57,66 @@
     });
   }
 
+  // Beberapa gambar sekaligus (slider): unggah banyak, urutkan, hapus
+  function inputDaftarGambar(nama, label, daftar = [], { bagian = 'umum', maks = 8, maksSisi = 2000, bantuan = '' } = {}) {
+    return `
+      <div class="field full" data-daftar-gambar data-nama="${nama}" data-bagian="${esc(bagian)}" data-maks="${maks}" data-sisi="${maksSisi}">
+        <label>${label}</label>
+        <input type="hidden" name="${nama}" value="${esc(JSON.stringify(daftar))}">
+        <div class="dg-kisi"></div>
+        <div class="img-btns" style="margin-top:8px">
+          <label class="btn sm ghost"><i class="ph-duotone ph-upload-simple" style="color:var(--c1)"></i>Unggah foto<input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
+          <button type="button" class="btn sm ghost" data-dg-tautan><i class="ph-duotone ph-link-simple" style="color:var(--c5)"></i>Tambah dari tautan</button>
+          <span class="img-status muted"></span>
+        </div>
+        ${bantuan ? `<small>${bantuan}</small>` : ''}
+      </div>`;
+  }
+  function pasangDaftarGambar(root) {
+    root.querySelectorAll('[data-daftar-gambar]').forEach(box => {
+      if (box.dataset.siap) return; box.dataset.siap = 1;
+      const h = box.querySelector('input[type=hidden]'), kisi = box.querySelector('.dg-kisi'), status = box.querySelector('.img-status');
+      const maks = +box.dataset.maks;
+      let daftar = []; try { daftar = JSON.parse(h.value) || []; } catch (e) {}
+      const tampil = () => {
+        kisi.innerHTML = daftar.length ? daftar.map((u, i) => `
+          <div class="dg-item"><img alt="" src="${esc(gambar(u, 320))}"><span class="dg-no">${i + 1}</span>
+            <div class="dg-aksi">
+              <button type="button" data-dg="kiri" data-i="${i}" title="Geser ke kiri" aria-label="Geser ke kiri" ${i ? '' : 'disabled'}><i class="ph-duotone ph-caret-left"></i></button>
+              <button type="button" data-dg="hapus" data-i="${i}" title="Hapus dari slider" aria-label="Hapus dari slider"><i class="ph-duotone ph-trash"></i></button>
+              <button type="button" data-dg="kanan" data-i="${i}" title="Geser ke kanan" aria-label="Geser ke kanan" ${i < daftar.length - 1 ? '' : 'disabled'}><i class="ph-duotone ph-caret-right"></i></button>
+            </div></div>`).join('')
+          : '<div class="dg-kosong"><i class="ph-duotone ph-images"></i><span>Belum ada foto. Tanpa foto, latar memakai gradasi warna pondok.</span></div>';
+        status.textContent = `${daftar.length} dari ${maks} foto`;
+      };
+      const simpan = () => { h.value = JSON.stringify(daftar); h.dispatchEvent(new Event('input', { bubbles: true })); tampil(); };
+      kisi.addEventListener('click', e => {
+        const b = e.target.closest('[data-dg]'); if (!b) return;
+        const i = +b.dataset.i;
+        if (b.dataset.dg === 'hapus') daftar.splice(i, 1);
+        if (b.dataset.dg === 'kiri' && i > 0) [daftar[i - 1], daftar[i]] = [daftar[i], daftar[i - 1]];
+        if (b.dataset.dg === 'kanan' && i < daftar.length - 1) [daftar[i + 1], daftar[i]] = [daftar[i], daftar[i + 1]];
+        simpan();
+      });
+      box.querySelector('[data-dg-tautan]').onclick = () => {
+        if (daftar.length >= maks) return toast(`Maksimal ${maks} foto.`, 'warn');
+        const u = (prompt('Tempel tautan gambar (diawali https://):', 'https://') || '').trim();
+        if (/^https?:\/\/\S+$/.test(u) && u !== 'https://') { daftar.push(u); simpan(); }
+      };
+      box.querySelector('input[type=file]').addEventListener('change', async e => {
+        const files = [...e.target.files].slice(0, Math.max(0, maks - daftar.length)); e.target.value = '';
+        if (!files.length) return toast(`Maksimal ${maks} foto.`, 'warn');
+        for (const [i, f] of files.entries()) {
+          status.innerHTML = `<span class="spinner" style="width:14px;height:14px"></span> Mengunggah ${i + 1} dari ${files.length}…`;
+          try { const hsl = await unggahBerkas(f, { bagian: box.dataset.bagian, maksSisi: +box.dataset.sisi }); daftar.push(hsl.url); simpan(); }
+          catch (err) { toast(`${f.name}: ${pesanGalat(err)}`, 'err', 7000); }
+        }
+        tampil();
+      });
+      tampil();
+    });
+  }
+
   // Pemilih ikon
   const inputIkon = (nama, label, nilai) => `
     <div class="field" data-ikon>
@@ -167,7 +227,7 @@
   }
   const tombolUrut = `<span class="urut-btn"><button type="button" class="icon-btn plain" data-naik title="Naikkan" aria-label="Naikkan"><i class="ph-duotone ph-caret-up"></i></button><button type="button" class="icon-btn plain" data-turun title="Turunkan" aria-label="Turunkan"><i class="ph-duotone ph-caret-down"></i></button></span>`;
 
-  window.SPMB_UI = { inputGambar, pasangPemilihGambar, pasangUrutan };
+  window.SPMB_UI = { inputGambar, pasangPemilihGambar, pasangUrutan, inputDaftarGambar, pasangDaftarGambar };
 
   /* =================================================================
      DEFINISI MODUL KONTEN
@@ -176,6 +236,7 @@
      ================================================================= */
   const F = (k, l, t = 'teks', o = {}) => ({ k, l, t, ...o });
   const KOLOM = ['judul', 'isi', 'gambar'];
+  const namaSumber = u => /drive\.google/.test(u) ? 'Google Drive' : /instagram/.test(u) ? 'Instagram' : /facebook|fb\.watch/.test(u) ? 'Facebook' : /tiktok/.test(u) ? 'TikTok' : /youtu/.test(u) ? 'YouTube' : 'Tautan';
   const rupiah = n => n == null || n === '' ? '' : 'Rp ' + fmt.angka(n);
   const potong = (s, n = 90) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 
@@ -218,9 +279,11 @@
         F('isi', 'Isi testimoni', 'panjang', { wajib: 1, maks: 600 })],
       sub: x => [x.data.peran, x.data.keterangan].filter(Boolean).join(' · ') },
     galeri: { label: 'Galeri', ikon: 'ph-images', tone: 'var(--c5)', bagian: 'galeri',
-      bidang: [F('gambar', 'Foto', 'gambar', { wajib: 1 }), F('judul', 'Keterangan foto', 'teks', { maks: 120 }),
-        F('album', 'Album', 'teks', { maks: 60, contoh: 'Wisuda Tahfizh', daftar: 1 }), F('tanggal', 'Tanggal kegiatan', 'tanggal', { hariIni: 1 })],
-      sub: x => [x.data.album, x.data.tanggal && fmt.tgl(x.data.tanggal)].filter(Boolean).join(' · ') },
+      bidang: [F('gambar', 'Foto', 'gambar', { bantuan: 'Boleh dikosongkan bila hanya membagikan tautan album.' }), F('judul', 'Keterangan foto', 'teks', { maks: 120 }),
+        F('album', 'Album', 'teks', { maks: 60, contoh: 'Wisuda Tahfizh', daftar: 1 }), F('tanggal', 'Tanggal kegiatan', 'tanggal', { hariIni: 1 }),
+        F('tautan', 'Tautan album atau unggahan (opsional)', 'url', { bantuan: 'Contoh: folder Google Drive, unggahan Instagram, Facebook, TikTok, atau YouTube. Pastikan folder Drive dibagikan "Siapa saja yang memiliki link".' })],
+      wajibSalah: [['gambar', 'tautan', 'Isi foto atau tautan (salah satu wajib).']],
+      sub: x => [x.data.album, x.data.tanggal && fmt.tgl(x.data.tanggal), x.data.tautan && 'Bertautan: ' + namaSumber(x.data.tautan)].filter(Boolean).join(' · ') },
     faq: { label: 'Tanya Jawab', ikon: 'ph-question', tone: 'var(--c1)', bagian: 'faq',
       bidang: [F('judul', 'Pertanyaan', 'teks', { wajib: 1, maks: 200 }), F('isi', 'Jawaban', 'panjang', { wajib: 1, maks: 1500 }),
         F('kategori', 'Kategori', 'teks', { maks: 40, contoh: 'Pendaftaran', daftar: 1 })],
@@ -323,6 +386,7 @@
 
     const thumb = x => {
       if (x.gambar) return `<img class="thumb${jenis === 'testimoni' || jenis === 'pimpinan' ? ' bulat' : ''}" alt="" loading="lazy" src="${esc(gambar(x.gambar, 160))}">`;
+      if (jenis === 'galeri' && x.data.tautan) return `<span class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-link-simple"></i></span>`;
       if (jenis === 'video' && youtubeId(x.data.youtube)) return `<img class="thumb" alt="" loading="lazy" src="https://i.ytimg.com/vi/${youtubeId(x.data.youtube)}/mqdefault.jpg">`;
       if (x.data.ikon) return `<span class="ic-box" style="--tone:var(--${esc(x.data.warna || 'c1')})"><i class="ph-duotone ph-${esc(x.data.ikon)}"></i></span>`;
       return `<span class="ic-box" style="--tone:${M.tone}"><i class="ph-duotone ${M.ikon}"></i></span>`;
@@ -425,6 +489,7 @@
         case 'angka': return `<div class="field"><label for="${id}">${f.l}${req}</label><input class="input" type="number" inputmode="numeric" id="${id}" name="${f.k}" value="${esc(v ?? '')}" min="${f.min ?? ''}" max="${f.maks ?? ''}">${bantu}</div>`;
         case 'wa': return `<div class="field"><label for="${id}">${f.l}${req}</label><input class="input" inputmode="tel" id="${id}" name="${f.k}" value="${esc(v ? '0' + String(v).replace(/^62/, '') : '')}" placeholder="08xxxxxxxxxx"><small>Diawali 08 atau 62, 10–13 digit.</small></div>`;
         case 'youtube': return `<div class="field full"><label for="${id}">${f.l}${req}</label><input class="input" id="${id}" name="${f.k}" value="${esc(v)}" placeholder="https://youtu.be/…"><div class="yt-prev" data-yt></div></div>`;
+        case 'url': return `<div class="field full"><label for="${id}">${f.l}${req}</label><input class="input" type="url" inputmode="url" id="${id}" name="${f.k}" value="${esc(v || '')}" placeholder="https://…">${bantu}</div>`;
         case 'cek': return `<div class="field full"><label class="check"><input type="checkbox" name="${f.k}" ${v ? 'checked' : ''}>${f.l}</label></div>`;
         default: return `<div class="field ${f.maks > 80 || f.k === 'judul' ? 'full' : ''}"><label for="${id}">${f.l}${req}</label><input class="input" id="${id}" name="${f.k}" value="${esc(v)}" ${f.maks ? `maxlength="${f.maks}"` : ''} ${f.contoh ? `placeholder="Contoh: ${esc(f.contoh)}"` : ''} ${f.daftar ? `list="dl_${f.k}"` : ''}>
           ${f.daftar ? `<datalist id="dl_${f.k}">${saran(f).map(s => `<option value="${esc(s)}">`).join('')}</datalist>` : ''}${bantu}</div>`;
@@ -457,10 +522,11 @@
             if (b.t === 'wa' && v) { if (!/^(08|\+?62)\d{8,11}$/.test(v.replace(/[\s.-]/g, ''))) err.push('Nomor WhatsApp harus diawali 08 atau 62, 10–13 digit.'); v = nomorWA(v); }
             if (b.t === 'youtube' && v && !youtubeId(v)) err.push('Tautan YouTube belum benar.');
             if (b.t === 'angka' && v !== '') { v = Number(v); if (Number.isNaN(v) || (b.min != null && v < b.min) || (b.maks != null && v > b.maks)) err.push(`${b.l} harus antara ${b.min} dan ${b.maks}.`); }
-            if (b.t === 'gambar' && v && !/^https?:\/\//.test(v)) err.push(`${b.l}: tautan harus diawali https://`);
+            if ((b.t === 'gambar' || b.t === 'url') && v && !/^https?:\/\//.test(v)) err.push(`${b.l}: tautan harus diawali https://`);
             if (KOLOM.includes(b.k)) baris[b.k] = v || (b.k === 'gambar' ? null : '');
             else baris.data[b.k] = v === '' ? null : v;
           }
+          (M.wajibSalah || []).forEach(([a, c, pesan]) => { const ada = k => KOLOM.includes(k) ? baris[k] : baris.data[k]; if (!ada(a) && !ada(c)) err.push(pesan); });
           if (baris.data.mulai && baris.data.selesai && baris.data.selesai < baris.data.mulai) err.push('Tanggal selesai tidak boleh sebelum tanggal mulai.');
           root.querySelector('#fErr').innerHTML = err.length ? `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>${err.map(esc).join('<br>')}</div></div>` : '';
           if (err.length) return false;
@@ -514,8 +580,8 @@
           <a class="btn sm ghost hide-sm" href="index.html?pratinjau=1" target="_blank" rel="noopener"><i class="ph-duotone ph-eye" style="color:var(--c1)"></i>Pratinjau</a></div>
         <div class="grid-form">
           <div class="field full"><label>Judul besar</label><input class="input" name="judul" value="${esc(h.judul || '')}" maxlength="80" placeholder="Penerimaan Santri Baru"><small>Tahun ajaran dari Pengaturan > Identitas ditambahkan otomatis.</small></div>
-          <div class="field full"><label>Subjudul</label><textarea class="textarea" name="subjudul" maxlength="300" style="min-height:70px" placeholder="Kosongkan untuk memakai nama lembaga">${esc(h.subjudul || '')}</textarea></div>
-          ${inputGambar('gambar', 'Gambar latar (opsional)', h.gambar || '', { bagian: 'beranda', maksSisi: 2000, bantuan: 'Foto mendatar suasana pondok. Diberi lapisan warna agar teks tetap terbaca. Kosong = gradasi warna pondok.' })}
+          <div class="field full"><label>Judul kecil (di bawah judul besar)</label><textarea class="textarea" name="subjudul" maxlength="300" style="min-height:70px" placeholder="Kosongkan untuk memakai nama lembaga">${esc(h.subjudul || '')}</textarea></div>
+          ${inputDaftarGambar('gambar_daftar', 'Foto latar slider (maksimal 8)', h.gambar_daftar?.length ? h.gambar_daftar : (h.gambar ? [h.gambar] : []), { bagian: 'beranda', maks: 8, maksSisi: 2000, bantuan: 'Foto mendatar suasana pondok. Berganti otomatis setiap 5 detik sesuai urutan di atas. Diberi lapisan warna agar teks tetap terbaca.' })}
           <div class="field"><label>Teks tombol utama</label><input class="input" name="tombol_utama" value="${esc(h.tombol_utama || '')}" maxlength="30"></div>
           <div class="field"><label>Teks tombol kedua</label><input class="input" name="tombol_kedua" value="${esc(h.tombol_kedua || '')}" maxlength="30"></div>
           <div class="field"><label>Hitung mundur sampai</label><input class="input" type="datetime-local" name="hitung_mundur" value="${esc(keLokal(h.hitung_mundur))}"><small>Kosongkan bila tidak ada hitung mundur. Jam mengikuti WITA.</small></div>
@@ -532,12 +598,13 @@
         <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn" id="btnSimpanBagian"><i class="ph-duotone ph-floppy-disk"></i>Simpan susunan</button></div>
       </div>`;
 
-    pasangPemilihGambar(el);
+    pasangPemilihGambar(el); pasangDaftarGambar(el);
     $('#fHero').onsubmit = async e => {
       e.preventDefault();
       const f = e.target, v = n => f.elements[n].value.trim();
       const hm = v('hitung_mundur');
-      b.hero = { ...h, judul: v('judul'), subjudul: v('subjudul'), gambar: v('gambar'), tombol_utama: v('tombol_utama') || 'Daftar Sekarang',
+      let daftarG = []; try { daftarG = JSON.parse(f.elements.gambar_daftar.value) || []; } catch (x) {}
+      b.hero = { ...h, judul: v('judul'), subjudul: v('subjudul'), gambar_daftar: daftarG, gambar: daftarG[0] || '', tombol_utama: v('tombol_utama') || 'Daftar Sekarang',
         tombol_kedua: v('tombol_kedua') || 'Cek Pengumuman', hitung_mundur: hm ? hm + ':00+08:00' : '', label_hitung_mundur: v('label_hitung_mundur') };
       try { await ctx.simpanPengaturan('beranda', b); toast('Bagian pembuka disimpan.'); } catch (err) { toast(pesanGalat(err), 'err'); }
     };

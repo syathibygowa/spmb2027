@@ -296,8 +296,14 @@
       const d = S.konten.galeri || []; if (!d.length) return '';
       const album = [...new Set(d.map(x => x.data.album).filter(Boolean))];
       return `${album.length > 1 ? `<div class="chip-tab" role="tablist"><button type="button" data-album="" aria-selected="true">Semua</button>${album.map(a => `<button type="button" data-album="${esc(a)}" aria-selected="false">${esc(a)}</button>`).join('')}</div>` : ''}
-        <div class="kisi-galeri">${d.map((x, i) => `<button type="button" class="galeri-item" data-lightbox="galeri" data-i="${i}" data-album-item="${esc(x.data.album || '')}">
-          <img alt="${esc(x.judul || 'Foto kegiatan')}" loading="lazy" src="${esc(gambar(x.gambar, 600))}">${x.judul ? `<span>${esc(x.judul)}</span>` : ''}${lencanaTersembunyi(x)}</button>`).join('')}</div>`;
+        <div class="kisi-galeri">${d.map((x, i) => {
+          const [ic, warna, nm] = sumberTautan(x.data.tautan);
+          if (!x.gambar) return `<a class="galeri-item galeri-tautan" href="${esc(x.data.tautan)}" target="_blank" rel="noopener" data-album-item="${esc(x.data.album || '')}" style="--tone:${warna}">
+            <i class="ph-duotone ${ic}"></i><b>${esc(x.judul || x.data.album || 'Album kegiatan')}</b><small>Buka di ${nm} <i class="ph-duotone ph-arrow-square-out"></i></small>${lencanaTersembunyi(x)}</a>`;
+          return `<div class="galeri-sel" data-album-item="${esc(x.data.album || '')}"><button type="button" class="galeri-item" data-lightbox="galeri" data-i="${i}">
+            <img alt="${esc(x.judul || 'Foto kegiatan')}" loading="lazy" src="${esc(gambar(x.gambar, 600))}">${x.judul ? `<span>${esc(x.judul)}</span>` : ''}${lencanaTersembunyi(x)}</button>
+            ${x.data.tautan ? `<a class="galeri-link" href="${esc(x.data.tautan)}" target="_blank" rel="noopener" title="Buka album di ${nm}" aria-label="Buka album di ${nm}" style="--tone:${warna}"><i class="ph-duotone ${ic}"></i></a>` : ''}</div>`;
+        }).join('')}</div>`;
     },
 
     berita: () => {
@@ -309,6 +315,17 @@
     faq: () => faqHTML(),
     kontak: () => kontakHTML()
   };
+
+  // Ikon, warna, dan nama layanan untuk tautan galeri
+  function sumberTautan(u) {
+    u = String(u || '');
+    if (/drive\.google|photos\.google|photos\.app\.goo/.test(u)) return ['ph-google-drive-logo', '#1a73e8', 'Google Drive'];
+    if (/instagram/.test(u)) return ['ph-instagram-logo', '#c2336b', 'Instagram'];
+    if (/facebook|fb\.watch|fb\.com/.test(u)) return ['ph-facebook-logo', '#1877f2', 'Facebook'];
+    if (/tiktok/.test(u)) return ['ph-tiktok-logo', 'var(--text)', 'TikTok'];
+    if (/youtu/.test(u)) return ['ph-youtube-logo', '#e11d1d', 'YouTube'];
+    return ['ph-link-simple', 'var(--c5)', 'tautan'];
+  }
 
   function sliderHTML(kartu) {
     return `<div class="slider" data-slider>
@@ -436,7 +453,9 @@
     const h = S.p.beranda?.hero || {}, id = S.p.identitas || {};
     const akhir = h.hitung_mundur ? new Date(h.hitung_mundur) : null;
     const adaHM = akhir && akhir > new Date();
-    return `<section class="hero-situs${h.gambar ? ' bergambar' : ''}" id="atas" ${h.gambar ? `style="--latar:url('${esc(gambar(h.gambar, 1920))}')"` : ''}>
+    const foto = (h.gambar_daftar?.length ? h.gambar_daftar : (h.gambar ? [h.gambar] : [])).filter(Boolean);
+    return `<section class="hero-situs hero-tengah${foto.length ? ' berfoto' : ''}" id="atas">
+      ${foto.length ? `<div class="hero-slide" aria-hidden="true">${foto.map((u, i) => `<div class="hs${i ? '' : ' on'}" ${i ? `data-latar="${esc(gambar(u, 1920))}"` : `style="background-image:url('${esc(gambar(u, 1920))}')"`}></div>`).join('')}</div><div class="hero-lapis"></div>` : ''}
       <div class="wadah hero-isi">
         ${id.tagline ? `<span class="eyebrow"><i class="ph-duotone ph-sparkle"></i>${esc(id.tagline)}</span>` : ''}
         <h1>${esc(h.judul || 'Penerimaan Santri Baru')} <span class="ta">${esc(S.ta)}</span></h1>
@@ -445,9 +464,10 @@
           <a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>${esc(h.tombol_utama || 'Daftar Sekarang')}</a>
           <a class="btn ghost" href="index.html#jadwal"><i class="ph-duotone ph-megaphone"></i>${esc(h.tombol_kedua || 'Cek Pengumuman')}</a>
         </div>
-        ${adaHM ? `<div class="hitung" data-akhir="${akhir.toISOString()}"><small>${esc(h.label_hitung_mundur || 'Pendaftaran ditutup dalam')}</small>
-          <div>${['hari', 'jam', 'menit', 'detik'].map(u => `<span><b data-u="${u}">00</b>${u}</span>`).join('')}</div></div>` : ''}
+        ${adaHM ? `<div class="hitung" data-akhir="${akhir.toISOString()}"><small><i class="ph-duotone ph-hourglass-medium"></i>${esc(h.label_hitung_mundur || 'Pendaftaran ditutup dalam')}</small>
+          <div>${['hari', 'jam', 'menit', 'detik'].map((u, i) => `${i ? '<em>:</em>' : ''}<span><b data-u="${u}">00</b>${u}</span>`).join('')}</div></div>` : ''}
       </div>
+      ${foto.length > 1 ? `<div class="hero-titik">${foto.map((_, i) => `<button type="button" data-hs="${i}" class="${i ? '' : 'on'}" aria-label="Foto ${i + 1}"></button>`).join('')}</div>` : ''}
     </section>`;
   }
 
@@ -467,7 +487,26 @@
     pasangInteraksi(main);
     pasangSlider(main);
     pasangPutarOtomatis(main);
+    jalankanSliderHero();
     jalankanHitungMundur();
+  }
+
+  // Foto latar bagian pembuka berganti tiap 5 detik (crossfade)
+  function jalankanSliderHero() {
+    const slide = [...document.querySelectorAll('.hero-slide .hs')], titik = [...document.querySelectorAll('.hero-titik [data-hs]')];
+    if (slide.length < 2) return;
+    let i = 0, iv;
+    const muatFoto = el => { if (el?.dataset.latar) { el.style.backgroundImage = `url('${el.dataset.latar}')`; delete el.dataset.latar; } };
+    muatFoto(slide[1]);
+    const ke = n => {
+      i = (n + slide.length) % slide.length;
+      muatFoto(slide[i]); muatFoto(slide[(i + 1) % slide.length]);
+      slide.forEach((s, k) => s.classList.toggle('on', k === i));
+      titik.forEach((t, k) => t.classList.toggle('on', k === i));
+    };
+    const mulai = () => { clearInterval(iv); iv = setInterval(() => { if (!document.hidden) ke(i + 1); }, 5000); };
+    titik.forEach(t => t.onclick = () => { ke(+t.dataset.hs); mulai(); });
+    mulai();
   }
 
   function jalankanHitungMundur() {
@@ -514,6 +553,7 @@
       if (al) {
         al.parentNode.querySelectorAll('[data-album]').forEach(b => b.setAttribute('aria-selected', String(b === al)));
         root.querySelectorAll('[data-album-item]').forEach(g => g.hidden = !!al.dataset.album && g.dataset.albumItem !== al.dataset.album);
+        root.querySelectorAll('.galeri-sel [data-lightbox]').forEach(b => b.hidden = b.parentNode.hidden);
         return;
       }
       const fq = e.target.closest('[data-faq]');
@@ -542,7 +582,8 @@
         <div class="lb-atas"><span>${i + 1} / ${daftar.length}</span><span class="spacer"></span>
           ${unduh ? `<a class="icon-btn plain" href="${drive ? `https://drive.google.com/uc?export=download&id=${drive}` : esc(x.gambar)}" target="_blank" rel="noopener" title="Unduh" aria-label="Unduh"><i class="ph-duotone ph-download-simple"></i></a>` : ''}
           <button class="icon-btn plain" data-lb="tutup" aria-label="Tutup"><i class="ph-duotone ph-x"></i></button></div>
-        <figure><img alt="${esc(x.judul || '')}" src="${esc(gambar(x.gambar, 1920))}">${x.judul ? `<figcaption>${esc(x.judul)}${x.data?.album ? ` · ${esc(x.data.album)}` : ''}${x.data?.tanggal ? ` · ${tanggalId(x.data.tanggal)}` : ''}</figcaption>` : ''}</figure>
+        <figure><img alt="${esc(x.judul || '')}" src="${esc(gambar(x.gambar, 1920))}">${x.judul || x.data?.tautan ? `<figcaption>${esc(x.judul || '')}${x.data?.album ? ` · ${esc(x.data.album)}` : ''}${x.data?.tanggal ? ` · ${tanggalId(x.data.tanggal)}` : ''}
+          ${x.data?.tautan ? `<a class="lb-tautan" href="${esc(x.data.tautan)}" target="_blank" rel="noopener"><i class="ph-duotone ${sumberTautan(x.data.tautan)[0]}"></i>Lihat album lengkap di ${sumberTautan(x.data.tautan)[2]}</a>` : ''}</figcaption>` : ''}</figure>
         ${daftar.length > 1 ? `<button class="lb-nav kiri" data-lb="-1" aria-label="Sebelumnya"><i class="ph-duotone ph-caret-left"></i></button><button class="lb-nav kanan" data-lb="1" aria-label="Berikutnya"><i class="ph-duotone ph-caret-right"></i></button>` : ''}`;
     };
     const tutup = () => { el.remove(); document.removeEventListener('keydown', kunci); document.body.style.overflow = ''; };
@@ -605,21 +646,78 @@
     return slug ? bacaBerita(slug) : daftarBerita();
   }
 
+  // Sidebar berita: kategori (dengan jumlah), berita terbaru, dan terpopuler
+  async function sidebarBerita(kategoriAktif = '', kecualiId = null) {
+    const [{ data: semua }, { data: baru }, { data: populer }] = await Promise.all([
+      queryBerita('kategori'),
+      queryBerita('id,slug,judul,sampul,terbit_pada,dibaca,status').order('terbit_pada', { ascending: false }).limit(6),
+      queryBerita('id,slug,judul,sampul,terbit_pada,dibaca,status').order('dibaca', { ascending: false }).order('terbit_pada', { ascending: false }).limit(6)]);
+    const jumlah = {}; (semua || []).forEach(x => jumlah[x.kategori] = (jumlah[x.kategori] || 0) + 1);
+    const KAT_TONE = ['var(--c1)', 'var(--c3)', 'var(--c5)', 'var(--c2)', 'var(--c4)', 'var(--c6)'];
+    const pra = S.pratinjau ? '&pratinjau=1' : '';
+    const item = x => `<li><a href="berita.html?b=${encodeURIComponent(x.slug)}${pra}">
+      ${x.sampul ? `<img alt="" loading="lazy" src="${esc(gambar(x.sampul, 200))}">` : '<span class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-newspaper"></i></span>'}
+      <span><b>${esc(x.judul)}</b><small>${fmt.tglPanjang(x.terbit_pada)} · ${fmt.angka(x.dibaca)} dibaca</small></span></a></li>`;
+    const saring = d => (d || []).filter(x => x.id !== kecualiId).slice(0, 5);
+    return `<aside class="sisi-berita">
+      <div class="kartu sisi-kartu">
+        <h3><i class="ph-duotone ph-folders" style="color:var(--c2)"></i>Kategori</h3>
+        <ul class="sisi-kategori">
+          <li><a href="berita.html${S.pratinjau ? '?pratinjau=1' : ''}" data-k="" class="${kategoriAktif ? '' : 'aktif'}" style="--tone:var(--primary)"><i class="ph-duotone ph-squares-four"></i>Semua berita<span>${(semua || []).length}</span></a></li>
+          ${Object.keys(jumlah).sort().map((k, i) => `<li><a href="berita.html?k=${encodeURIComponent(k)}${pra}" data-k="${esc(k)}" class="${k === kategoriAktif ? 'aktif' : ''}" style="--tone:${KAT_TONE[i % KAT_TONE.length]}"><i class="ph-duotone ph-tag"></i>${esc(k)}<span>${jumlah[k]}</span></a></li>`).join('')}
+        </ul>
+      </div>
+      <div class="kartu sisi-kartu">
+        <div class="sisi-tab" role="tablist">
+          <button type="button" data-sisi="baru" aria-selected="true"><i class="ph-duotone ph-clock"></i>Terbaru</button>
+          <button type="button" data-sisi="populer" aria-selected="false"><i class="ph-duotone ph-fire"></i>Terpopuler</button>
+        </div>
+        <ol class="sisi-daftar" data-panel-sisi="baru">${saring(baru).map(item).join('') || '<li class="muted">Belum ada berita.</li>'}</ol>
+        <ol class="sisi-daftar bernomor" data-panel-sisi="populer" hidden>${saring(populer).map(item).join('') || '<li class="muted">Belum ada berita.</li>'}</ol>
+      </div>
+      <a class="kartu sisi-ajakan" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i><span><b>SPMB ${esc(S.ta)}</b><small>Lihat alur pendaftaran santri baru</small></span><i class="ph-duotone ph-arrow-right"></i></a>
+    </aside>`;
+  }
+  function pasangSidebar(root, saatKategori) {
+    root.addEventListener('click', e => {
+      const t = e.target.closest('[data-sisi]');
+      if (t) {
+        root.querySelectorAll('[data-sisi]').forEach(b => b.setAttribute('aria-selected', String(b === t)));
+        root.querySelectorAll('[data-panel-sisi]').forEach(p => p.hidden = p.dataset.panelSisi !== t.dataset.sisi);
+        return;
+      }
+      const k = e.target.closest('.sisi-kategori [data-k]');
+      if (k && saatKategori) { e.preventDefault(); saatKategori(k.dataset.k); }
+    });
+  }
+
   async function daftarBerita() {
     const id = S.p.identitas || {};
     document.title = `Berita · ${id.nama_singkat || 'SPMB'}`;
-    const PER = 9;
-    let hal = 0, kategori = '', cari = '', semuaKat = [];
+    const PER = 8;
+    let hal = 0, kategori = new URLSearchParams(location.search).get('k') || '', cari = '', semuaKat = [];
     $('#isi').innerHTML = `${kepalaHalaman('Berita dan Artikel', 'Kabar terbaru kegiatan, prestasi, dan pengumuman pondok', 'ph-newspaper', 'var(--c3)')}
-      <section class="sek"><div class="wadah">
-        <div class="bar-cari"><div class="input-wrap"><i class="ph-duotone ph-magnifying-glass ikon-cari"></i><input class="input" type="search" id="cariB" placeholder="Cari berita…"></div></div>
-        <div class="chip-tab" id="katB"></div>
-        <div class="kisi-3" id="daftarB"></div>
-        <div class="tengah"><button class="btn outline hidden" id="lebihB"><i class="ph-duotone ph-arrow-down"></i>Muat lebih banyak</button></div>
+      <section class="sek"><div class="wadah berita-tata">
+        <div class="berita-utama">
+          <div class="bar-cari"><div class="input-wrap"><i class="ph-duotone ph-magnifying-glass ikon-cari"></i><input class="input" type="search" id="cariB" placeholder="Cari berita…"></div></div>
+          <div class="chip-tab hanya-hp" id="katB"></div>
+          <div class="judul-daftar" id="judulB"></div>
+          <div class="kisi-2" id="daftarB"></div>
+          <div class="tengah"><button class="btn outline hidden" id="lebihB"><i class="ph-duotone ph-arrow-down"></i>Muat lebih banyak</button></div>
+        </div>
+        <div id="sisiB"></div>
       </div></section>`;
+    $('#sisiB').outerHTML = await sidebarBerita(kategori);
     const { data: kat } = await queryBerita('kategori');
     semuaKat = [...new Set((kat || []).map(x => x.kategori))].sort();
-    $('#katB').innerHTML = semuaKat.length > 1 ? `<button type="button" data-k="" aria-selected="true">Semua</button>${semuaKat.map(k => `<button type="button" data-k="${esc(k)}" aria-selected="false">${esc(k)}</button>`).join('')}` : '';
+    $('#katB').innerHTML = semuaKat.length > 1 ? `<button type="button" data-k="" aria-selected="${!kategori}">Semua</button>${semuaKat.map(k => `<button type="button" data-k="${esc(k)}" aria-selected="${k === kategori}">${esc(k)}</button>`).join('')}` : '';
+    const pilihKategori = k => {
+      kategori = k;
+      document.querySelectorAll('#katB [data-k], .sisi-kategori [data-k]').forEach(x => { const on = x.dataset.k === k; x.setAttribute('aria-selected', String(on)); x.classList.toggle('aktif', on); });
+      history.replaceState(null, '', 'berita.html' + (k ? '?k=' + encodeURIComponent(k) : '') + (S.pratinjau ? (k ? '&' : '?') + 'pratinjau=1' : ''));
+      muat();
+    };
+    pasangSidebar($('.berita-tata'), pilihKategori);
     const muat = async (tambah = false) => {
       if (!tambah) hal = 0;
       let q = queryBerita().order('terbit_pada', { ascending: false }).range(hal * PER, hal * PER + PER);
@@ -627,6 +725,7 @@
       if (cari) q = q.ilike('judul', `%${cari.replace(/[%_]/g, '')}%`);
       const { data, error } = await q;
       if (error) throw error;
+      $('#judulB').innerHTML = kategori || cari ? `<i class="ph-duotone ph-funnel"></i>${kategori ? `Kategori <b>${esc(kategori)}</b>` : ''}${kategori && cari ? ' · ' : ''}${cari ? `Pencarian "<b>${esc(cari)}</b>"` : ''}` : '';
       const ada = data.slice(0, PER);
       const html = ada.map(kartuBerita).join('');
       $('#daftarB').innerHTML = tambah ? $('#daftarB').innerHTML + html : (html || `<div class="kosong-sek lebar"><i class="ph-duotone ph-newspaper"></i><b>${cari || kategori ? 'Tidak ada berita yang cocok.' : 'Belum ada berita.'}</b></div>`);
@@ -635,7 +734,7 @@
     await muat();
     $('#lebihB').onclick = () => { hal++; muat(true); };
     let t; $('#cariB').oninput = e => { clearTimeout(t); t = setTimeout(() => { cari = e.target.value.trim(); muat(); }, 350); };
-    $('#katB').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return; kategori = b.dataset.k; $('#katB').querySelectorAll('button').forEach(x => x.setAttribute('aria-selected', String(x === b))); muat(); };
+    $('#katB').onclick = e => { const b = e.target.closest('[data-k]'); if (b) pilihKategori(b.dataset.k); };
   }
 
   async function bacaBerita(slug) {
@@ -652,9 +751,11 @@
     const urlBagi = location.origin + location.pathname + '?b=' + encodeURIComponent(b.slug);
     const { data: lain } = await queryBerita().neq('id', b.id).order('terbit_pada', { ascending: false }).limit(3);
     const belum = b.status !== 'terbit' || new Date(b.terbit_pada) > new Date();
+    const sisi = await sidebarBerita(b.kategori, b.id);
     $('#isi').innerHTML = `
+      <div class="baca-tata wadah">
       <article class="baca">
-        <div class="wadah sempit">
+        <div>
           <a class="kembali" href="berita.html${S.pratinjau ? '?pratinjau=1' : ''}"><i class="ph-duotone ph-arrow-left"></i>Semua berita</a>
           ${belum ? `<div class="note" style="margin-top:12px"><i class="ph-duotone ph-eye"></i><div>Pratinjau: berita ini ${b.status === 'draf' ? 'masih berupa draf' : 'terjadwal terbit ' + fmt.tglJam(b.terbit_pada)} dan belum terlihat oleh pengunjung.</div></div>` : ''}
           <span class="pill" style="--tone:var(--c3)">${esc(b.kategori)}</span>
@@ -670,8 +771,11 @@
             <button class="icon-btn" id="salinB" style="color:var(--c1)" aria-label="Salin tautan"><i class="ph-duotone ph-link-simple"></i></button></div>
         </div>
       </article>
+      ${sisi}
+      </div>
       ${(lain || []).length ? `<section class="sek alt"><div class="wadah"><div class="sek-kepala"><span class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-newspaper"></i></span><div><h2>Berita lainnya</h2></div></div>
         <div class="kisi-3">${lain.map(kartuBerita).join('')}</div></div></section>` : ''}`;
+    pasangSidebar($('.baca-tata'));
     $('#salinB').onclick = async () => { try { await navigator.clipboard.writeText(urlBagi); toast('Tautan berita disalin.'); } catch (e) { prompt('Salin tautan berikut:', urlBagi); } };
     // hitung dibaca sekali per sesi browser
     const kunci = 'dibaca-' + b.id;

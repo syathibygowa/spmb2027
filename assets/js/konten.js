@@ -181,8 +181,9 @@
 
   const MODUL = {
     keunggulan: { label: 'Keunggulan', ikon: 'ph-star', tone: 'var(--c6)', bagian: 'keunggulan',
-      bidang: [F('ikon', 'Ikon', 'ikon', { bawaan: 'star' }), F('warna', 'Warna', 'warna', { bawaan: 'c6' }),
-        F('judul', 'Judul', 'teks', { wajib: 1, maks: 80, contoh: 'Hafalan mutqin 30 juz' }), F('isi', 'Deskripsi singkat', 'panjang', { maks: 300 })],
+      bidang: [F('gambar', 'Gambar kartu', 'gambar', { maksSisi: 1000, bantuan: 'Foto mendatar (4:3) yang menggambarkan keunggulan ini. Bila kosong, ikon ditampilkan besar sebagai gantinya.' }),
+        F('ikon', 'Ikon', 'ikon', { bawaan: 'star' }), F('warna', 'Warna', 'warna', { bawaan: 'c6' }),
+        F('judul', 'Judul', 'teks', { wajib: 1, maks: 80, contoh: 'Hafalan mutqin 30 juz' }), F('isi', 'Deskripsi singkat', 'panjang', { maks: 200 })],
       sub: x => potong(x.isi) },
     jaminan: { label: 'Jaminan Mutu', ikon: 'ph-shield-check', tone: 'var(--c5)', bagian: 'jaminan',
       bidang: [F('ikon', 'Ikon', 'ikon', { bawaan: 'seal-check' }), F('warna', 'Warna', 'warna', { bawaan: 'c5' }),
@@ -491,9 +492,11 @@
     berita: ['ph-newspaper', 'var(--c3)'], faq: ['ph-question', 'var(--c1)'], kontak: ['ph-map-pin', 'var(--ok)']
   };
   const CATATAN_BAGIAN = {
+    keunggulan: 'Tampil sebagai slider bergambar yang bergulir otomatis (4 kartu di laptop, 1 kartu di HP).',
+    video: 'Video utama berputar otomatis tanpa suara saat bagian ini terlihat di layar.',
     statistik: 'Berisi angka pendaftar langsung. Aktif setelah Fase 3 (pendaftaran online).',
-    biaya: 'Isi sementara dari modul Biaya. Tampil "Segera diumumkan" bila kosong.',
-    jadwal: 'Isi sementara dari modul Jadwal. Status berjalan/selesai dihitung otomatis dari tanggal.',
+    biaya: 'Isi sementara dari modul Biaya, tampil dalam satu kartu per jenjang. Tampil "Segera diumumkan" bila kosong.',
+    jadwal: 'Isi sementara dari modul Jadwal, tampil sebagai linimasa mendatar per gelombang. Status dihitung otomatis dari tanggal.',
     berita: 'Menampilkan 3 berita terbaru yang sudah terbit.',
     kontak: 'Alamat, telepon, media sosial, dan peta dari Pengaturan > Identitas, ditambah Kontak Panitia.'
   };

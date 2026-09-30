@@ -549,6 +549,8 @@ body.situs{background:var(--bg)}
 .tengah{text-align:center;margin-top:22px}
 .kecil{font-size:12.5px}
 section[id]{scroll-margin-top:84px}
+/* Bilah atas selalu tampil saat halaman digulir */
+#kepala{position:sticky;top:0;z-index:60}
 
 /* Pita mode pratinjau */
 .pita-pratinjau{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:8px 14px;background:var(--warn-soft);color:var(--text);font-size:13px;font-weight:600;border-bottom:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
@@ -558,7 +560,7 @@ section[id]{scroll-margin-top:84px}
 .sek-sembunyi{outline:2px dashed color-mix(in srgb,var(--warn) 60%,transparent);outline-offset:-10px}
 
 /* Bilah atas */
-.situs-bar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;height:var(--appbar-h);padding:0 max(20px,calc((100vw - 1160px)/2 + 20px));background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
+.situs-bar{position:relative;z-index:50;display:flex;align-items:center;gap:14px;height:var(--appbar-h);padding:0 max(20px,calc((100vw - 1160px)/2 + 20px));background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
 .situs-bar.bergulir{border-bottom-color:var(--border);box-shadow:0 2px 14px rgba(0,0,0,.06)}
 .situs-bar .brand{text-decoration:none;color:var(--text);min-width:0;flex:none;max-width:280px}
 .situs-bar .brand-logo,.situs-kaki .brand-logo{width:42px;height:42px;border-radius:12px;border:1px solid var(--border);box-shadow:none}
@@ -914,3 +916,81 @@ img.avatar{object-fit:cover}
   .wa-tombol{width:54px;height:54px;padding:0;justify-content:center;border-radius:18px}
 }
 @media print{ .situs-bar,.situs-bawah,.wa-melayang,.situs-kaki,.pita-pratinjau{display:none!important} }
+
+/* =====================================================================
+   REVISI FASE 2: slider keunggulan, biaya satu kartu, jadwal mendatar
+   ===================================================================== */
+/* Slider */
+.slider{position:relative}
+.slider-trek{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 54px)/4);column-gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:4px 2px 16px;scrollbar-width:none;outline:none}
+.slider-trek::-webkit-scrollbar{display:none}
+.slider-trek>*{scroll-snap-align:start}
+.slider-nav{position:absolute;top:calc(50% - 30px);transform:translateY(-50%);z-index:2;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text);box-shadow:var(--shadow);display:grid;place-items:center;font-size:20px;cursor:pointer}
+.slider-nav:hover{background:var(--surface-2)}
+.slider-nav.kiri{left:-18px}.slider-nav.kanan{right:-18px}
+.slider-titik{display:flex;justify-content:center;gap:6px;margin-top:4px}
+.slider-titik span{width:8px;height:8px;border-radius:4px;background:var(--border);transition:width .25s,background .25s}
+.slider-titik span.on{width:24px;background:var(--primary)}
+.slider.muat-semua .slider-nav,.slider.muat-semua .slider-titik{display:none}
+.kartu-unggul{border-top:0;height:100%}
+.kartu-unggul .foto{aspect-ratio:4/3}
+.kartu-unggul .foto-kosong{background:linear-gradient(145deg,color-mix(in srgb,var(--tone) 22%,var(--surface-2)),color-mix(in srgb,var(--tone) 8%,var(--surface-2)));color:var(--tone);font-size:64px}
+.kartu-unggul .lencana-ikon{position:absolute;left:14px;bottom:-21px;width:44px;height:44px;font-size:23px;background:var(--surface);color:var(--tone);border:3px solid var(--surface);box-shadow:var(--shadow);z-index:1}
+.sek.alt .kartu-unggul .lencana-ikon{background:var(--bg);border-color:var(--bg)}
+.kartu-unggul .foto{overflow:visible}
+.kartu-unggul .foto img,.kartu-unggul .foto .foto-kosong{border-radius:18px 18px 0 0}
+.kartu-unggul .isi{padding-top:30px;border-top:4px solid var(--tone)}
+.kartu-unggul .isi p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Tab chip kecil */
+.chip-tab.kecil{margin:0}
+.chip-tab.kecil button{padding:6px 14px;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+
+/* Biaya dalam satu kartu */
+.biaya-satu{padding:18px 22px 10px}
+.biaya-atas{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.biaya-atas>.muted{font-size:12.5px;display:inline-flex;gap:5px;align-items:center}
+.biaya-kolom{columns:2;column-gap:34px}
+.biaya-grup{break-inside:avoid;margin-bottom:16px}
+.biaya-grup-judul{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:color-mix(in srgb,var(--tone) 11%,transparent);color:var(--tone);font-weight:800;font-size:14px}
+.biaya-grup-judul i{font-size:18px}
+.biaya-grup-judul span{flex:1}
+.biaya-grup-judul b{font-size:15.5px;font-variant-numeric:tabular-nums}
+.biaya-grup ul{list-style:none;margin:0;padding:0 4px 0 12px}
+.biaya-grup li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px dashed var(--border);font-size:14px}
+.biaya-grup li:last-child{border-bottom:0}
+.biaya-grup li>b{white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums}
+.biaya-grup li small{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+
+/* Jadwal mendatar */
+.jadwal-satu{padding:18px 22px 8px}
+.jadwal-satu>.chip-tab{margin-bottom:6px}
+.jadwal-kepala{display:flex;align-items:center;gap:8px;font-size:15px;margin-bottom:4px}
+.jadwal-kepala i{font-size:20px;color:var(--c2)}
+.linimasa-wadah{overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:thin;padding:16px 2px 12px}
+.linimasa-h{list-style:none;margin:0;padding:0;display:flex;min-width:100%}
+.linimasa-h li{position:relative;flex:1 1 0;min-width:175px;padding:0 16px 0 0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;scroll-snap-align:start}
+.linimasa-h li::before{content:"";position:absolute;left:16px;right:0;top:7px;height:3px;border-radius:2px;background:var(--border)}
+.linimasa-h li:last-child::before{display:none}
+.linimasa-h li.lewat::before,.linimasa-h li.kini::before{background:linear-gradient(90deg,var(--tone),color-mix(in srgb,var(--tone) 35%,var(--border)))}
+.linimasa-h .titik{width:17px;height:17px;border-radius:50%;background:var(--surface);border:3.5px solid var(--tone);position:relative;z-index:1;margin-bottom:8px;flex:none}
+.sek.alt .linimasa-h .titik{background:var(--bg)}
+.linimasa-h li.lewat .titik{background:var(--tone)}
+.linimasa-h li.kini .titik{background:var(--ok);border-color:var(--ok);box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 22%,transparent)}
+.linimasa-h .tgl{font-size:12.5px;font-weight:700;color:var(--muted)}
+.linimasa-h b{font-size:14.5px;line-height:1.3}
+.linimasa-h p{margin:2px 0 0;color:var(--muted);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.linimasa-h li.lewat b{color:var(--muted)}
+
+@media (max-width:1024px){
+  .slider-trek{grid-auto-columns:calc((100% - 36px)/3)}
+  .slider-nav.kiri{left:-6px}.slider-nav.kanan{right:-6px}
+}
+@media (max-width:720px){
+  .slider-trek{grid-auto-columns:78%;column-gap:12px;margin:0 -16px;padding:4px 16px 14px;scroll-padding:0 16px}
+  .slider-nav{display:none}
+  .biaya-satu,.jadwal-satu{padding:14px 14px 6px}
+  .biaya-kolom{columns:1}
+  .biaya-atas>.muted{display:none}
+  .linimasa-h li{min-width:150px}
+}

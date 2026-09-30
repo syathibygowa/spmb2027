@@ -203,7 +203,14 @@
       </div>`;
     },
 
-    keunggulan: () => kartuIkon(S.konten.keunggulan, 'kartu-unggul'),
+    keunggulan: () => {
+      const d = S.konten.keunggulan || []; if (!d.length) return '';
+      return sliderHTML(d.map(x => `
+        <article class="kartu kartu-foto kartu-unggul" style="--tone:var(--${esc(x.data.warna || 'c1')})">
+          <div class="foto">${x.gambar ? `<img alt="${esc(x.judul)}" loading="lazy" src="${esc(gambar(x.gambar, 720))}">` : `<div class="foto-kosong"><i class="ph-duotone ph-${esc(x.data.ikon || 'star')}"></i></div>`}
+            <span class="ic-box lencana-ikon"><i class="ph-duotone ph-${esc(x.data.ikon || 'star')}"></i></span></div>
+          <div class="isi"><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></article>`));
+    },
     alur: () => !(S.konten.alur || []).length ? '' : `<ol class="alur">${S.konten.alur.map((x, i) => `
       <li style="--tone:var(--${esc(x.data.warna || 'c3')})"><span class="alur-no">${i + 1}</span><span class="ic-box"><i class="ph-duotone ph-${esc(x.data.ikon || 'check')}"></i></span>
         <div><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></li>`).join('')}</ol>`,
@@ -245,16 +252,20 @@
         return TAHAP.map(t => {
           const baris = isi.filter(x => (x.data.tahap || 'Lainnya') === t); if (!baris.length) return '';
           const total = baris.filter(x => x.data.wajib !== false).reduce((a, x) => a + (+x.data.nominal || 0), 0);
-          return `<div class="kartu biaya-kartu" style="--tone:${TONE_T[t]}">
-            <div class="biaya-kepala"><span class="ic-box"><i class="ph-duotone ${t === 'Bulanan' ? 'ph-calendar' : t === 'Daftar ulang' ? 'ph-clipboard-text' : 'ph-receipt'}"></i></span><b>${t === 'Bulanan' ? 'Biaya bulanan' : t === 'Tahunan' ? 'Biaya tahunan' : t === 'Lainnya' ? 'Biaya lainnya' : 'Biaya ' + t.toLowerCase()}</b></div>
+          const ikon = t === 'Bulanan' ? 'ph-calendar' : t === 'Daftar ulang' ? 'ph-clipboard-text' : t === 'Tahunan' ? 'ph-calendar-star' : 'ph-receipt';
+          const label = t === 'Bulanan' ? 'Biaya bulanan' : t === 'Tahunan' ? 'Biaya tahunan' : t === 'Lainnya' ? 'Biaya lainnya' : 'Biaya ' + t.toLowerCase();
+          return `<div class="biaya-grup" style="--tone:${TONE_T[t]}">
+            <div class="biaya-grup-judul"><i class="ph-duotone ${ikon}"></i><span>${label}</span><b title="Total biaya wajib">${rupiah(total)}</b></div>
             <ul>${baris.map(x => `<li><div><span>${esc(x.judul)}</span>${x.data.bagian && x.data.bagian !== 'Putra dan putri' ? ` <em class="tag">${esc(x.data.bagian)}</em>` : ''}${x.data.wajib === false ? ' <em class="tag">Opsional</em>' : ''}${lencanaTersembunyi(x)}
-              ${x.isi ? `<small>${esc(x.isi)}</small>` : ''}</div><b>${rupiah(x.data.nominal)}</b></li>`).join('')}</ul>
-            <div class="biaya-total"><span>Total wajib</span><b>${rupiah(total)}</b></div></div>`;
+              ${x.isi ? `<small>${esc(x.isi)}</small>` : ''}</div><b>${rupiah(x.data.nominal)}</b></li>`).join('')}</ul></div>`;
         }).join('');
       };
-      return `${tab.length > 1 ? `<div class="chip-tab" role="tablist">${tab.map((j, i) => `<button type="button" role="tab" data-biaya="${esc(j)}" aria-selected="${!i}">${esc(j)}</button>`).join('')}</div>` : ''}
-        ${tab.map((j, i) => `<div class="kisi-biaya" data-panel-biaya="${esc(j)}" ${i ? 'hidden' : ''}>${panel(j)}</div>`).join('')}
-        <p class="catatan-sek"><i class="ph-duotone ph-info"></i>Rincian dapat berubah. Informasi rekening pembayaran disampaikan saat pendaftaran.</p>`;
+      return `<div class="kartu biaya-satu">
+        <div class="biaya-atas">${tab.length > 1 ? `<div class="chip-tab kecil" role="tablist">${tab.map((j, i) => `<button type="button" role="tab" data-biaya="${esc(j)}" aria-selected="${!i}">Jenjang ${esc(j)}</button>`).join('')}</div>` : ''}
+          <span class="muted"><i class="ph-duotone ph-info"></i> Angka di kanan judul = total biaya wajib</span></div>
+        ${tab.map((j, i) => `<div class="biaya-kolom" data-panel-biaya="${esc(j)}" ${i ? 'hidden' : ''}>${panel(j)}</div>`).join('')}
+      </div>
+      <p class="catatan-sek"><i class="ph-duotone ph-info"></i>Rincian dapat berubah. Informasi rekening pembayaran disampaikan saat pendaftaran.</p>`;
     },
 
     jadwal: () => {
@@ -263,14 +274,16 @@
       const status = x => { const a = x.data.mulai, b = x.data.selesai || a;
         return !a ? ['', ''] : HARI_INI < a ? ['Akan datang', 'var(--c1)'] : HARI_INI > b ? ['Selesai', 'var(--c8)'] : ['Sedang berlangsung', 'var(--ok)']; };
       const gel = [...new Set([...(S.konten.jadwal || [])].map(x => x.data.gelombang || 'Jadwal'))];   // urutan gelombang mengikuti urutan di dashboard
-      return `<div class="kisi-jadwal">${gel.map((g, gi) => `
-        <div class="kartu jadwal-kartu" style="--tone:var(--c${[2, 1, 5, 4, 3, 6][gi % 6]})">
-          <div class="jadwal-kepala"><span class="ic-box"><i class="ph-duotone ph-flag-banner"></i></span><b>${esc(g)}</b></div>
-          <ol class="linimasa">${d.filter(x => (x.data.gelombang || 'Jadwal') === g).map(x => { const [st, t] = status(x); return `
+      // gelombang yang dibuka pertama: yang masih berjalan atau akan datang
+      const aktif = gel.find(g => d.some(x => (x.data.gelombang || 'Jadwal') === g && status(x)[0] !== 'Selesai')) || gel[gel.length - 1];
+      return `<div class="kartu jadwal-satu">
+        ${gel.length > 1 ? `<div class="chip-tab kecil" role="tablist">${gel.map(g => `<button type="button" role="tab" data-gel="${esc(g)}" aria-selected="${g === aktif}"><i class="ph-duotone ph-flag-banner"></i>${esc(g)}</button>`).join('')}</div>` : `<div class="jadwal-kepala"><i class="ph-duotone ph-flag-banner"></i><b>${esc(gel[0])}</b></div>`}
+        ${gel.map((g, gi) => `<div class="linimasa-wadah" data-panel-gel="${esc(g)}" ${g === aktif ? '' : 'hidden'} style="--tone:var(--c${[2, 1, 5, 4, 3, 6][gi % 6]})">
+          <ol class="linimasa-h">${d.filter(x => (x.data.gelombang || 'Jadwal') === g).map(x => { const [st, t] = status(x); return `
             <li class="${st === 'Selesai' ? 'lewat' : st === 'Sedang berlangsung' ? 'kini' : ''}"><span class="titik"></span>
-              <div><b>${esc(x.judul)}</b><span class="tgl"><i class="ph-duotone ph-calendar-blank"></i>${rentang(x.data.mulai, x.data.selesai)}</span>
-                ${st ? `<span class="pill" style="--tone:${t}">${st}</span>` : ''}${lencanaTersembunyi(x)}${x.isi ? `<p>${esc(x.isi)}</p>` : ''}</div></li>`; }).join('')}</ol>
-        </div>`).join('')}</div>`;
+              <span class="tgl">${rentang(x.data.mulai, x.data.selesai)}</span><b>${esc(x.judul)}</b>
+              ${st ? `<span class="pill" style="--tone:${t}">${st}</span>` : ''}${lencanaTersembunyi(x)}${x.isi ? `<p>${esc(x.isi)}</p>` : ''}</li>`; }).join('')}</ol></div>`).join('')}
+      </div>`;
     },
 
     testimoni: () => !(S.konten.testimoni || []).length ? '' : `<div class="geser">${S.konten.testimoni.map((x, i) => `
@@ -296,6 +309,62 @@
     faq: () => faqHTML(),
     kontak: () => kontakHTML()
   };
+
+  function sliderHTML(kartu) {
+    return `<div class="slider" data-slider>
+      <div class="slider-trek" tabindex="0" aria-roledescription="carousel">${kartu.join('')}</div>
+      <button type="button" class="slider-nav kiri" data-geser="-1" aria-label="Sebelumnya"><i class="ph-duotone ph-caret-left"></i></button>
+      <button type="button" class="slider-nav kanan" data-geser="1" aria-label="Berikutnya"><i class="ph-duotone ph-caret-right"></i></button>
+      <div class="slider-titik" aria-hidden="true"></div>
+    </div>`;
+  }
+  // Bergulir otomatis tiap 4 detik; berhenti saat disentuh/diarahkan kursor atau tidak terlihat
+  function pasangSlider(root) {
+    const diam = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    root.querySelectorAll('[data-slider]').forEach(sl => {
+      const trek = sl.querySelector('.slider-trek'), titik = sl.querySelector('.slider-titik');
+      const langkah = () => { const k = trek.firstElementChild; return k ? k.getBoundingClientRect().width + parseFloat(getComputedStyle(trek).columnGap || 0) : trek.clientWidth; };
+      const perLayar = () => Math.max(1, Math.round(trek.clientWidth / langkah()));
+      const halaman = () => Math.max(1, trek.children.length - perLayar() + 1);
+      const posisi = () => Math.round(trek.scrollLeft / langkah());
+      const gambarTitik = () => {
+        const n = halaman(); sl.classList.toggle('muat-semua', n <= 1);
+        titik.innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<span class="${i === Math.min(posisi(), n - 1) ? 'on' : ''}"></span>`).join('') : '';
+      };
+      const geser = arah => {
+        const akhir = trek.scrollLeft + trek.clientWidth >= trek.scrollWidth - 4;
+        if (arah > 0 && akhir) trek.scrollTo({ left: 0, behavior: 'smooth' });
+        else if (arah < 0 && trek.scrollLeft <= 4) trek.scrollTo({ left: trek.scrollWidth, behavior: 'smooth' });
+        else trek.scrollBy({ left: arah * langkah(), behavior: 'smooth' });
+      };
+      let jeda = false, terlihat = false, lanjutT;
+      const henti = () => { jeda = true; clearTimeout(lanjutT); };
+      const lanjut = (tunda = 0) => { clearTimeout(lanjutT); lanjutT = setTimeout(() => { jeda = false; }, tunda); };
+      sl.addEventListener('mouseenter', henti); sl.addEventListener('mouseleave', () => lanjut());
+      sl.addEventListener('touchstart', henti, { passive: true }); sl.addEventListener('touchend', () => lanjut(6000), { passive: true });
+      sl.addEventListener('focusin', henti); sl.addEventListener('focusout', () => lanjut());
+      sl.addEventListener('click', e => { const b = e.target.closest('[data-geser]'); if (b) { geser(+b.dataset.geser); henti(); lanjut(6000); } });
+      let t; trek.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(gambarTitik, 80); }, { passive: true });
+      addEventListener('resize', gambarTitik);
+      new IntersectionObserver(([e]) => { terlihat = e.isIntersecting; }, { threshold: .4 }).observe(sl);
+      gambarTitik();
+      if (!diam) setInterval(() => { if (terlihat && !jeda && !document.hidden && halaman() > 1) geser(1); }, 4000);
+    });
+  }
+
+  // Video utama berputar otomatis (tanpa suara, sesuai aturan browser) saat bagiannya terlihat
+  function pasangPutarOtomatis(root) {
+    const wadah = root.querySelector('.video-utama'); if (!wadah || !('IntersectionObserver' in window)) return;
+    const perintah = f => { const fr = wadah.querySelector('iframe'); if (fr) fr.contentWindow.postMessage(JSON.stringify({ event: 'command', func: f, args: [] }), '*'); };
+    new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) {
+        const tombol = wadah.querySelector('[data-putar]');
+        if (tombol) tombol.outerHTML = iframeYT(tombol.dataset.putar, true);
+        else perintah('playVideo');
+      } else perintah('pauseVideo');
+    }, { threshold: .5 }).observe(wadah);
+  }
+  const iframeYT = (id, bisu) => `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&enablejsapi=1${bisu ? '&mute=1' : ''}&origin=${encodeURIComponent(location.origin)}" title="Video profil" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
 
   function kartuIkon(d, kelas) {
     if (!(d || []).length) return '';
@@ -396,6 +465,8 @@
         <div class="wadah">${!s.tampil ? '<span class="lencana-sembunyi besar"><i class="ph-duotone ph-eye-slash"></i>Bagian ini disembunyikan</span>' : ''}${kepala(s.kunci, s)}${isi}</div></section>`;
     }).join('');
     pasangInteraksi(main);
+    pasangSlider(main);
+    pasangPutarOtomatis(main);
     jalankanHitungMundur();
   }
 
@@ -417,7 +488,7 @@
     root.addEventListener('click', e => {
       const putar = e.target.closest('[data-putar]');
       if (putar) {
-        putar.outerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${putar.dataset.putar}?autoplay=1&rel=0" title="Video" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        putar.outerHTML = iframeYT(putar.dataset.putar, false);
         return;
       }
       const pilih = e.target.closest('[data-pilih-yt]');
@@ -431,6 +502,12 @@
       if (tb) {
         tb.parentNode.querySelectorAll('[data-biaya]').forEach(b => b.setAttribute('aria-selected', String(b === tb)));
         root.querySelectorAll('[data-panel-biaya]').forEach(p => p.hidden = p.dataset.panelBiaya !== tb.dataset.biaya);
+        return;
+      }
+      const gl = e.target.closest('[data-gel]');
+      if (gl) {
+        gl.parentNode.querySelectorAll('[data-gel]').forEach(b => b.setAttribute('aria-selected', String(b === gl)));
+        root.querySelectorAll('[data-panel-gel]').forEach(p => p.hidden = p.dataset.panelGel !== gl.dataset.gel);
         return;
       }
       const al = e.target.closest('[data-album]');

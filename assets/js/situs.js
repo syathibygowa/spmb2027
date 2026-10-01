@@ -894,7 +894,10 @@
   async function mulai() {
     S.pratinjau = await cekPratinjau().catch(() => false);
     S.p = await muatPengaturan();
-    S.ta = S.p.identitas?.tahun_ajaran || '2027/2028';
+    S.ta = SPMB.taAktif(S.p);
+    // Judul tab dan deskripsi mengikuti tahun ajaran aktif (HTML statis sengaja tanpa tahun)
+    if (HAL === 'beranda') document.title = `SPMB ${S.ta} · ${S.p.identitas?.nama_singkat || 'Pondok Pesantren'}`;
+    document.querySelectorAll('.ta').forEach(x => { x.textContent = S.ta; });
     const jenis = { beranda: ['keunggulan', 'jaminan', 'program', 'prestasi', 'flyer', 'alur', 'testimoni', 'galeri', 'faq', 'video', 'kontak_panitia'],
       profil: ['pimpinan', 'kontak_panitia'], berita: ['kontak_panitia'], kontak: ['kontak_panitia', 'faq'] }[HAL] || ['kontak_panitia'];
     const tugas = [muatKonten(jenis)];

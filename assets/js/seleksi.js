@@ -98,13 +98,17 @@
   const SEL = { gel: '', uji: false };      // bertahan selama dashboard terbuka
 
   async function muatGelombang() {
-    const { data, error } = await sb.from('gelombang').select('id,nama,urutan,tes_mulai,tes_selesai,pengumuman,hasil_terbit_pada,diarsipkan_pada')
+    const { data, error } = await sb.from('gelombang').select('id,nama,urutan,tes_mulai,tes_selesai,pengumuman,hasil_terbit_pada,diarsipkan_pada,uji')
       .is('diarsipkan_pada', null).order('urutan').order('id');
     if (error) throw error;
-    if (!SEL.gel || !data.find(g => g.id == SEL.gel)) SEL.gel = String((data.find(g => !g.hasil_terbit_pada) || data[0] || {}).id || '');
+    GELS = data;
+    if (!SEL.gel || !data.find(g => g.id == SEL.gel)) { const a = data.find(g => !g.hasil_terbit_pada && !g.uji) || data.find(g => !g.uji) || data[0]; SEL.gel = String(a?.id || ''); SEL.uji = !!a?.uji; }
     return data;
   }
-  const opsiGel = gels => gels.map(g => `<option value="${g.id}" ${g.id == SEL.gel ? 'selected' : ''}>${esc(g.nama)}</option>`).join('');
+  let GELS = [];
+  const opsiGel = gels => gels.map(g => `<option value="${g.id}" ${g.id == SEL.gel ? 'selected' : ''}>${esc(g.nama)}${g.uji ? ' (uji coba)' : ''}</option>`).join('');
+  // Memilih gelombang uji coba otomatis menyalakan saklar "Data uji" (dan sebaliknya)
+  const pilihGel = v => { SEL.gel = v; const g = GELS.find(x => String(x.id) === String(v)); if (g && !!g.uji !== SEL.uji) { SEL.uji = !!g.uji; document.querySelectorAll('.uji-saklar input').forEach(c => { c.checked = SEL.uji; }); } };
 
   async function muatSesi(gelId) {
     const { data, error } = await sb.from('sesi_tes').select('*, penguji_sesi(pengguna_id,bidang), peserta_sesi(pendaftar_id,hadir,catatan)')
@@ -408,7 +412,7 @@
       render();
     };
     await muat();
-    $('#sGel').onchange = async e => { SEL.gel = e.target.value; await muat(); };
+    $('#sGel').onchange = async e => { pilihGel(e.target.value); await muat(); };
     $('#sUji').onchange = e => { SEL.uji = e.target.checked; render(); };
     const baru = async () => { const id = await formSesi(null, gels, sesi.length); if (id) { toast('Sesi tes ditambahkan.'); location.hash = '#/seleksi/' + id; } };
     $('#btnSesiBaru').onclick = baru;
@@ -767,7 +771,7 @@
       data = d || []; render();
     };
     await muat();
-    $('#nGel').onchange = e => { SEL.gel = e.target.value; muat().catch(err => toast(galat(err), 'err')); };
+    $('#nGel').onchange = e => { pilihGel(e.target.value); muat().catch(err => toast(galat(err), 'err')); };
     $('#nUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(err => toast(galat(err), 'err')); };
     $('#nJB').onchange = e => { SARING_N.jb = e.target.value; render(); };
     $('#nSt').onchange = e => { SARING_N.st = e.target.value; render(); };
@@ -863,6 +867,7 @@
         <button class="btn sm ghost" id="rRekap"><i class="ph-duotone ph-table" style="color:var(--c1)"></i>Rekap nilai</button>
         <button class="btn sm ghost" id="rBA"><i class="ph-duotone ph-notebook" style="color:var(--c5)"></i>Berita acara</button>
         <button class="btn sm ghost" id="rSK"><i class="ph-duotone ph-seal-check" style="color:var(--c4)"></i>SK penetapan</button>
+        <button class="btn sm ghost" id="rXlsx"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Excel</button>
       </div>
       <div id="rStatus"></div>
       <div class="stats stats-pendaftar" id="rStat"></div>
@@ -936,7 +941,7 @@
       g = gl; data = r.data || []; render();
     };
     await muat();
-    $('#rGel').onchange = e => { SEL.gel = e.target.value; muat().catch(err => toast(galat(err), 'err')); };
+    $('#rGel').onchange = e => { pilihGel(e.target.value); muat().catch(err => toast(galat(err), 'err')); };
     $('#rUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(err => toast(galat(err), 'err')); };
 
     const tetapkan = async (ids, h, tanya = true) => {
@@ -998,6 +1003,23 @@
       pilihCetak('Rekap nilai seleksi', pdf => dokRekap(g, data, klp, pdf));
     };
     $('#rBA').onclick = () => pilihCetak('Berita acara penetapan', pdf => dokBA(g, data, pdf));
+    // Rekap nilai dan keputusan ke Excel: satu lembar per jenjang dan putra/putri
+    $('#rXlsx').onclick = () => {
+      if (!data.length) return toast('Belum ada peserta seleksi.', 'warn');
+      const kol = [...new Set([...bidangAktif(), ...data.flatMap(r => Object.keys(r.nilai || {}))])].sort((a, b) => URUT_BIDANG.indexOf(a) - URUT_BIDANG.indexOf(b));
+      const ta = api.S.pengaturan.identitas?.tahun_ajaran || '';
+      const lembar = KELOMPOK.map(([j, b]) => ({ j, b, rows: data.filter(r => r.jenjang === j && r.bagian === b) })).filter(x => x.rows.length).map(({ j, b, rows }) => ({
+        nama: `${j} ${bagianL(b)}`, judul: `REKAP NILAI SELEKSI ${j} ${bagianL(b).toUpperCase()} · TAHUN AJARAN ${ta}`,
+        sub: `${g.nama} · Kuota ${rows[0].kuota ?? 'tanpa batas'} · Bobot ${kol.map(k => `${bidangL(k)} ${bobotB(j, k)}%`).join(', ')}${SEL.uji ? ' · DATA UJI COBA' : ''}`,
+        kolom: [{ j: 'Peringkat', w: 10, t: 'angka' }, { j: 'No. Registrasi', w: 22 }, { j: 'Nama Lengkap', w: 28 }, { j: 'Asal Sekolah', w: 26 }, { j: 'Asal Daerah', w: 18 },
+          ...kol.map(k => ({ j: bidangL(k), w: 11, t: 'desimal' })), { j: 'Nilai Akhir', w: 11, t: 'desimal' }, { j: 'Rekomendasi', w: 14 }, { j: 'Keputusan', w: 14 }, { j: 'Catatan', w: 28 }],
+        baris: rows.slice().sort((x, y) => (x.peringkat ?? 1e9) - (y.peringkat ?? 1e9)).map(r => [r.peringkat ?? '', r.no_registrasi, r.nama_lengkap, r.asal_sekolah || '', r.asal || '',
+          ...kol.map(k => r.nilai?.[k]?.nilai ?? ''), r.nilai_akhir ?? '', r.rekomendasi ? HASIL[r.rekomendasi][0] : 'Nilai belum lengkap',
+          HASIL[hasilDari(r.status)]?.[0] || 'Belum diputuskan', r.hasil_catatan && r.hasil_catatan !== 'Sesuai peringkat' ? r.hasil_catatan : ''])
+      }));
+      const nama = SPMB.unduhXlsx(`Rekap Nilai Seleksi ${g.nama} ${fmt.isoTgl()}${SEL.uji ? ' (uji)' : ''}`, lembar);
+      toast(`Rekap nilai diunduh: ${nama}`);
+    };
     $('#rSK').onclick = () => {
       if (!data.some(r => hasilDari(r.status) === 'lulus')) return toast('Belum ada peserta yang ditetapkan lulus.', 'warn');
       pilihCetak('SK penetapan hasil seleksi', pdf => dokSK(g, data, pdf));
@@ -1472,7 +1494,7 @@
       render();
     };
     await muat();
-    $('#pgGel').onchange = e => { SEL.gel = e.target.value; muat().catch(err => toast(galat(err), 'err')); };
+    $('#pgGel').onchange = e => { pilihGel(e.target.value); muat().catch(err => toast(galat(err), 'err')); };
     $('#pgUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(err => toast(galat(err), 'err')); };
     if ($('#pgAtur')) $('#pgAtur').onclick = () => aturPengumuman(api);
 

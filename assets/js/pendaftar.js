@@ -50,8 +50,8 @@
   const teksHafalan = p => +p.hafalan_juz >= 1 ? `${String(+p.hafalan_juz).replace('.', ',')} juz` : +p.hafalan_surah > 0 ? `${p.hafalan_surah} surah pendek` : 'Belum ada';
   const galatDB = err => {
     const m = String(err?.message || err || '');
-    if (/pendaftar_nisn_unik/.test(m)) return 'NISN ini sudah dipakai pendaftaran lain yang masih aktif.';
-    if (/pendaftar_nik_unik/.test(m)) return 'NIK ini sudah dipakai pendaftaran lain yang masih aktif.';
+    if (/pendaftar_nisn/.test(m)) return 'NISN ini sudah dipakai pendaftaran lain yang masih aktif.';
+    if (/pendaftar_nik/.test(m)) return 'NIK ini sudah dipakai pendaftaran lain yang masih aktif.';
     if (/violates check constraint.*(nisn|nik|rt|rw|kode_pos|npsn|no_wa|darurat_no|hafalan)/i.test(m)) return 'Ada isian dengan format yang tidak sesuai. Periksa kembali angka NISN, NIK, RT/RW, kode pos, NPSN, atau nomor WhatsApp.';
     return pesanGalat(err);
   };
@@ -62,7 +62,7 @@
   /* =================================================================
      DAFTAR PENDAFTAR
      ================================================================= */
-  const SARING = { q: '', gel: '', jb: '', st: '', uji: false, hal: 0 };   // bertahan saat kembali dari detail
+  const SARING = { q: '', gel: '', jb: '', st: '', uji: false, hal: 0, ta: '' };   // bertahan saat kembali dari detail
   const PER_HAL = 25;
 
   async function halDaftar(k, api) {
@@ -73,7 +73,14 @@
       Object.assign(SARING, { st: qs.get('st') || '', uji: qs.get('uji') === '1', gel: qs.get('gel') || '', q: '', jb: '', hal: 0 });
       history.replaceState(null, '', '#/pendaftar');
     }
-    const { data: gels } = await sb.from('gelombang').select('id,nama,urutan').is('diarsipkan_pada', null).order('urutan');
+    const TA = S.pengaturan.identitas?.tahun_ajaran || '';
+    const { data: semuaGel } = await sb.from('gelombang').select('id,nama,urutan,tahun_ajaran,uji,diarsipkan_pada').order('urutan').order('id');
+    const daftarTA = [...new Set([TA, ...(semuaGel || []).map(g => g.tahun_ajaran)].filter(Boolean))].sort().reverse();
+    if (SARING.ta && !daftarTA.includes(SARING.ta)) SARING.ta = '';
+    const taPilih = () => SARING.ta || TA;
+    const arsip = () => !!SARING.ta && SARING.ta !== TA;
+    const gelTA = () => (semuaGel || []).filter(g => g.tahun_ajaran === taPilih() && (arsip() || !g.diarsipkan_pada));
+    let gels = gelTA();
     const opsiStatus = `<option value="">Semua status</option>
       <optgroup label="Perlu tindakan"><option value="@berkas">Menunggu verifikasi berkas</option><option value="@bayar">Menunggu verifikasi pembayaran</option></optgroup>
       <optgroup label="Status">${Object.entries(STATUS).map(([v, [l]]) => `<option value="${v}">${l}</option>`).join('')}</optgroup>
@@ -82,7 +89,8 @@
       <div class="stats stats-pendaftar" id="statP"></div>
       <div class="page-head saring-pendaftar">
         <div class="field cari-besar" style="margin:0"><i class="ph-duotone ph-magnifying-glass"></i><input class="input" id="cari" type="search" placeholder="Cari nama, nomor registrasi, NISN, NIK, atau WhatsApp…" value="${esc(SARING.q)}"></div>
-        <select class="select" id="fGel" aria-label="Gelombang"><option value="">Semua gelombang</option>${(gels || []).map(g => `<option value="${g.id}">${esc(g.nama)}</option>`).join('')}</select>
+        ${daftarTA.length > 1 ? `<select class="select" id="fTA" aria-label="Tahun ajaran">${daftarTA.map(t => `<option value="${esc(t)}" ${t === taPilih() ? 'selected' : ''}>TA ${esc(t)}${t === TA ? ' (aktif)' : ' (arsip)'}</option>`).join('')}</select>` : ''}
+        <select class="select" id="fGel" aria-label="Gelombang"></select>
         <select class="select" id="fJB" aria-label="Jenjang"><option value="">SMP dan SMA</option>${['SMP putra', 'SMP putri', 'SMA putra', 'SMA putri'].map(x => `<option value="${x}">${x.replace('putra', 'Putra').replace('putri', 'Putri')}</option>`).join('')}</select>
         <select class="select" id="fSt" aria-label="Status">${opsiStatus}</select>
         <label class="check uji-saklar"><input type="checkbox" id="fUji" ${SARING.uji ? 'checked' : ''}>Data uji</label>
@@ -90,7 +98,7 @@
       <div class="bilah-aksi">
         <span class="muted" id="infoJumlah"></span><div class="spacer"></div>
         <button class="btn sm ghost" id="btnSegarkan" title="Muat ulang"><i class="ph-duotone ph-arrows-clockwise" style="color:var(--c5)"></i><span class="hide-sm">Muat ulang</span></button>
-        <button class="btn sm ghost" id="btnCsv"><i class="ph-duotone ph-file-csv" style="color:var(--ok)"></i>Unduh Excel</button>
+        <button class="btn sm ghost" id="btnCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Unduh Excel</button>
         <button class="btn sm ghost" id="btnCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak daftar</button>
         <button class="btn sm ghost" id="btnPdf"><i class="ph-duotone ph-file-pdf" style="color:var(--c7)"></i>PDF</button>
         <a class="btn sm" id="btnTambah" href="daftar.html" target="_blank" rel="noopener"><i class="ph-duotone ph-user-plus"></i>Tambah pendaftar</a>
@@ -100,13 +108,18 @@
       </tr></thead><tbody id="tbP"><tr><td colspan="7"><span class="spinner"></span> Memuat…</td></tr></tbody></table></div>
       <div class="halaman-nav" id="navHal"></div>
       <p class="muted" style="font-size:12.5px;margin-top:10px"><i class="ph-duotone ph-info"></i> Klik baris untuk membuka detail, verifikasi, dan mengubah data. <b>Tambah pendaftar</b> membuka formulir pendaftaran; sebagai panitia Anda dapat menyimpan data sungguhan dengan berkas menyusul.</p>`;
+    const isiGel = () => { $('#fGel').innerHTML = `<option value="">Semua gelombang</option>${gels.map(g => `<option value="${g.id}">${esc(g.nama)}${g.uji ? ' (uji coba)' : ''}</option>`).join('')}`; };
+    isiGel();
+    if (SARING.gel && !gels.some(g => String(g.id) === String(SARING.gel))) SARING.gel = '';
     $('#fGel').value = SARING.gel; $('#fJB').value = SARING.jb; $('#fSt').value = SARING.st;
     setFab(() => window.open('daftar.html', '_blank'), 'ph-user-plus', 'Tambah pendaftar');
 
     // Statistik langsung (kartu dapat diklik untuk menyaring)
     const muatStat = async () => {
+      const el = $('#statP'); if (!el) return;
+      if (arsip() && !SARING.gel) { el.innerHTML = `<div class="note info" style="grid-column:1/-1;margin:0"><i class="ph-duotone ph-archive"></i><div>Anda melihat <b>arsip Tahun Ajaran ${esc(taPilih())}</b>. Pilih gelombang untuk melihat statistiknya. Tahun ajaran aktif: ${esc(TA)}.</div></div>`; return; }
       const { data, error } = await sb.rpc('statistik_dashboard', { p_gelombang: SARING.gel ? +SARING.gel : null, p_uji: SARING.uji });
-      const el = $('#statP'); if (!el || error) return;
+      if (error || !data) return;
       const kartu = [
         ['', 'Total pendaftar', data.total, 'ph-users-three', 'var(--c1)'],
         ['@hari', 'Hari ini', data.hari_ini, 'ph-calendar-plus', 'var(--c2)'],
@@ -121,6 +134,7 @@
     $('#statP').addEventListener('click', e => { const b = e.target.closest('[data-st]'); if (!b) return; SARING.st = SARING.st === b.dataset.st ? '' : b.dataset.st; $('#fSt').value = SARING.st; SARING.hal = 0; muat(); muatStat(); });
 
     const terapkanSaring = (q, lengkap = false) => {
+      q = q.eq('tahun_ajaran', taPilih());
       if (SARING.gel) q = q.eq('gelombang_id', +SARING.gel);
       if (SARING.jb) { const [j, b] = SARING.jb.split(' '); q = q.eq('jenjang', j).eq('bagian', b); }
       const st = SARING.st;
@@ -164,7 +178,13 @@
 
     let tunda;
     $('#cari').oninput = e => { clearTimeout(tunda); tunda = setTimeout(() => { SARING.q = e.target.value; SARING.hal = 0; muat(); }, 300); };
-    $('#fGel').onchange = e => { SARING.gel = e.target.value; SARING.hal = 0; muat(); muatStat(); };
+    $('#fGel').onchange = e => {
+      SARING.gel = e.target.value; SARING.hal = 0;
+      const g = gels.find(x => String(x.id) === SARING.gel);
+      if (g && g.uji !== SARING.uji) { SARING.uji = !!g.uji; $('#fUji').checked = SARING.uji; }
+      muat(); muatStat();
+    };
+    if ($('#fTA')) $('#fTA').onchange = e => { SARING.ta = e.target.value === TA ? '' : e.target.value; SARING.gel = ''; SARING.hal = 0; gels = gelTA(); isiGel(); $('#fGel').value = ''; muat(); muatStat(); };
     $('#fJB').onchange = e => { SARING.jb = e.target.value; SARING.hal = 0; muat(); };
     $('#fSt').onchange = e => { SARING.st = e.target.value; SARING.hal = 0; muat(); muatStat(); };
     $('#fUji').onchange = e => { SARING.uji = e.target.checked; SARING.hal = 0; muat(); muatStat(); };
@@ -180,7 +200,7 @@
       const { data, error } = await terapkanSaring(q).order('jenjang').order('bagian').order('no_registrasi').limit(2000);
       if (error) throw error; return data || [];
     };
-    const judulSaring = () => [SARING.gel ? $('#fGel').selectedOptions[0].text : 'Semua gelombang', SARING.jb ? $('#fJB').selectedOptions[0].text : 'SMP dan SMA',
+    const judulSaring = () => [arsip() ? `Arsip TA ${taPilih()}` : '', SARING.gel ? $('#fGel').selectedOptions[0].text : 'Semua gelombang', SARING.jb ? $('#fJB').selectedOptions[0].text : 'SMP dan SMA',
       SARING.st ? $('#fSt').selectedOptions[0].text : 'Semua status aktif', SARING.uji ? 'Data uji coba' : ''].filter(Boolean).join(' · ');
 
     const opsiDaftar = async () => {
@@ -189,7 +209,7 @@
         const kp = S.pengaturan.ketua_panitia || {};
         return ({
           judul: 'Daftar Calon Santri Baru', nomor: '',
-          meta: `Tahun Ajaran ${esc(S.pengaturan.identitas?.tahun_ajaran || '')} · ${esc(judulSaring())} · Jumlah: ${fmt.angka(data.length)} orang`,
+          meta: `Tahun Ajaran ${esc(taPilih())} · ${esc(judulSaring())} · Jumlah: ${fmt.angka(data.length)} orang`,
           isi: `<table><colgroup><col style="width:5%"><col style="width:17%"><col style="width:24%"><col style="width:10%"><col style="width:16%"><col style="width:13%"><col style="width:15%"></colgroup>
             <thead><tr><th>No</th><th>No. Registrasi</th><th>Nama Lengkap</th><th>Jenjang</th><th>Asal Daerah</th><th>WhatsApp</th><th>Status</th></tr></thead><tbody>
             ${data.map((p, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(p.no_registrasi)}</td><td>${esc(p.nama_lengkap)}</td><td>${esc(p.jenjang)} ${bagianL(p.bagian)}</td>
@@ -207,24 +227,25 @@
       try {
         const data = await ambilSemua();
         if (!data.length) return toast('Tidak ada data untuk diunduh.', 'warn');
-        const namaGel = Object.fromEntries((gels || []).map(g => [g.id, g.nama]));
-        const kolom = [['No. Registrasi', 'no_registrasi'], ['Gelombang', p => namaGel[p.gelombang_id] || ''], ['Jenjang', 'jenjang'], ['Putra/Putri', p => bagianL(p.bagian)],
-          ['Nama Lengkap', 'nama_lengkap'], ['NISN', p => `="${p.nisn}"`], ['NIK', p => `="${p.nik}"`], ['Tempat Lahir', 'tempat_lahir'], ['Tanggal Lahir', p => tglIso(p.tanggal_lahir)],
-          ['Asal Provinsi', 'asal_provinsi'], ['Asal Kabupaten/Kota', 'asal_kabupaten'], ['Alamat', 'alamat_jalan'], ['Dusun', 'dusun'], ['RT', p => `="${p.rt || ''}"`], ['RW', p => `="${p.rw || ''}"`],
-          ['Desa/Kelurahan', 'desa'], ['Kecamatan', 'kecamatan'], ['Kabupaten/Kota', 'kabupaten'], ['Provinsi', 'provinsi'], ['Kode Pos', 'kode_pos'], ['Sekolah Asal', 'asal_sekolah'], ['NPSN', 'npsn_sekolah'],
-          ['Nama Ayah', 'nama_ayah'], ['Pekerjaan Ayah', 'pekerjaan_ayah'], ['Nama Ibu', 'nama_ibu'], ['Pekerjaan Ibu', 'pekerjaan_ibu'], ['Email', 'email'], ['WhatsApp', p => `="+${p.no_wa}"`],
-          ['Kontak Darurat', 'darurat_nama'], ['Hubungan', 'darurat_hubungan'], ['No. Darurat', p => p.darurat_no ? `="+${p.darurat_no}"` : ''],
-          ['Pernah Mondok', p => p.pernah_mondok ? 'Ya' : 'Tidak'], ['Pondok Sebelumnya', 'pondok_sebelumnya'], ['Lama Mondok', 'lama_mondok'], ['Hafalan', teksHafalan],
-          ['Sumber Informasi', 'sumber_info'], ['Pemberi Rekomendasi', p => p.perekomendasi ? `${p.perekomendasi} (${p.perekomendasi_peran || ''})` : ''],
-          ['Prestasi', p => (p.prestasi || []).map(x => `${x.nama} (${x.tingkat}, ${x.tahun})`).join('; ')],
-          ['Verifikasi Berkas', p => (VERIF[p.verif_berkas] || [p.verif_berkas])[0]], ['Verifikasi Bayar', p => (VERIF[p.verif_bayar] || [p.verif_bayar])[0]],
-          ['Status', p => (STATUS[p.status] || [p.status])[0]], ['Tanggal Daftar', p => tsId(p.dibuat_pada)], ['Catatan Panitia', 'catatan_admin']];
-        const sel = v => { const x = String(v ?? ''); return /[;"\n]/.test(x) && !x.startsWith('="') ? `"${x.replace(/"/g, '""')}"` : x; };
-        const csv = '﻿' + [kolom.map(c => c[0]).join(';'), ...data.map(p => kolom.map(([, f]) => sel(typeof f === 'function' ? f(p) : p[f])).join(';'))].join('\r\n');
-        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-        const a = Object.assign(document.createElement('a'), { href: url, download: `Data Pendaftar SPMB ${fmt.tgl(new Date()).replace(/\//g, "-")}${SARING.uji ? ' (uji)' : ''}.csv` });
-        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
-        toast(`${fmt.angka(data.length)} baris diunduh. Buka dengan Excel atau Google Sheets.`);
+        const namaGel = Object.fromEntries((semuaGel || []).map(g => [g.id, g.nama]));
+        const kolom = [['No. Registrasi', 'no_registrasi', 22], ['Gelombang', p => namaGel[p.gelombang_id] || '', 16], ['Jenjang', 'jenjang', 8], ['Putra/Putri', p => bagianL(p.bagian), 10],
+          ['Nama Lengkap', 'nama_lengkap', 28], ['NISN', 'nisn', 13], ['NIK', 'nik', 19], ['Tempat Lahir', 'tempat_lahir', 16], ['Tanggal Lahir', 'tanggal_lahir', 12, 'tgl'],
+          ['Asal Provinsi', 'asal_provinsi', 18], ['Asal Kabupaten/Kota', 'asal_kabupaten', 20], ['Alamat', 'alamat_jalan', 28], ['Dusun', 'dusun', 14], ['RT', 'rt', 6], ['RW', 'rw', 6],
+          ['Desa/Kelurahan', 'desa', 18], ['Kecamatan', 'kecamatan', 18], ['Kabupaten/Kota', 'kabupaten', 18], ['Provinsi', 'provinsi', 18], ['Kode Pos', 'kode_pos', 9], ['Sekolah Asal', 'asal_sekolah', 26], ['NPSN', 'npsn_sekolah', 10],
+          ['Nama Ayah', 'nama_ayah', 24], ['Pekerjaan Ayah', 'pekerjaan_ayah', 20], ['Nama Ibu', 'nama_ibu', 24], ['Pekerjaan Ibu', 'pekerjaan_ibu', 20], ['Email', 'email', 26], ['WhatsApp', p => '+' + p.no_wa, 16],
+          ['Kontak Darurat', 'darurat_nama', 22], ['Hubungan', 'darurat_hubungan', 11], ['No. Darurat', p => p.darurat_no ? '+' + p.darurat_no : '', 16],
+          ['Pernah Mondok', p => p.pernah_mondok ? 'Ya' : 'Tidak', 9], ['Pondok Sebelumnya', 'pondok_sebelumnya', 22], ['Lama Mondok', 'lama_mondok', 12], ['Hafalan', teksHafalan, 14],
+          ['Sumber Informasi', 'sumber_info', 22], ['Pemberi Rekomendasi', p => p.perekomendasi ? `${p.perekomendasi} (${p.perekomendasi_peran || ''})` : '', 24],
+          ['Prestasi', p => (p.prestasi || []).map(x => `${x.nama} (${x.tingkat}, ${x.tahun})`).join('; '), 30],
+          ['Verifikasi Berkas', p => (VERIF[p.verif_berkas] || [p.verif_berkas])[0], 14], ['Verifikasi Bayar', p => (VERIF[p.verif_bayar] || [p.verif_bayar])[0], 14],
+          ['Status', p => (STATUS[p.status] || [p.status])[0], 20], ['Tanggal Daftar', p => tsId(p.dibuat_pada), 16], ['Catatan Panitia', 'catatan_admin', 28]];
+        SPMB.unduhXlsx(`Data Pendaftar SPMB ${taPilih().replace('/', '-')} ${fmt.tgl(new Date()).replace(/\//g, '-')}${SARING.uji ? ' (uji)' : ''}`, {
+          nama: 'Data Pendaftar', judul: `DATA CALON SANTRI BARU TAHUN AJARAN ${taPilih()}`,
+          sub: `${judulSaring()} · Diunduh ${fmt.tgl(new Date())} pukul ${fmt.jam(new Date())} WITA · ${fmt.angka(data.length)} orang`,
+          kolom: [{ j: 'No', w: 5, t: 'angka' }, ...kolom.map(([j, , w, t]) => ({ j, w, t }))],
+          baris: data.map((p, i) => [i + 1, ...kolom.map(([, f]) => typeof f === 'function' ? f(p) : p[f])])
+        });
+        toast(`${fmt.angka(data.length)} baris diunduh sebagai berkas Excel.`);
       } catch (err) { toast(pesanGalat(err), 'err'); }
     };
 
@@ -276,6 +297,7 @@
             <button class="btn sm wa-btn" id="btnWA"><i class="ph-duotone ph-whatsapp-logo"></i>WhatsApp</button>
             <button class="btn sm ghost" id="btnBukti"><i class="ph-duotone ph-file-pdf" style="color:var(--c7)"></i>Bukti PDF</button>
             <button class="btn sm ghost" id="btnCetakData"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak data</button>
+            ${['lulus', 'daftar_ulang_menunggu', 'daftar_ulang_selesai'].includes(P.status) ? `<a class="btn sm ghost" href="daftar-ulang.html?panitia=${P.id}" target="_blank" rel="noopener" title="Isi atau ubah daftar ulang atas nama santri"><i class="ph-duotone ph-clipboard-text" style="color:var(--c5)"></i>Bantu daftar ulang</a>` : ''}
             <button class="btn sm ghost" id="btnStatus"><i class="ph-duotone ph-arrows-left-right" style="color:var(--c2)"></i>Ubah status</button>
             <button class="btn sm ghost" id="btnLain" aria-haspopup="true"><i class="ph-duotone ph-dots-three-outline"></i><span class="hide-sm">Lainnya</span></button>
           </div>

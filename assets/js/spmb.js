@@ -49,6 +49,8 @@
     .replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/(^|[\s(])_([^_\n]+)_/g, '$1<i>$2</i>').replace(/~([^~\n]+)~/g, '<s>$1</s>')
     .replace(/\n/g, '<br>');
   Object.assign(window.SPMB_UI, { isiTemplat, formatWA, wita, keTs });
+  // Dipakai juga menu Keuangan > Pengaturan (Admin dan Superadmin)
+  Object.assign(window.SPMB_UI, { tabBiaya, tabRekening });
 
   /* =================================================================
      HALAMAN UTAMA
@@ -583,8 +585,8 @@
   async function tabFormulir(el, ctx) {
     const p = await muatPengaturan(true);
     const c = JSON.parse(JSON.stringify(p.spmb || {}));
-    const ta = p.identitas?.tahun_ajaran || '2027/2028';
-    c.usia = c.usia || { acuan: '2027-07-01', SMP: { min: 11, maks: 15 }, SMA: { min: 14, maks: 18 } };
+    const ta = SPMB.taAktif(p);
+    c.usia = c.usia || { acuan: SPMB.acuanUsia(p), SMP: { min: 11, maks: 15 }, SMA: { min: 14, maks: 18 } };
     c.berkas = c.berkas || [];
     const barisBerkas = b => `
       <div class="berkas-atur" data-kunci="${esc(b.kunci || '')}">
@@ -713,11 +715,13 @@
     const p = await muatPengaturan(true);
     const T = JSON.parse(JSON.stringify(p.templat_wa || {}));
     const situs = (CFG.alamatSitus || location.origin).replace(/\/$/, '');
+    const y = SPMB.tahunAwalTA(SPMB.taAktif(p));
+    const tglContoh = (bln, hr) => fmt.hariTgl(new Date(y, bln, hr));
     const contoh = {
-      nama: 'Muhammad Fathir', no_registrasi: 'SPMB27-SMP-P-0001', jenjang: 'SMP', gelombang: 'Gelombang 1',
-      catatan: '- Foto Kartu Keluarga kurang jelas', jadwal_tes: 'Sabtu, 9 Januari 2027 pukul 08.00 WITA (offline, kampus pondok)',
-      tautan_status: situs + '/cek-status.html', tautan_pengumuman: situs + '/pengumuman.html', jadwal_daftar_ulang: '10 Oktober 2027 s.d. 17 Oktober 2027', tautan_daftar_ulang: situs + '/daftar-ulang.html',
-      nama_lembaga: p.identitas?.nama_lembaga || 'Pondok Pesantren', tahun_ajaran: p.identitas?.tahun_ajaran || '2027/2028'
+      nama: 'Muhammad Fathir', no_registrasi: `SPMB${String(y).slice(2)}-SMP-P-0001`, jenjang: 'SMP', gelombang: 'Gelombang 1',
+      catatan: '- Foto Kartu Keluarga kurang jelas', jadwal_tes: `${tglContoh(0, 9)} pukul 08.00 WITA (offline, kampus pondok)`,
+      tautan_status: situs + '/cek-status.html', tautan_pengumuman: situs + '/pengumuman.html', jadwal_daftar_ulang: `${fmt.tglPanjang(new Date(y, 2, 10))} s.d. ${fmt.tglPanjang(new Date(y, 2, 17))}`, tautan_daftar_ulang: situs + '/daftar-ulang.html',
+      nama_lembaga: p.identitas?.nama_lembaga || 'Pondok Pesantren', tahun_ajaran: SPMB.taAktif(p)
     };
     // jsonb tidak menjaga urutan kunci: urutkan sesuai alur pendaftaran
     const URUT = Object.keys(IKON_WA);

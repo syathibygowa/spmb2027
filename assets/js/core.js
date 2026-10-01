@@ -813,7 +813,18 @@
     b.setAttribute('aria-label', lihat ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi');
   });
 
+  /* ---------- Tahun ajaran (jangka panjang, tanpa tahun tertulis mati) ---------- */
+  // Bawaan bila pengaturan belum diisi: tahun berjalan/tahun berikutnya
+  const taBawaan = () => { const y = new Date().getFullYear(); return `${y}/${y + 1}`; };
+  const taAktif = p => (p?.identitas?.tahun_ajaran || '').trim() || taBawaan();
+  const tahunAwalTA = ta => +(String(ta || '').match(/\d{4}/) || [new Date().getFullYear()])[0];
+  // Tanggal acuan usia: pengaturan SPMB, bawaan 1 Juli tahun awal TA aktif
+  const acuanUsia = p => p?.spmb?.usia?.acuan || `${tahunAwalTA(taAktif(p))}-07-01`;
+  // Tahun ajaran berikutnya, misalnya 2027/2028 -> 2028/2029
+  const taBerikutnya = ta => { const y = tahunAwalTA(ta) + 1; return `${y}/${y + 1}`; };
+
   window.SPMB = {
+    taBawaan, taAktif, tahunAwalTA, acuanUsia, taBerikutnya,
     sb, CFG, fmt, esc, inisial, toast, dialog, konfirmasi, pesanGalat,
     muatPengaturan, logoPondok, pasangLogo, kopHTML, cetakDokumen, htmlDokumen, buatPdfDokumen, unduhPdfDokumen, dokumenBukti, grafik,
     cetakHtml, cetakBanyakDokumen, buatPdfHtml, buatPdfBanyak, penandaTangan,

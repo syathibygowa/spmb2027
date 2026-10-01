@@ -169,7 +169,7 @@
     const syaratBerkas = b => b.kunci === 'rekomendasi' && D.ada_rekomendasi ? 'Wajib karena Anda mengisi pemberi rekomendasi.'
       : b.kunci === 'sertifikat' && prestasiTerisi().length ? 'Wajib karena Anda mengisi prestasi. Gabungkan semua bukti dalam satu berkas.' : '';
     const wajibBerkas = b => !manualNyata() && (!!b.wajib || !!syaratBerkas(b));
-    const acuanUsia = cfg.usia?.acuan || '2027-07-01';
+    const acuanUsia = cfg.usia?.acuan || SPMB.acuanUsia(S.p);
     const batasUsia = j => ({ min: cfg.usia?.[j]?.min ?? (j === 'SMP' ? 11 : 14), maks: cfg.usia?.[j]?.maks ?? (j === 'SMP' ? 15 : 18) });
     const V = {
       nama_lengkap: v => !POLA_NAMA.test((v || '').trim()) && ['err', 'Nama 3–100 huruf; hanya huruf, spasi, titik, koma, petik, dan strip.'],

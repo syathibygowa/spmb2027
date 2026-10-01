@@ -43,7 +43,15 @@
   ];
 
   const S = { user: null, profil: null, pengaturan: {}, unread: 0, notifTerbaru: [], kanal: null, jamTimer: null, statTimer: null, param: '' };
-  const bolehMenu = m => m.peran.includes(S.profil.peran);
+  // Menu Penilaian hanya untuk akun yang ditugaskan sebagai penguji (peran apa pun)
+  const bolehMenu = m => m.peran.includes(S.profil.peran) && (m.id !== 'penilaian' || S.penguji);
+  async function cekPenguji() {
+    const { data, error } = await sb.rpc('saya_penguji');
+    if (!error) return !!data;
+    // Cadangan bila SQL 15 belum dijalankan
+    const { count } = await sb.from('penguji_sesi').select('sesi_id', { count: 'exact', head: true }).eq('pengguna_id', S.user.id);
+    return (count || 0) > 0;
+  }
 
   /* =================================================================
      MULAI
@@ -61,6 +69,7 @@
     }
     S.profil = profil;
     S.pengaturan = await muatPengaturan().catch(() => ({}));
+    S.penguji = await cekPenguji().catch(() => S.profil.peran === 'penguji');
 
     // Kerangka
     $('#themeSeg').innerHTML = themeSegHTML; SPMB.setTheme(SPMB.getTheme());
@@ -116,13 +125,13 @@
       ${S.profil.peran !== 'penguji' && SEGERA.length ? `<h5>Segera hadir</h5>
       ${SEGERA.map(([l, ic, f]) => `<a aria-disabled="true" style="--tone:var(--c8);opacity:.55;cursor:default" title="Tersedia di ${f}">
           <span class="ni"><i class="ph-duotone ${ic}"></i></span>${l}<span class="pill" style="--tone:var(--c8);margin-left:auto;font-size:10.5px">${f}</span></a>`).join('')}` : ''}`;
-    $('#nav').addEventListener('click', e => {
+    if (!$('#nav').dataset.siap) $('#nav').dataset.siap = 1, $('#nav').addEventListener('click', e => {
       if (e.target.closest('a[aria-disabled]')) e.preventDefault();
       if (e.target.closest('a[href]')) document.body.classList.remove('nav-open');
     });
 
     // Navigasi bawah HP: maksimal 4 menu + "Lainnya"
-    const pilihan = (S.profil.peran === 'penguji' ? ['beranda', 'penilaian', 'notifikasi'] : ['beranda', 'pendaftar', 'notifikasi'])
+    const pilihan = (S.profil.peran !== 'penguji' ? ['beranda', 'pendaftar', 'notifikasi'] : S.penguji ? ['beranda', 'penilaian', 'notifikasi'] : ['beranda', 'notifikasi', 'profil'])
       .map(id => MENU.find(m => m.id === id));
     $('#bottomNav').innerHTML = pilihan.map(m => `
       <a href="#/${m.id}" data-menu="${m.id}" style="--tone:${m.tone}">
@@ -197,7 +206,7 @@
           <div class="card-head"><div class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-lightning"></i></div><div><h3>Aksi cepat</h3><p>Menu yang sering dipakai</p></div></div>
           <div class="quick">
             <a href="#/notifikasi"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-bell-ringing"></i></span>Notifikasi</a>
-            <a href="#/penilaian"><span class="ic-box" style="--tone:var(--c5);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-simple-line"></i></span>Isi nilai</a>
+            ${S.penguji ? `<a href="#/penilaian"><span class="ic-box" style="--tone:var(--c5);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-simple-line"></i></span>Isi nilai</a>` : ''}
             ${isAdmin ? `<a href="#/seleksi"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-calendar-check"></i></span>Sesi tes</a>
             <a href="#/seleksi?tab=nilai"><span class="ic-box" style="--tone:var(--c6);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-list-checks"></i></span>Validasi nilai</a>
             <a href="#/pendaftar"><span class="ic-box" style="--tone:var(--c4);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-identification-card"></i></span>Data pendaftar</a>
@@ -234,9 +243,12 @@
         <${h ? `a href="${h}"` : 'div'} class="stat" style="--tone:${t}"><span class="live">LIVE</span>
           <div class="ic-box"><i class="ph-duotone ${ic}"></i></div><b>${fmt.angka(n)}</b><span>${l}</span></${h ? 'a' : 'div'}>`).join('');
     if (isAdmin) {
-      const { data: gels } = await sb.from('gelombang').select('id,nama').is('diarsipkan_pada', null).order('urutan');
-      $('#statGel').innerHTML += (gels || []).map(g => `<option value="${g.id}">${esc(g.nama)}</option>`).join('');
-      $('#statGel').onchange = () => muatStat(); $('#statUji').onchange = () => muatStat();
+      const { data: gels } = await sb.from('gelombang').select('*').is('diarsipkan_pada', null).order('urutan');
+      const ta = S.pengaturan.identitas?.tahun_ajaran;
+      const daftarGel = (gels || []).filter(g => !g.tahun_ajaran || !ta || g.tahun_ajaran === ta);
+      $('#statGel').innerHTML += daftarGel.map(g => `<option value="${g.id}">${esc(g.nama)}${g.uji ? ' (uji coba)' : ''}</option>`).join('');
+      $('#statGel').onchange = () => { const g = daftarGel.find(x => String(x.id) === $('#statGel').value); if (g) $('#statUji').checked = !!g.uji; muatStat(); };
+      $('#statUji').onchange = () => muatStat();
     }
     const muatStat = async () => {
       const el = $('#stats'); if (!el) return;
@@ -244,11 +256,13 @@
         const { data: t } = await sb.rpc('statistik_penguji');
         if (!$('#stats')) return;
         el.classList.add('stats-seleksi');
+        const hp = S.penguji ? '#/penilaian' : '';
+        if (!S.penguji && !$('#belumTugas')) el.insertAdjacentHTML('beforebegin', `<div class="note info" id="belumTugas"><i class="ph-duotone ph-info"></i><div>Anda belum ditugaskan sebagai penguji pada sesi tes tahun ajaran ini. Menu <b>Penilaian</b> akan muncul otomatis setelah Admin menugaskan Anda.</div></div>`);
         el.innerHTML = kartuStat([
-          ['Sesi tes ditugaskan', t?.sesi || 0, 'ph-calendar-check', 'var(--c2)', '#/penilaian'],
-          ['Sesi hari ini', t?.sesi_hari_ini || 0, 'ph-lightning', 'var(--c7)', '#/penilaian'],
-          [`Nilai terisi dari ${fmt.angka(t?.tugas_nilai || 0)}`, t?.sudah_dinilai || 0, 'ph-pencil-simple-line', 'var(--c5)', '#/penilaian'],
-          ['Dikembalikan Admin', t?.dikembalikan || 0, 'ph-arrow-u-up-left', 'var(--c3)', '#/penilaian'],
+          ['Sesi tes ditugaskan', t?.sesi || 0, 'ph-calendar-check', 'var(--c2)', hp],
+          ['Sesi hari ini', t?.sesi_hari_ini || 0, 'ph-lightning', 'var(--c7)', hp],
+          [`Nilai terisi dari ${fmt.angka(t?.tugas_nilai || 0)}`, t?.sudah_dinilai || 0, 'ph-pencil-simple-line', 'var(--c5)', hp],
+          ['Dikembalikan Admin', t?.dikembalikan || 0, 'ph-arrow-u-up-left', 'var(--c3)', hp],
           ['Notifikasi belum dibaca', S.unread, 'ph-bell-ringing', 'var(--c1)', '#/notifikasi']]);
         return;
       }
@@ -362,7 +376,12 @@
   function langganNotif() {
     S.kanal = sb.channel('notif-' + S.user.id)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifikasi', filter: `penerima_id=eq.${S.user.id}` }, async payload => {
-        if (payload.eventType === 'INSERT') toast(payload.new.judul, 'info');
+        if (payload.eventType === 'INSERT') {
+          toast(payload.new.judul, 'info');
+          // Penugasan/pencabutan sesi tes: segarkan menu Penilaian
+          const lama = S.penguji; S.penguji = await cekPenguji().catch(() => lama);
+          if (lama !== S.penguji) { bangunMenu(); tandaiMenuAktif((location.hash.replace(/^#\/?/, '').split(/[/?]/)[0]) || 'beranda'); perbaruiLencana(); }
+        }
         await muatNotif();
         if (location.hash.startsWith('#/notifikasi')) HALAMAN.notifikasi.muatDaftar?.();
         HALAMAN.beranda.segarkanStat && location.hash.match(/^#?\/?(beranda)?$/) && HALAMAN.beranda.segarkanStat();
@@ -688,6 +707,7 @@
     k.innerHTML = `
       <div class="tabs" role="tablist">
         <button role="tab" data-tab="identitas"><i class="ph-duotone ph-buildings" style="color:var(--c1)"></i>Identitas lembaga</button>
+        <button role="tab" data-tab="tahun"><i class="ph-duotone ph-calendar-star" style="color:var(--c7)"></i>Tahun ajaran</button>
         <button role="tab" data-tab="kop"><i class="ph-duotone ph-identification-card" style="color:var(--c5)"></i>Kop surat</button>
         <button role="tab" data-tab="ketua"><i class="ph-duotone ph-seal-check" style="color:var(--c6)"></i>Ketua Panitia</button>
         <button role="tab" data-tab="ttd"><i class="ph-duotone ph-signature" style="color:var(--c4)"></i>Penanda tangan</button>
@@ -696,7 +716,7 @@
       <div id="isiTab"></div>`;
     const buka = tab => {
       k.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
-      (({ identitas: tabIdentitas, kop: tabKop, ketua: tabKetua, ttd: tabTtd, integrasi: tabIntegrasi })[tab] || tabIdentitas)($('#isiTab'));
+      (({ identitas: tabIdentitas, tahun: tabTahunAjaran, kop: tabKop, ketua: tabKetua, ttd: tabTtd, integrasi: tabIntegrasi })[tab] || tabIdentitas)($('#isiTab'));
     };
     k.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { history.replaceState(null, '', '#/pengaturan?tab=' + b.dataset.tab); buka(b.dataset.tab); });
     buka(tabAwal);
@@ -718,7 +738,7 @@
           ${inp('tagline', 'Tagline', id.tagline)}
           ${inp('npsn', 'NPSN', id.npsn, 'inputmode="numeric" maxlength="8"')}
           ${inp('nspp', 'NSPP', id.nspp, 'inputmode="numeric"')}
-          ${inp('tahun_ajaran', 'Tahun ajaran SPMB', id.tahun_ajaran, 'placeholder="2027/2028"')}
+          ${inp('tahun_ajaran', 'Tahun ajaran SPMB', SPMB.taAktif(S.pengaturan), 'readonly', 'Diganti melalui tab <a href="#/pengaturan?tab=tahun" data-ke-tahun>Tahun ajaran</a> agar gelombang dan arsip ikut tertata.')}
           ${inp('telepon', 'Telepon / WhatsApp kantor', id.telepon, 'inputmode="tel"')}
           ${inp('email', 'Email lembaga', id.email, 'type="email"')}
           <div class="field full"><label for="i_alamat">Alamat lengkap</label><textarea class="textarea" id="i_alamat" name="alamat" style="min-height:70px">${esc(id.alamat || '')}</textarea></div>
@@ -741,11 +761,67 @@
       const f = e.target, v = n => f.elements[n].value.trim();
       if (v('npsn') && !/^\d{8}$/.test(v('npsn'))) return toast('NPSN harus 8 digit angka.', 'err');
       const nilai = { ...id, nama_lembaga: v('nama_lembaga'), nama_singkat: v('nama_singkat'), tagline: v('tagline'), npsn: v('npsn'), nspp: v('nspp'),
-        tahun_ajaran: v('tahun_ajaran'), telepon: v('telepon'), email: v('email'), alamat: v('alamat'), logo: v('logo'),
+        tahun_ajaran: id.tahun_ajaran || v('tahun_ajaran'), telepon: v('telepon'), email: v('email'), alamat: v('alamat'), logo: v('logo'),
         video_profil: v('video_profil'), peta_lokasi: v('peta_lokasi'),
         media_sosial: { ...ms, youtube: v('youtube'), instagram: v('instagram'), facebook: v('facebook'), tiktok: v('tiktok') } };
       try { await simpanPengaturan('identitas', nilai); toast('Identitas lembaga disimpan.'); pasangLogo($('#brandLogo'), logoPondok(S.pengaturan)); SPMB.pasangFavicon(nilai.logo); $('#brandNama').textContent = nilai.nama_singkat; }
       catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+  }
+
+  /* ---------- Tahun ajaran: aktif, arsip, dan pergantian tahun (Superadmin) ---------- */
+  async function tabTahunAjaran(el) {
+    el.innerHTML = '<div class="card"><div class="skeleton" style="height:18px;width:40%"></div></div>';
+    const { data: r, error } = await sb.rpc('ringkasan_tahun_ajaran');
+    if (error) { el.innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>${esc(pesanGalat(error))}<br>Pastikan SQL 15 sudah dijalankan di Supabase.</div></div>`; return; }
+    const aktif = r.aktif, saran = SPMB.taBerikutnya(aktif);
+    const daftar = r.daftar || [];
+    el.innerHTML = `
+      <div class="grid-2" style="align-items:start">
+        <div class="card">
+          <div class="card-head"><div class="ic-box" style="--tone:var(--c7)"><i class="ph-duotone ph-calendar-star"></i></div><div><h3>Tahun ajaran aktif</h3><p>Dipakai di situs, formulir, nomor registrasi, statistik, dan dokumen cetak</p></div></div>
+          <div class="ta-besar" style="font-size:34px;font-weight:800;color:var(--c7);margin:4px 0 12px">${esc(aktif)}</div>
+          <div class="table-wrap"><table class="tbl"><thead><tr><th>Tahun ajaran</th><th>Gelombang</th><th>Pendaftar</th><th>Santri baru</th><th></th></tr></thead>
+            <tbody>${daftar.length ? daftar.map(x => `<tr><td><b>${esc(x.tahun_ajaran)}</b></td><td>${fmt.angka(x.gelombang)}</td><td>${fmt.angka(x.pendaftar)}</td><td>${fmt.angka(x.santri_baru)}</td>
+              <td>${x.tahun_ajaran === aktif ? '<span class="pill" style="--tone:var(--ok)">Aktif</span>' : '<span class="pill" style="--tone:var(--c8)">Arsip</span>'}</td></tr>`).join('')
+              : '<tr><td colspan="5" class="muted">Belum ada data.</td></tr>'}</tbody></table></div>
+          <p class="muted" style="font-size:13px;margin:10px 0 0">Data tahun sebelumnya tetap tersimpan dan dapat dibuka di menu <b>Pendaftar</b> (pilihan Tahun ajaran), termasuk ekspor Excel.</p>
+        </div>
+        <form class="card" id="fTaBaru" novalidate>
+          <div class="card-head"><div class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-arrow-circle-right"></i></div><div><h3>Mulai tahun ajaran baru</h3><p>Lakukan sekali setahun, setelah SPMB ${esc(aktif)} selesai</p></div></div>
+          <div class="field"><label for="taBaru">Tahun ajaran baru</label><input class="input mono" id="taBaru" value="${esc(saran)}" placeholder="${esc(saran)}" maxlength="9" inputmode="numeric" style="max-width:200px">
+            <small>Format tahun/tahun, misalnya ${esc(saran)}.</small></div>
+          <label class="check" style="margin:4px 0 12px"><input type="checkbox" id="taSalin" checked>Salin gelombang, kuota, dan biaya khusus gelombang ke tahun baru (tanggal digeser otomatis)</label>
+          <div class="note info"><i class="ph-duotone ph-info"></i><div>Yang terjadi:
+            <ul style="margin:6px 0 0;padding-left:18px">
+              <li>Gelombang ${esc(aktif)} diarsipkan dan formulirnya ditutup.</li>
+              <li>Nomor registrasi, SKL, dan kuitansi dimulai lagi dari 0001 untuk tahun baru.</li>
+              <li>Tanggal acuan usia digeser satu tahun; mode daftar ulang kembali ke <b>Sesuai jadwal</b>.</li>
+              <li>Biaya umum, rekening, formulir, templat WhatsApp, konten situs, dan akun panitia tetap dipakai.</li>
+            </ul>
+            Setelahnya, periksa tanggal gelombang baru di <b>Pengaturan SPMB</b> lalu buka formulirnya.</div></div>
+          <div style="display:flex;justify-content:flex-end"><button class="btn" type="submit"><i class="ph-duotone ph-calendar-plus"></i>Mulai tahun ajaran baru</button></div>
+        </form>
+      </div>`;
+    $('#fTaBaru').onsubmit = async e => {
+      e.preventDefault();
+      const ta = $('#taBaru').value.trim(), salin = $('#taSalin').checked;
+      if (!/^\d{4}\/\d{4}$/.test(ta) || SPMB.tahunAwalTA(ta) + 1 !== +ta.slice(5)) return toast(`Tulis tahun ajaran dengan format ${saran}.`, 'err');
+      if (SPMB.tahunAwalTA(ta) <= SPMB.tahunAwalTA(aktif)) return toast(`Tahun ajaran baru harus setelah ${aktif}.`, 'err');
+      const ok = await dialog({ judul: 'Mulai tahun ajaran ' + ta, ikon: 'ph-calendar-star', tone: 'var(--c7)',
+        isi: `<p style="margin:0 0 10px">SPMB akan berpindah dari <b>${esc(aktif)}</b> ke <b>${esc(ta)}</b>. Langkah ini tidak dapat dibatalkan dari dashboard.</p>
+          <div class="field"><label for="taKetik">Ketik <b>${esc(ta)}</b> untuk melanjutkan</label><input class="input mono" id="taKetik" autocomplete="off"></div>`,
+        tombol: [{ label: 'Batal', kelas: 'ghost', nilai: false }, { label: 'Mulai sekarang', ikon: 'ph-check', aksi: async root => {
+          if (root.querySelector('#taKetik').value.trim() !== ta) { toast('Ketik tahun ajaran persis seperti yang tertulis.', 'err'); return false; }
+          const { data, error: e2 } = await sb.rpc('mulai_tahun_ajaran', { p_ta: ta, p_salin: salin }); if (e2) throw e2;
+          return data;
+        } }] });
+      if (!ok) return;
+      toast(`Tahun ajaran ${ok.baru} aktif. ${ok.diarsipkan} gelombang diarsipkan, ${ok.disalin} disalin.`, 'ok', 8000);
+      S.pengaturan = await muatPengaturan(true);
+      $('#brandSub').textContent = 'Dashboard SPMB ' + SPMB.taAktif(S.pengaturan);
+      S.penguji = await cekPenguji().catch(() => S.penguji); bangunMenu(); tandaiMenuAktif('pengaturan');
+      tabTahunAjaran(el);
     };
   }
 
@@ -957,6 +1033,13 @@
         </div>
       </div>
       <div class="card" style="max-width:760px;margin-top:16px">
+        <div class="card-head"><div class="ic-box" style="--tone:var(--c7)"><i class="ph-duotone ph-path"></i></div>
+          <div><h3>Data uji lengkap (alur penuh)</h3><p>10 calon santri + 2 akun penguji uji pada <b>Gelombang Uji Coba</b>, sudah melewati verifikasi, sesi tes, nilai, keputusan, pengumuman, daftar ulang, keringanan, dan pembayaran</p></div></div>
+        <div class="note info"><i class="ph-duotone ph-info"></i><div>Cara melihat: menu <b>Pendaftar</b>, <b>Seleksi</b>, <b>Pengumuman</b>, <b>Daftar Ulang</b>, dan <b>Keuangan</b>, lalu pilih <b>Gelombang Uji Coba</b> (Data uji tercentang otomatis). Gelombang ini tidak tampil di situs dan tidak memengaruhi kuota, statistik publik, maupun nomor resmi. Halaman publik Cek Status dan Daftar Ulang dapat dicoba memakai akun wali pada tabel hasil.</div></div>
+        <div id="hasilUjiLengkap"></div>
+        <div style="display:flex;justify-content:flex-end"><button class="btn" type="button" id="btnUjiLengkap"><i class="ph-duotone ph-rocket-launch"></i>Isi data uji lengkap</button></div>
+      </div>
+      <div class="card" style="max-width:760px;margin-top:16px">
         <div class="card-head"><div class="ic-box" style="--tone:var(--c2)"><i class="ph-duotone ph-users-four"></i></div>
           <div><h3>Data uji massal (latihan Admin)</h3><p>Membuat pendaftar fiktif bernomor <b>UJI-</b> dengan jenjang, asal daerah, dan status verifikasi yang beragam, tersebar dalam 14 hari terakhir</p></div></div>
         <div class="note info"><i class="ph-duotone ph-info"></i><div>Data ini <b>tanpa berkas</b> dan tidak dihitung dalam kuota maupun statistik publik. Pakai untuk latihan verifikasi, WhatsApp, cetak, dan ekspor di menu Pendaftar (centang <b>Data uji</b>). Hapus semuanya dengan tombol <b>Hapus data uji</b> di atas.</div></div>
@@ -965,6 +1048,24 @@
           <button class="btn" type="button" id="btnIsiUji"><i class="ph-duotone ph-magic-wand"></i>Buat data uji</button>
         </div>
       </div>`);
+    const tabelWali = d => `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div>
+        <b>Data uji lengkap dibuat</b> pada ${esc(d.gelombang)}${d.penguji_uji ? ' beserta 2 akun penguji uji' : ' (akun penguji uji tidak dapat dibuat; Anda sendiri ditugaskan sebagai penguji)'}.${d.catatan ? `<br>${esc(d.catatan)}` : ''}</div></div>
+      <div class="table-wrap" style="margin-bottom:12px"><table class="tbl"><thead><tr><th>No registrasi</th><th>Nama</th><th>NISN</th><th>Tanggal lahir</th><th>Status</th></tr></thead><tbody>
+        ${(d.akun_wali || []).map(a => `<tr><td class="mono">${esc(a.no_registrasi)}</td><td>${esc(a.nama)}</td><td class="mono">${esc(a.nisn)}</td><td>${fmt.tgl(new Date(a.tanggal_lahir + 'T00:00:00'))}</td><td>${esc(String(a.status).replace(/_/g, ' '))}</td></tr>`).join('')}
+      </tbody></table></div>`;
+    $('#btnUjiLengkap').onclick = async e => {
+      const b = e.currentTarget;
+      if (!(await konfirmasi('Isi data uji lengkap?', 'Sistem membuat Gelombang Uji Coba, 10 calon santri, 2 akun penguji uji, sesi tes, nilai, pengumuman, daftar ulang, dan pembayaran contoh. Semuanya dapat dihapus dengan tombol Hapus data uji.', 'Isi sekarang'))) return;
+      b.disabled = true; b.innerHTML = '<span class="spinner" style="width:16px;height:16px"></span>Memproses…';
+      try {
+        const { data, error } = await sb.rpc('isi_data_uji_lengkap'); if (error) throw error;
+        $('#hasilUjiLengkap').innerHTML = tabelWali(data);
+        toast('Data uji lengkap siap dicoba.', 'ok', 6000); segarJumlah();
+        S.penguji = await cekPenguji().catch(() => S.penguji); bangunMenu(); tandaiMenuAktif('pengaturan');
+      } catch (err) { toast(pesanGalat(err), 'err', 8000); }
+      finally { b.disabled = false; b.innerHTML = '<i class="ph-duotone ph-rocket-launch"></i>Isi data uji lengkap'; }
+    };
+
     $('#btnIsiUji').onclick = async e => {
       const n = +$('#jmlUji').value;
       if (!(n >= 1 && n <= 200)) return toast('Jumlah data uji 1 sampai 200.', 'err');
@@ -1021,7 +1122,7 @@
         }
         tanda(1, 'ok'); langkah = 2; tanda(2, 'jalan');
 
-        const acuan = new Date((cfg.usia?.acuan || '2027-07-01') + 'T00:00:00');
+        const acuan = new Date(SPMB.acuanUsia(S.pengaturan) + 'T00:00:00');
         const lahir = new Date(acuan); lahir.setFullYear(acuan.getFullYear() - ((cfg.usia?.SMP?.min || 11) + 1));
         const acak = n => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join('');
         const { data: hasil, error: eKirim } = await sb.rpc('kirim_pendaftaran', { p_token: token, p_data: {
@@ -1039,7 +1140,7 @@
         $('#ujiHasil').innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div>
           <b>Alur berhasil.</b> Nomor registrasi uji: <b>${esc(hasil.no_registrasi)}</b>.<br>
           ${k.email ? `Periksa kotak masuk <b>${esc(S.user.email)}</b> (juga folder Spam): email berisi lampiran Bukti Pendaftaran PDF.` : `Email tidak terkirim: ${esc(k.pesan)}`}<br>
-          Berkas tersimpan di Google Drive: <b>SPMB 2027 › Berkas Pendaftar › _Uji Coba</b>. Notifikasi "Pendaftar uji coba" juga masuk ke lonceng.</div></div>`;
+          Berkas tersimpan di Google Drive: <b>folder induk SPMB › Berkas Pendaftar › _Uji Coba</b>. Notifikasi "Pendaftar uji coba" juga masuk ke lonceng.</div></div>`;
       } catch (err) {
         tanda(langkah, 'gagal');
         $('#ujiHasil').innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div><b>Gagal pada langkah ${langkah + 1}.</b> ${esc(pesanGalat(err))}</div></div>`;
@@ -1047,13 +1148,14 @@
     };
 
     $('#btnHapusUji').onclick = async () => {
-      if (!(await konfirmasi('Hapus semua data uji?', 'Semua pendaftar bernomor UJI- beserta riwayatnya dihapus dari database, dan berkasnya dipindah ke Sampah Google Drive. Data pendaftar sungguhan tidak tersentuh.', 'Hapus data uji', true))) return;
+      if (!(await konfirmasi('Hapus semua data uji?', 'Yang dihapus: semua pendaftar bernomor UJI- beserta nilai, keputusan, SKL, daftar ulang, keringanan, dan pembayarannya; Gelombang Uji Coba beserta sesi tes, kuota, dan biayanya; akun penguji uji; serta notifikasi terkait. Berkasnya dipindah ke Sampah Google Drive. Data pendaftar sungguhan dan pengaturan tidak tersentuh.', 'Hapus data uji', true))) return;
       try {
         const { data, error } = await sb.rpc('hapus_data_uji'); if (error) throw error;
-        let pesan = `${data.jumlah} pendaftar uji dihapus.`;
+        let pesan = `${data.jumlah} pendaftar uji dihapus${data.gelombang ? `, ${data.gelombang} gelombang uji` : ''}${data.akun_penguji ? `, ${data.akun_penguji} akun penguji uji` : ''}.`;
         try { const h = await SPMB.hapusBerkasPendaftar(data.drive_ids || []); pesan += ` ${h.jumlah} berkas dipindah ke Sampah Drive.`; }
         catch (e2) { pesan += ' Berkas di Drive belum terhapus: ' + pesanGalat(e2); }
-        toast(pesan, 'ok', 6000); segarJumlah();
+        toast(pesan, 'ok', 8000); segarJumlah(); $('#hasilUjiLengkap').innerHTML = '';
+        S.penguji = await cekPenguji().catch(() => S.penguji); bangunMenu(); tandaiMenuAktif('pengaturan');
       } catch (err) { toast(pesanGalat(err), 'err'); }
     };
   }

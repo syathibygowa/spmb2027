@@ -1,10 +1,10 @@
 /* =====================================================================
    MENU DAFTAR ULANG (Fase 4 · Langkah 6) · Admin dan Superadmin
    - Daftar: status daftar ulang semua yang lulus, saringan, WA undangan
-     berurutan, ekspor CSV
+     berurutan, ekspor Excel
    - Periksa (#/daftarulang/<id>): data lengkap, berkas, pembayaran,
      Terima (kuitansi otomatis) / Minta perbaikan, Bukti dan Kuitansi
-   - Rekap santri baru (cetak F4, CSV)
+   - Rekap santri baru (cetak F4, Excel)
    - Pengaturan (Superadmin): jadwal, isian wajib/opsional, isian tambahan,
      berkas, pernyataan, format kuitansi
    Dimuat sesudah seleksi.js dan du-isian.js.
@@ -25,12 +25,16 @@
   const alamatSitus = () => (CFG.alamatSitus || location.href.replace(/\/[^/]*$/, '')).replace(/\/$/, '');
 
   async function muatGelombang() {
-    const { data } = await sb.from('gelombang').select('id,nama,urutan,daftar_ulang_mulai,daftar_ulang_selesai,hasil_terbit_pada').is('diarsipkan_pada', null).order('urutan').order('id');
+    const { data } = await sb.from('gelombang').select('id,nama,urutan,daftar_ulang_mulai,daftar_ulang_selesai,hasil_terbit_pada,uji').is('diarsipkan_pada', null).order('urutan').order('id');
     const g = data || [];
-    if (!SEL.gel || !g.some(x => String(x.id) === String(SEL.gel))) SEL.gel = g.length ? String((g.find(x => x.hasil_terbit_pada) || g[0]).id) : '';
+    if (!SEL.gel || !g.some(x => String(x.id) === String(SEL.gel))) { const a = g.find(x => x.hasil_terbit_pada && !x.uji) || g.find(x => !x.uji) || g[0]; SEL.gel = a ? String(a.id) : ''; SEL.uji = !!a?.uji; }
+    GELS = g;
     return g;
   }
-  const opsiGel = gels => gels.map(g => `<option value="${g.id}" ${String(g.id) === String(SEL.gel) ? 'selected' : ''}>${esc(g.nama)}</option>`).join('');
+  let GELS = [];
+  const opsiGel = gels => gels.map(g => `<option value="${g.id}" ${String(g.id) === String(SEL.gel) ? 'selected' : ''}>${esc(g.nama)}${g.uji ? ' (uji coba)' : ''}</option>`).join('');
+  // Memilih gelombang uji coba otomatis menyalakan saklar "Data uji" (dan sebaliknya)
+  const pilihGel = v => { SEL.gel = v; const g = GELS.find(x => String(x.id) === String(v)); if (g) { SEL.uji = !!g.uji; document.querySelectorAll('.uji-saklar input').forEach(c => { c.checked = SEL.uji; }); } };
   async function pilihCetak(judul, fungsi) {
     const h = await dialog({ judul, ikon: 'ph-printer', tone: 'var(--c1)', isi: '<p style="margin:0">Cetak langsung ke printer (kertas F4) atau simpan sebagai PDF?</p>',
       tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Unduh PDF', ikon: 'ph-file-pdf', kelas: 'ghost', nilai: 'pdf' }, { label: 'Cetak', ikon: 'ph-printer', nilai: 'cetak' }] });
@@ -70,7 +74,7 @@
         <div class="field" style="margin:0;flex:1;min-width:180px;max-width:300px"><input class="input" id="dCari" type="search" placeholder="Cari nama atau nomor…" value="${esc(SEL.q)}"></div>
         <div class="spacer"></div>
         <button class="btn sm ghost" id="dWa"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>WA undangan</button>
-        <button class="btn sm ghost" id="dCsv"><i class="ph-duotone ph-file-csv" style="color:var(--c5)"></i>Ekspor CSV</button>
+        <button class="btn sm ghost" id="dCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel</button>
       </div>
       <div class="stats stats-pendaftar" id="dStat"></div>
       <div class="chips-select du-saring" id="dSaring"></div>
@@ -100,7 +104,7 @@
     };
     const muat = async () => { const { data: d, error } = await sb.rpc('du_daftar', { p_gelombang: +SEL.gel, p_uji: SEL.uji }); if (error) throw error; data = d || []; render(); };
     await muat();
-    $('#dGel').onchange = e => { SEL.gel = e.target.value; muat().catch(x => toast(galat(x), 'err')); };
+    $('#dGel').onchange = e => { pilihGel(e.target.value); muat().catch(x => toast(galat(x), 'err')); };
     $('#dUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(x => toast(galat(x), 'err')); };
     $('#dCari').oninput = e => { SEL.q = e.target.value.trim(); render(); };
     $('#dSaring').onchange = e => { SEL.st = e.target.value; render(); };
@@ -116,20 +120,28 @@
   async function ekspor(data, nama) {
     if (!data.length) return toast('Tidak ada data untuk diekspor.', 'warn');
     const peng = await muatPengaturan(), kol = DU.kolomEkspor(peng.daftar_ulang || {});
-    const nilai = (r, [k, , f]) => {
+    const jenis = ([k, , f]) => ['tagihan', 'diterima_nominal'].includes(k) ? 'uang' : k === 'tanggal_lahir' || f?.t === 'tanggal' ? 'tgl'
+      : f?.t === 'angka' ? (f.desimal ? 'desimal' : 'angka') : 'teks';
+    const nilai = (r, c) => {
+      const [k, , f] = c;
       const D = { ...r, ...(r.data || {}), jenis_kelamin: r.bagian === 'putri' ? 'Perempuan' : 'Laki-laki', bagian: bagL(r.bagian), du_status: (DU.STATUS_DU[r.du_status] || [])[0] };
       let v = D[k];
-      if (f) v = DU.teksNilai(f, v); else if (k === 'tanggal_lahir' && v) v = fmt.tgl(new Date(v + 'T00:00:00'));
+      const t = jenis(c);
+      if (t === 'tgl' || t === 'angka' || t === 'desimal' || t === 'uang') return v ?? '';
+      if (f) v = DU.teksNilai(f, v);
       if (v === '–') v = '';
       if (typeof v === 'object' && v) v = JSON.stringify(v);
       return v ?? '';
     };
-    const sel = v => { v = String(v); const teksAngka = /^\d{8,}$/.test(v); return `"${(teksAngka ? '\t' : '') + v.replace(/"/g, '""')}"`; };
-    const isi = [kol.map(([, l]) => sel(l)).join(';'), ...data.map(r => kol.map(c => sel(nilai(r, c))).join(';'))].join('\r\n');
-    const url = URL.createObjectURL(new Blob(['﻿' + isi], { type: 'text/csv;charset=utf-8' }));
-    const a = Object.assign(document.createElement('a'), { href: url, download: `${nama.trim()} ${fmt.isoTgl()}.csv` });
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
-    toast(`${data.length} baris diekspor. Buka dengan Excel.`);
+    const ta = peng.identitas?.tahun_ajaran || '';
+    const berkas = SPMB.unduhXlsx(`${nama.trim()} ${fmt.isoTgl()}${SEL.uji ? ' (uji)' : ''}`, {
+      nama: 'Database Peserta Didik', judul: `${nama.trim().toUpperCase()} · TAHUN AJARAN ${ta}`,
+      sub: `Urutan kolom mengikuti Database Peserta Didik · Diunduh ${fmt.tgl(new Date())} pukul ${fmt.jam(new Date())} WITA · ${data.length} santri${SEL.uji ? ' · DATA UJI COBA' : ''}`,
+      kolom: [{ j: 'No', w: 5, t: 'angka' }, ...kol.map(c => ({ j: c[1], t: jenis(c), w: Math.max(9, Math.min(36, c[1].length + 3, jenis(c) === 'teks' ? 36 : 14)) }))],
+      baris: data.map((r, i) => [i + 1, ...kol.map(c => nilai(r, c))]),
+      jumlah: (() => { const j = { 0: 'Jumlah' }; kol.forEach((c, i) => { if (jenis(c) === 'uang') j[i + 1] = 'sum'; }); return j; })()
+    });
+    toast(`${data.length} baris diekspor ke ${berkas}.`);
   }
 
   /* ---------- Halaman Periksa ---------- */
@@ -291,7 +303,7 @@
         <div class="spacer"></div>
         <button class="btn sm ghost" id="rCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak rekap</button>
         <button class="btn sm ghost" id="rProfil"><i class="ph-duotone ph-identification-card" style="color:var(--c3)"></i>Profil semua santri</button>
-        <button class="btn sm ghost" id="rCsv"><i class="ph-duotone ph-file-csv" style="color:var(--c5)"></i>Ekspor CSV lengkap</button>
+        <button class="btn sm ghost" id="rCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel lengkap</button>
       </div>
       <div class="stats stats-pendaftar" id="rStat"></div>
       <div id="rIsi"></div>`;
@@ -317,7 +329,7 @@
     };
     $('#rGel').value = SEL.gel;
     await muat();
-    $('#rGel').onchange = e => { semuaGel = e.target.value === 'semua'; if (!semuaGel) SEL.gel = e.target.value; muat().catch(x => toast(galat(x), 'err')); };
+    $('#rGel').onchange = e => { semuaGel = e.target.value === 'semua'; if (!semuaGel) pilihGel(e.target.value); muat().catch(x => toast(galat(x), 'err')); };
     $('#rUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(x => toast(galat(x), 'err')); };
     $('#rSelesai').onchange = e => { hanyaSelesai = e.target.checked; render(); };
     $('#rCsv').onclick = () => ekspor(tampil(), 'Rekap Santri Baru');
@@ -393,7 +405,7 @@
             <label class="check"><input type="checkbox" data-x="${i}" data-xk="wajib" ${x.wajib ? 'checked' : ''}>Wajib</label>
             <button type="button" class="icon-btn plain" data-hapus-x="${i}" aria-label="Hapus"><i class="ph-duotone ph-trash" style="color:var(--danger)"></i></button></div>`).join('') || '<p class="muted" style="margin:0">Belum ada isian tambahan.</p>'}</div>
           <button type="button" class="btn sm ghost" id="tambahIsian" style="margin-top:8px"><i class="ph-duotone ph-plus-circle" style="color:var(--c6)"></i>Tambah isian</button>
-          <p class="muted kecil" style="margin:8px 0 0">Contoh: ukuran sepatu, nama penjemput, atau pilihan kamar. Isian tambahan ikut dalam ekspor CSV.</p></div>
+          <p class="muted kecil" style="margin:8px 0 0">Contoh: ukuran sepatu, nama penjemput, atau pilihan kamar. Isian tambahan ikut dalam ekspor Excel.</p></div>
         <div style="display:flex;justify-content:flex-end"><button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan pengaturan daftar ulang</button></div>
         </form>`;
     };

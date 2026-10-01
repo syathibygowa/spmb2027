@@ -59,7 +59,7 @@
           <h2><i class="ph-duotone ph-shield-check" style="color:var(--c3)"></i>Masuk daftar ulang</h2>
           <p class="muted" style="margin:-4px 0 14px">Khusus calon santri yang dinyatakan <b>LULUS</b>. Siapkan Kartu Keluarga, data orang tua, dan bukti transfer biaya daftar ulang.</p>
           <div class="field"><label for="mNo">Nomor registrasi <span class="req">*</span></label>
-            <input class="input mono" id="mNo" value="${esc(noAwal)}" placeholder="Contoh: SPMB27-SMP-P-0001" autocomplete="off" autocapitalize="characters" maxlength="40"></div>
+            <input class="input mono" id="mNo" value="${esc(noAwal)}" placeholder="Contoh: SPMB${String(SPMB.tahunAwalTA(SPMB.taAktif(S.p))).slice(2)}-SMP-P-0001" autocomplete="off" autocapitalize="characters" maxlength="40"></div>
           <div class="field"><label for="mNisn">NISN <span class="req">*</span></label>
             <input class="input mono" id="mNisn" inputmode="numeric" maxlength="14" placeholder="10 digit" autocomplete="off"></div>
           <div class="field"><label for="mLahir">Tanggal lahir calon santri <span class="req">*</span></label>

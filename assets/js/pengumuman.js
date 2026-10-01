@@ -45,7 +45,7 @@
             <h2><i class="ph-duotone ph-magnifying-glass" style="color:var(--c3)"></i>Lihat hasil seleksi</h2>
             ${adaTerbuka ? '' : '<div class="note info"><i class="ph-duotone ph-hourglass-medium"></i><div>Hasil belum diumumkan. Formulir ini menampilkan hasil setelah waktu pengumuman tiba.</div></div>'}
             <div class="field"><label for="hNo">Nomor registrasi <span class="req">*</span></label>
-              <input class="input mono" id="hNo" value="${esc(noAwal)}" placeholder="Contoh: SPMB27-SMP-P-0001" autocomplete="off" autocapitalize="characters" maxlength="40"></div>
+              <input class="input mono" id="hNo" value="${esc(noAwal)}" placeholder="Contoh: SPMB${String(SPMB.tahunAwalTA(SPMB.taAktif(S.p))).slice(2)}-SMP-P-0001" autocomplete="off" autocapitalize="characters" maxlength="40"></div>
             <div class="field"><label for="hLahir">Tanggal lahir calon santri <span class="req">*</span></label>
               <input class="input" id="hLahir" name="lahir" type="date" max="${fmt.isoTgl()}" required></div>
             <div id="hPesan"></div>

@@ -2,12 +2,14 @@
    MENU KEUANGAN (Fase 4 · Langkah 6b) · Admin dan Superadmin
    - Ringkasan: tagihan, keringanan, dana masuk, tunggakan per tahap,
      pemasukan harian, per metode, per kelompok; cetak laporan F4
-   - Tagihan santri: status lunas/sebagian/belum, saringan, ekspor CSV
+   - Tagihan santri: status lunas/sebagian/belum, saringan, ekspor Excel
    - Pembayaran masuk: buku pembayaran per rentang tanggal, kuitansi,
      pembatalan (Superadmin)
    - Keringanan: daftar keringanan per kategori
    - Detail (#/keuangan/<id>): rincian tagihan setelah keringanan, catat
-     pembayaran (kuitansi otomatis), atur keringanan (Superadmin)
+     pembayaran (kuitansi otomatis), atur keringanan
+   - Pengaturan Biaya: rincian biaya, rekening, format nomor kuitansi
+     (Admin dan Superadmin)
    Pembayaran pendaftaran tercatat otomatis saat bukti bayar diterima;
    pembayaran daftar ulang tercatat saat daftar ulang diterima.
    ===================================================================== */
@@ -27,10 +29,13 @@
   const galat = e => pesanGalat(e);
 
   async function muatGelombang() {
-    const { data } = await sb.from('gelombang').select('id,nama,urutan').is('diarsipkan_pada', null).order('urutan').order('id');
-    return data || [];
+    const { data } = await sb.from('gelombang').select('id,nama,urutan,uji').is('diarsipkan_pada', null).order('urutan').order('id');
+    GELS = data || [];
+    return GELS;
   }
-  const opsiGel = gels => `<option value="">Semua gelombang</option>${gels.map(g => `<option value="${g.id}" ${String(g.id) === String(SEL.gel) ? 'selected' : ''}>${esc(g.nama)}</option>`).join('')}`;
+  let GELS = [];
+  const opsiGel = gels => `<option value="">Semua gelombang</option>${gels.map(g => `<option value="${g.id}" ${String(g.id) === String(SEL.gel) ? 'selected' : ''}>${esc(g.nama)}${g.uji ? ' (uji coba)' : ''}</option>`).join('')}`;
+  const pilihGel = v => { SEL.gel = v; const g = GELS.find(x => String(x.id) === String(v)); if (g && !!g.uji !== SEL.uji) { SEL.uji = !!g.uji; document.querySelectorAll('.uji-saklar input').forEach(c => { c.checked = SEL.uji; }); } };
   async function pilihCetak(judul, fungsi) {
     const h = await dialog({ judul, ikon: 'ph-printer', tone: 'var(--c1)', isi: '<p style="margin:0">Cetak langsung ke printer (kertas F4) atau simpan sebagai PDF?</p>',
       tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Unduh PDF', ikon: 'ph-file-pdf', kelas: 'ghost', nilai: 'pdf' }, { label: 'Cetak', ikon: 'ph-printer', nilai: 'cetak' }] });
@@ -41,26 +46,38 @@
     const t = toast('Menyusun PDF…', 'info', 60000);
     try { simpanPdf(await buatPdfDokumen(opsi), nama); } catch (e) { toast(galat(e), 'err'); } finally { t.remove(); }
   }
-  function unduhCsv(baris, nama) {
-    const sel = v => { v = String(v ?? ''); return `"${(/^\d{8,}$/.test(v) ? '\t' : '') + v.replace(/"/g, '""')}"`; };
-    const url = URL.createObjectURL(new Blob(['﻿' + baris.map(r => r.map(sel).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
-    const a = Object.assign(document.createElement('a'), { href: url, download: `${nama} ${fmt.isoTgl()}.csv` });
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+  // Ekspor Excel: baris[0] = judul kolom; jenis kolom (uang/tanggal/teks) dikenali dari isinya
+  function unduhExcel(baris, nama) {
+    const [kepala, ...isi] = baris;
+    if (!isi.length) return toast('Tidak ada data untuk diekspor.', 'warn');
+    const kolom = kepala.map((j, i) => {
+      const v = isi.map(r => r[i]).filter(x => x !== '' && x != null);
+      const t = v.length && v.every(x => typeof x === 'number') ? 'uang' : v.length && v.every(x => /^\d{2}\/\d{2}\/\d{4}$/.test(String(x))) ? 'tgl' : 'teks';
+      const w = Math.max(String(j).length + 2, ...v.slice(0, 200).map(x => String(x).length + 2));
+      return { j, t, w: Math.max(8, Math.min(t === 'teks' ? 40 : 16, w)) };
+    });
+    const jumlah = { 0: 'Jumlah' }; kolom.forEach((k, i) => { if (k.t === 'uang' && i) jumlah[i] = 'sum'; });
+    const berkas = SPMB.unduhXlsx(`${nama} ${fmt.isoTgl()}${SEL.uji ? ' (uji)' : ''}`, {
+      nama, judul: nama.toUpperCase(), sub: `Diunduh ${fmt.tgl(new Date())} pukul ${fmt.jam(new Date())} WITA · ${isi.length} baris${SEL.uji ? ' · DATA UJI COBA' : ''}`,
+      kolom, baris: isi, jumlah: Object.keys(jumlah).length > 1 ? jumlah : null });
+    toast(`Diekspor ke ${berkas}.`);
   }
 
+
   const TAB = [['ringkasan', 'Ringkasan', 'ph-chart-pie-slice', 'var(--c1)'], ['tagihan', 'Tagihan Santri', 'ph-users-three', 'var(--c5)'],
-    ['pembayaran', 'Pembayaran Masuk', 'ph-arrow-circle-down', 'var(--ok)'], ['keringanan', 'Keringanan', 'ph-hand-heart', 'var(--c4)']];
+    ['pembayaran', 'Pembayaran Masuk', 'ph-arrow-circle-down', 'var(--ok)'], ['keringanan', 'Keringanan', 'ph-hand-heart', 'var(--c4)'],
+    ['pengaturan', 'Pengaturan Biaya', 'ph-sliders-horizontal', 'var(--c3)']];
   window.SPMB_MODUL.keuangan = async (k, api) => {
     api.setFab(null);
     if (api.param) return halDetail(k, api, api.param);
     const tab = (location.hash.match(/[?&]tab=(\w+)/) || [])[1] || 'ringkasan';
     k.innerHTML = `<div class="tabs" role="tablist">${TAB.map(([id, l, ic, t]) => `<button role="tab" data-tab="${id}" aria-selected="${id === tab}"><i class="ph-duotone ${ic}" style="color:${t}"></i>${l}</button>`).join('')}</div><div id="isiTab"></div>`;
     k.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { location.hash = '#/keuangan?tab=' + b.dataset.tab; });
-    await ({ ringkasan: tabRingkasan, tagihan: tabTagihan, pembayaran: tabPembayaran, keringanan: tabKeringanan }[tab] || tabRingkasan)($('#isiTab'), api);
+    await ({ ringkasan: tabRingkasan, tagihan: tabTagihan, pembayaran: tabPembayaran, keringanan: tabKeringanan, pengaturan: tabPengaturan }[tab] || tabRingkasan)($('#isiTab'), api);
   };
   const kepalaSaring = gels => `<select class="select" id="kGel" style="max-width:220px" aria-label="Gelombang">${opsiGel(gels)}</select>
     <label class="check uji-saklar"><input type="checkbox" id="kUji" ${SEL.uji ? 'checked' : ''}>Data uji</label>`;
-  const pasangSaring = muat => { $('#kGel').onchange = e => { SEL.gel = e.target.value; muat().catch(x => toast(galat(x), 'err')); }; $('#kUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(x => toast(galat(x), 'err')); }; };
+  const pasangSaring = muat => { $('#kGel').onchange = e => { pilihGel(e.target.value); muat().catch(x => toast(galat(x), 'err')); }; $('#kUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(x => toast(galat(x), 'err')); }; };
 
   /* ---------- Ringkasan ---------- */
   async function tabRingkasan(el) {
@@ -123,7 +140,7 @@
     let data = [];
     el.innerHTML = `<div class="page-head">${kepalaSaring(gels)}
         <div class="field" style="margin:0;flex:1;min-width:180px;max-width:300px"><input class="input" id="kCari" type="search" placeholder="Cari nama atau nomor…" value="${esc(SEL.q)}"></div>
-        <div class="spacer"></div><button class="btn sm ghost" id="kCsv"><i class="ph-duotone ph-file-csv" style="color:var(--c5)"></i>Ekspor CSV</button></div>
+        <div class="spacer"></div><button class="btn sm ghost" id="kCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel</button></div>
       <div class="chips-select du-saring" id="kSaring"></div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Santri</th><th class="hide-sm">Status santri</th><th style="text-align:right">Harus bayar</th><th style="text-align:right">Masuk</th><th style="text-align:right" class="hide-sm">Sisa</th><th>Pembayaran</th><th class="c"></th></tr></thead><tbody id="kIsi"></tbody></table></div>`;
     const ST = r => statusBayar(r.tagihan, r.dibayar)[0];
@@ -147,9 +164,8 @@
     $('#kSaring').onchange = e => { SEL.st = e.target.value; render(); };
     $('#kCsv').onclick = () => {
       const th = ['pendaftaran', 'daftar_ulang', 'tahunan', 'bulanan', 'lainnya'];
-      unduhCsv([['No. Registrasi', 'Nama', 'Jenjang', 'Bagian', 'Status santri', ...th.flatMap(t => [`${DU.NAMA_TAHAP[t]} tagihan`, `${DU.NAMA_TAHAP[t]} keringanan`, `${DU.NAMA_TAHAP[t]} masuk`]), 'Total harus bayar', 'Total masuk', 'Sisa', 'Status bayar', 'No. WA'],
+      unduhExcel([['No. Registrasi', 'Nama', 'Jenjang', 'Bagian', 'Status santri', ...th.flatMap(t => [`${DU.NAMA_TAHAP[t]} tagihan`, `${DU.NAMA_TAHAP[t]} keringanan`, `${DU.NAMA_TAHAP[t]} masuk`]), 'Total harus bayar', 'Total masuk', 'Sisa', 'Status bayar', 'No. WA'],
         ...data.map(r => [r.no_registrasi, r.nama_lengkap, r.jenjang, bagL(r.bagian), r.status, ...th.flatMap(t => [r.tahap?.[t]?.bayar ?? 0, r.tahap?.[t]?.potongan ?? 0, r.tahap?.[t]?.dibayar ?? 0]), r.tagihan, r.dibayar, r.sisa, ST(r), r.no_wa])], 'Tagihan Santri');
-      toast(`${data.length} baris diekspor.`);
     };
   }
 
@@ -166,7 +182,7 @@
         <label class="check"><input type="checkbox" id="pBatal">Tampilkan yang dibatalkan</label>
         <div class="spacer"></div>
         <button class="btn sm ghost" id="pCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak rekap</button>
-        <button class="btn sm ghost" id="pCsv"><i class="ph-duotone ph-file-csv" style="color:var(--c5)"></i>Ekspor CSV</button></div>
+        <button class="btn sm ghost" id="pCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel</button></div>
       <div class="stats stats-pendaftar" id="pStat"></div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Tanggal</th><th>Santri</th><th class="hide-sm">Untuk</th><th style="text-align:right">Nominal</th><th class="hide-sm">Kuitansi</th><th class="c"></th></tr></thead><tbody id="pIsi"></tbody></table></div>`;
     const aktif = () => data.filter(x => batal || !x.dibatalkan_pada);
@@ -206,8 +222,8 @@
         if (v) { toast('Pembayaran dibatalkan.'); await muat(); }
       }
     });
-    $('#pCsv').onclick = () => { unduhCsv([['Tanggal', 'No. Registrasi', 'Nama', 'Tahap', 'Komponen', 'Nominal', 'Metode', 'Rekening', 'Penyetor', 'No. Kuitansi', 'Sumber', 'Dicatat oleh', 'Dibatalkan', 'Alasan batal'],
-      ...aktif().map(x => [fmt.tgl(new Date(x.tanggal + 'T00:00:00')), x.no_registrasi, x.nama_lengkap, DU.NAMA_TAHAP[x.tahap], x.komponen, x.nominal, x.metode, x.rekening || '', x.penyetor, x.nomor_kuitansi || '', x.sumber, x.nama_pencatat || '', x.dibatalkan_pada ? 'Ya' : '', x.alasan_batal || ''])], 'Pembayaran Masuk'); toast('Diekspor.'); };
+    $('#pCsv').onclick = () => { unduhExcel([['Tanggal', 'No. Registrasi', 'Nama', 'Tahap', 'Komponen', 'Nominal', 'Metode', 'Rekening', 'Penyetor', 'No. Kuitansi', 'Sumber', 'Dicatat oleh', 'Dibatalkan', 'Alasan batal'],
+      ...aktif().map(x => [fmt.tgl(new Date(x.tanggal + 'T00:00:00')), x.no_registrasi, x.nama_lengkap, DU.NAMA_TAHAP[x.tahap], x.komponen, x.nominal, x.metode, x.rekening || '', x.penyetor, x.nomor_kuitansi || '', x.sumber, x.nama_pencatat || '', x.dibatalkan_pada ? 'Ya' : '', x.alasan_batal || ''])], 'Pembayaran Masuk'); };
     $('#pCetak').onclick = () => pilihCetak('Rekap pembayaran masuk', async pdf => {
       const peng = await muatPengaturan(), ok = data.filter(x => !x.dibatalkan_pada), td = 'style="text-align:right"';
       if (!ok.length) return toast('Tidak ada pembayaran.', 'warn');
@@ -222,12 +238,46 @@
     });
   }
 
+  /* ---------- Pengaturan biaya (Admin dan Superadmin) ---------- */
+  async function tabPengaturan(el, api) {
+    const sub = (location.hash.match(/[?&]sub=(\w+)/) || [])[1] || 'biaya';
+    const SUB = [['biaya', 'Rincian biaya', 'ph-wallet', 'var(--c3)'], ['rekening', 'Rekening', 'ph-bank', 'var(--c5)'], ['kuitansi', 'Nomor kuitansi', 'ph-receipt', 'var(--ok)']];
+    el.innerHTML = `<div class="tabs" style="margin:0 0 14px;border:0" role="tablist">${SUB.map(([id, l, ic, t]) => `<button role="tab" data-sub="${id}" aria-selected="${id === sub}"><i class="ph-duotone ${ic}" style="color:${t}"></i>${l}</button>`).join('')}</div>
+      <div id="kPeng"></div>`;
+    el.querySelectorAll('[data-sub]').forEach(b => b.onclick = () => { location.hash = '#/keuangan?tab=pengaturan&sub=' + b.dataset.sub; });
+    const isi = $('#kPeng');
+    if (sub === 'biaya') return window.SPMB_UI.tabBiaya(isi, api);
+    if (sub === 'rekening') return window.SPMB_UI.tabRekening(isi, api);
+    api.setFab(null);
+    const peng = await muatPengaturan(true);
+    const du = peng.daftar_ulang?.format_kuitansi || '{urut}/KWT-DU/SPMB-IAS/{romawi}/{tahun}', lain = peng.keuangan?.format_kuitansi || '{urut}/KWT/SPMB-IAS/{romawi}/{tahun}';
+    const contoh = f => String(f).replace('{urut}', '001').replace('{romawi}', ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][new Date().getMonth()]).replace('{tahun}', new Date().getFullYear());
+    isi.innerHTML = `<div class="card" style="max-width:760px">
+      <div class="card-head"><div class="ic-box" style="--tone:var(--ok)"><i class="ph-duotone ph-receipt"></i></div><div><h3>Format nomor kuitansi</h3><p>Nomor dibuat otomatis berurutan saat pembayaran dicatat</p></div></div>
+      <div class="form-grid">
+        <div class="field full"><label for="fkDu">Kuitansi daftar ulang</label><input class="input mono" id="fkDu" maxlength="80" value="${esc(du)}"><small class="hint">Contoh: <b id="ckDu" class="mono">${esc(contoh(du))}</b></small></div>
+        <div class="field full"><label for="fkLain">Kuitansi pembayaran lain (pelunasan, SPP, tahunan)</label><input class="input mono" id="fkLain" maxlength="80" value="${esc(lain)}"><small class="hint">Contoh: <b id="ckLain" class="mono">${esc(contoh(lain))}</b></small></div>
+      </div>
+      <div class="note info" style="margin-top:4px"><i class="ph-duotone ph-info"></i><div>Kode yang tersedia: <code>{urut}</code> nomor urut 3 digit (wajib), <code>{romawi}</code> bulan dalam angka Romawi, <code>{tahun}</code> tahun pembayaran. Selama format memuat <code>{tahun}</code>, nomor urut kembali ke 001 setiap tahun baru. Perubahan hanya berlaku untuk kuitansi berikutnya.</div></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn" id="fkSimpan"><i class="ph-duotone ph-floppy-disk"></i>Simpan format</button></div></div>`;
+    $('#fkDu').oninput = e => { $('#ckDu').textContent = contoh(e.target.value); };
+    $('#fkLain').oninput = e => { $('#ckLain').textContent = contoh(e.target.value); };
+    $('#fkSimpan').onclick = async e => {
+      const b = e.currentTarget; b.disabled = true;
+      try {
+        const { error } = await sb.rpc('atur_format_kuitansi', { p_du: $('#fkDu').value, p_lain: $('#fkLain').value });
+        if (error) throw error;
+        await muatPengaturan(true); toast('Format nomor kuitansi disimpan.');
+      } catch (err) { toast(galat(err), 'err'); } finally { b.disabled = false; }
+    };
+  }
+
   /* ---------- Keringanan ---------- */
   async function tabKeringanan(el) {
     const gels = await muatGelombang();
     let data = [];
     el.innerHTML = `<div class="page-head">${kepalaSaring(gels)}<div class="spacer"></div>
-        <button class="btn sm ghost" id="krCsv"><i class="ph-duotone ph-file-csv" style="color:var(--c5)"></i>Ekspor CSV</button></div>
+        <button class="btn sm ghost" id="krCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel</button></div>
       <div class="note info"><i class="ph-duotone ph-info"></i><div>Keringanan diatur per santri di halaman detail keuangan (tombol <b>Detail</b> di tab Tagihan Santri, atau dari halaman Periksa daftar ulang). Potongan dapat berupa persen atau nominal, untuk satu komponen biaya atau seluruh tagihan satu tahap.</div></div>
       <div class="stats stats-pendaftar" id="krStat"></div><div class="table-wrap"><table class="tbl"><thead><tr><th>Santri</th><th>Keringanan</th><th style="text-align:right">Hemat</th><th class="hide-sm">Alasan</th><th class="c"></th></tr></thead><tbody id="krIsi"></tbody></table></div>`;
     const render = () => {
@@ -249,8 +299,8 @@
       render();
     };
     await muat(); pasangSaring(muat);
-    $('#krCsv').onclick = () => { unduhCsv([['No. Registrasi', 'Nama', 'Jenjang', 'Bagian', 'Kategori', 'Tahap', 'Komponen', 'Jenis', 'Nilai', 'Keterangan', 'Total hemat santri', 'Diatur oleh'],
-      ...data.flatMap(r => r.list.map(k => [r.no_registrasi, r.nama_lengkap, r.jenjang, bagL(r.bagian), DU.KATEGORI_KERINGANAN[k.kategori], DU.NAMA_TAHAP[k.tahap], k.komponen || 'Seluruh tagihan', k.jenis, k.nilai, k.keterangan, r.potongan, k.nama_pembuat || '']))], 'Keringanan'); toast('Diekspor.'); };
+    $('#krCsv').onclick = () => { unduhExcel([['No. Registrasi', 'Nama', 'Jenjang', 'Bagian', 'Kategori', 'Tahap', 'Komponen', 'Jenis', 'Nilai', 'Keterangan', 'Total hemat santri', 'Diatur oleh'],
+      ...data.flatMap(r => r.list.map(k => [r.no_registrasi, r.nama_lengkap, r.jenjang, bagL(r.bagian), DU.KATEGORI_KERINGANAN[k.kategori], DU.NAMA_TAHAP[k.tahap], k.komponen || 'Seluruh tagihan', k.jenis, k.nilai, k.keterangan, r.potongan, k.nama_pembuat || '']))], 'Keringanan'); };
   }
 
   /* ---------- Detail keuangan santri ---------- */
@@ -289,7 +339,7 @@
               <ul class="du-berkas">${K.keringanan.length ? K.keringanan.map(x => `<li><span class="ic-box kecil" style="--tone:var(--c4)"><i class="ph-duotone ph-tag"></i></span>
                 <div><b>${esc(DU.KATEGORI_KERINGANAN[x.kategori] || x.kategori)} · ${x.jenis === 'persen' ? (+x.nilai) + '%' : rp(x.nilai)}</b><small>${DU.NAMA_TAHAP[x.tahap]} · ${x.komponen ? esc(x.komponen) : 'seluruh tagihan tahap'}${x.keterangan ? ' · ' + esc(x.keterangan) : ''} · oleh ${esc(x.nama_pembuat || '–')}</small></div>
                 ${K.boleh_keringanan ? `<button class="icon-btn plain" data-ubah-k="${x.id}" aria-label="Ubah"><i class="ph-duotone ph-pencil-simple" style="color:var(--c1)"></i></button><button class="icon-btn plain" data-hapus-k="${x.id}" aria-label="Hapus"><i class="ph-duotone ph-trash" style="color:var(--danger)"></i></button>` : ''}</li>`).join('')
-                : `<li class="muted">Tidak ada keringanan.${K.boleh_keringanan ? '' : ' Keringanan diatur Superadmin.'}</li>`}</ul></div></div>
+                : `<li class="muted">Tidak ada keringanan.</li>`}</ul></div></div>
           <div><div class="card"><h3 class="du-h"><i class="ph-duotone ph-receipt" style="color:var(--ok)"></i>Riwayat pembayaran</h3>
             <ul class="du-berkas">${K.pembayaran.length ? K.pembayaran.map(x => `<li style="${x.dibatalkan_pada ? 'opacity:.55' : ''}"><span class="ic-box kecil" style="--tone:${TONE_TAHAP[x.tahap]}"><i class="ph-duotone ${x.metode === 'tunai' ? 'ph-money' : 'ph-bank'}"></i></span>
               <div><b>${rp(x.nominal)} · ${DU.NAMA_TAHAP[x.tahap]}${x.komponen ? ' · ' + esc(x.komponen) : ''}</b><small>${fmt.tgl(new Date(x.tanggal + 'T00:00:00'))} · ${x.metode === 'tunai' ? 'tunai' : 'transfer'}${x.nomor_kuitansi ? ' · ' + esc(x.nomor_kuitansi) : ''}${x.sumber !== 'manual' ? ' · otomatis' : ''}${x.nama_pencatat ? ' · ' + esc(x.nama_pencatat) : ''}${x.dibatalkan_pada ? ` · <b style="color:var(--danger)">dibatalkan: ${esc(x.alasan_batal || '')}</b>` : ''}</small></div>

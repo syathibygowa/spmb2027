@@ -53,7 +53,7 @@
         <form class="kartu cek-form" id="fCek" novalidate>
           <h2><i class="ph-duotone ph-shield-check" style="color:var(--c4)"></i>Masukkan data calon santri</h2>
           <div class="field"><label for="cNo">Nomor registrasi <span class="req">*</span></label>
-            <input class="input mono" id="cNo" name="no" value="${esc(noAwal)}" placeholder="Contoh: SPMB27-SMP-P-0001" autocomplete="off" autocapitalize="characters" maxlength="40">
+            <input class="input mono" id="cNo" name="no" value="${esc(noAwal)}" placeholder="Contoh: SPMB${String(SPMB.tahunAwalTA(SPMB.taAktif(S.p))).slice(2)}-SMP-P-0001" autocomplete="off" autocapitalize="characters" maxlength="40">
             <small>Tertulis di Bukti Pendaftaran dan email konfirmasi.</small></div>
           <div class="field"><label for="cLahir">Tanggal lahir calon santri <span class="req">*</span></label>
             <input class="input" id="cLahir" name="lahir" type="date" max="${fmt.isoTgl()}" required></div>

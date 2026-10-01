@@ -264,7 +264,7 @@
       sub: x => [x.data.nama_santri, x.data.tingkat, x.data.tahun].filter(Boolean).join(' · ') },
     flyer: { label: 'Brosur', ikon: 'ph-image-square', tone: 'var(--c4)', bagian: 'brosur',
       bidang: [F('gambar', 'Gambar brosur/poster', 'gambar', { wajib: 1, maksSisi: 2400, bantuan: 'Poster tegak paling baik. Gambar diperkecil otomatis sampai 2400 piksel.' }),
-        F('judul', 'Judul', 'teks', { wajib: 1, maks: 100, contoh: 'Brosur SPMB 2027/2028' }),
+        F('judul', 'Judul', 'teks', { wajib: 1, maks: 100, contoh: 'Brosur SPMB Tahun Ajaran ' + SPMB.taBawaan() }),
         F('mulai', 'Tampil mulai', 'tanggal', { hariIni: 1 }), F('selesai', 'Tampil sampai', 'tanggal', { bantuan: 'Kosongkan bila tampil terus.' }),
         F('isi', 'Keterangan', 'panjang', { maks: 300 })],
       sub: x => x.data.selesai ? `Tampil ${fmt.tgl(x.data.mulai)} s.d. ${fmt.tgl(x.data.selesai)}` : x.data.mulai ? `Tampil mulai ${fmt.tgl(x.data.mulai)}` : 'Tampil terus' },
@@ -808,7 +808,7 @@
   async function halBerkas(el, ctx) {
     el.innerHTML = `
       <div class="page-head">
-        <p class="muted" style="margin:0;max-width:640px">Semua gambar yang diunggah tersimpan di Google Drive, folder <b>SPMB 2027 / Konten Situs</b>. Salin tautan untuk dipakai di kolom gambar mana pun.</p>
+        <p class="muted" style="margin:0;max-width:640px">Semua gambar yang diunggah tersimpan di Google Drive, folder <b>Konten Situs</b> (di dalam folder induk SPMB). Salin tautan untuk dipakai di kolom gambar mana pun.</p>
         <div class="spacer"></div>
         <label class="btn"><i class="ph-duotone ph-upload-simple"></i>Unggah gambar<input type="file" id="fileBaru" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden></label>
       </div>

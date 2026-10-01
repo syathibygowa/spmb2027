@@ -386,7 +386,7 @@
             ${bj.length ? `<div class="bayar-rincian"><small>Biaya pendaftaran ${esc(D.jenjang || '')} ${esc(D.bagian || '')}</small>
               ${bj.map(x => `<div><span>${esc(x.komponen)}</span><b>${rupiah(x.nominal)}</b></div>`).join('')}
               <div class="total"><span>Total transfer</span><b>${rupiah(bj.reduce((a, x) => a + +x.nominal, 0))}</b></div></div>` : ''}
-            ${rek.length ? `<div class="bayar-rek">${rek.map(r => `<div class="rek-item"><span class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-bank"></i></span>
+            ${rek.length ? `<div class="bayar-rek"><small class="rek-judul"><i class="ph-duotone ph-info"></i> Rekening khusus <b>biaya pendaftaran</b>.</small>${rek.map(r => `<div class="rek-item"><span class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-bank"></i></span>
               <div><small>${esc(r.bank)}</small><b>${esc(r.nomor_rekening)}</b><span>a.n. ${esc(r.atas_nama)}</span>${r.keterangan ? `<em>${esc(r.keterangan)}</em>` : ''}</div>
               <button type="button" class="icon-btn plain" data-salin="${esc(digit(r.nomor_rekening))}" title="Salin nomor rekening" aria-label="Salin nomor rekening"><i class="ph-duotone ph-copy"></i></button></div>`).join('')}</div>` : ''}
           </div>` : ''}

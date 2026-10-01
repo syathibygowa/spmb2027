@@ -110,7 +110,7 @@
       else tampilForm();
       return true;
     }
-    const totalTagihan = () => (paket.tagihan || []).reduce((a, x) => a + +x.nominal, 0);
+    const totalTagihan = () => +DU.ringkasDari(paket).bayar || 0;
     function susunBerkas() {
       berkasDu = {};
       (paket.berkas || []).forEach(b => { berkasDu[b.jenis] = b; });   // terakhir per jenis
@@ -129,7 +129,8 @@
             : `Daftar ulang terkirim ${fmt.tglJam(du.dikirim_pada)} WITA dan sedang diperiksa panitia. Bila ada yang perlu diperbaiki, panitia menghubungi melalui WhatsApp.`}</p>
           <dl class="cek-data">
             <div><dt>Jenjang</dt><dd>${esc(p.jenjang)} ${p.bagian === 'putri' ? 'Putri' : 'Putra'}</dd></div>
-            <div><dt>Tagihan</dt><dd>${DU.rupiah(du.tagihan || totalTagihan())}</dd></div>
+            <div><dt>Tagihan${DU.ringkasDari(paket).potongan ? ' (setelah keringanan)' : ''}</dt><dd>${DU.rupiah(totalTagihan() || du.tagihan)}</dd></div>
+            ${selesai && totalTagihan() > +DU.ringkasDari(paket).dibayar ? `<div><dt>Sisa tagihan</dt><dd style="color:var(--c3)">${DU.rupiah(totalTagihan() - DU.ringkasDari(paket).dibayar)}</dd></div>` : ''}
             ${selesai ? `<div><dt>Dibayar</dt><dd>${DU.rupiah(du.diterima_nominal)}</dd></div><div><dt>Nomor kuitansi</dt><dd class="mono">${esc(du.nomor_kuitansi || '–')}</dd></div>` : ''}
           </dl>
           <div class="pgm-aksi">
@@ -228,9 +229,9 @@
         const tag = paket.tagihan || [], rek = paket.rekening || [], b = D._bayar;
         return `${tag.length || rek.length ? `<div class="bayar-kotak">
             ${tag.length ? `<div class="bayar-rincian"><small>Biaya daftar ulang ${esc(paket.pendaftar.jenjang)} ${paket.pendaftar.bagian === 'putri' ? 'Putri' : 'Putra'}</small>
-              ${tag.map(x => `<div><span>${esc(x.komponen)}</span><b>${DU.rupiah(x.nominal)}</b></div>`).join('')}
-              <div class="total"><span>Total</span><b>${DU.rupiah(totalTagihan())}</b></div></div>` : ''}
-            ${rek.length ? `<div class="bayar-rek">${rek.map(r => `<div class="rek-item"><span class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-bank"></i></span>
+              ${DU.rincianHTML(DU.ringkasDari(paket))}
+              ${DU.ringkasDari(paket).ada_keringanan ? '<small class="bayar-catatan"><i class="ph-duotone ph-hand-heart"></i> Ananda mendapat keringanan biaya dari pondok. Transfer sesuai total setelah keringanan.</small>' : ''}</div>` : ''}
+            ${rek.length ? `<div class="bayar-rek"><small class="rek-judul"><i class="ph-duotone ph-warning-circle"></i> Rekening khusus <b>daftar ulang</b>. Jangan transfer ke rekening pendaftaran.</small>${rek.map(r => `<div class="rek-item"><span class="ic-box" style="--tone:var(--c5)"><i class="ph-duotone ph-bank"></i></span>
               <div><small>${esc(r.bank)}</small><b>${esc(r.nomor_rekening)}</b><span>a.n. ${esc(r.atas_nama)}</span>${r.keterangan ? `<em>${esc(r.keterangan)}</em>` : ''}</div>
               <button type="button" class="icon-btn plain" data-salin="${esc(digit(r.nomor_rekening))}" title="Salin nomor rekening" aria-label="Salin nomor rekening"><i class="ph-duotone ph-copy"></i></button></div>`).join('')}</div>` : ''}
           </div>` : '<div class="note"><i class="ph-duotone ph-info"></i><div>Rincian biaya daftar ulang belum diumumkan. Tanyakan kepada panitia sebelum transfer.</div></div>'}

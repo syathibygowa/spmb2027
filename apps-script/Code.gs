@@ -16,6 +16,9 @@
                       Pembuatan lewat Google Docs hanya cadangan.
    4c. Nama berkas  : berkas santri di Drive diberi nama
                       "Nama Santri - Jenis Berkas - Nomor urut".
+   4d. Daftar ulang : (3.3) berkas daftar ulang langsung masuk folder santri
+                      dengan pola nama yang sama; rapikanBerkasDaftarUlang()
+                      memindahkan berkas lama dari folder _Draf/du-*.
    5. Penjaga       : menyapa Supabase setiap hari agar tidak dijeda.
 
    Keamanan: berkas pendaftar TIDAK dibagikan ke publik. Berkas ini TIDAK
@@ -28,7 +31,7 @@ const PENGATURAN = {
   FOLDER_INDUK: '1CDoSwzcKma-GfGoR50ocI8EpSsvrl30w',                // folder "SPMB 2027"
   ALAMAT_SITUS: 'https://syathibygowa.github.io/spmb2027',
   ZONA_WAKTU: 'Asia/Makassar',
-  VERSI: '3.2 (Fase 3)'
+  VERSI: '3.3 (Fase 4)'
 };
 
 const FOLDER_PENDAFTAR = 'Berkas Pendaftar';
@@ -125,15 +128,23 @@ function unggahPendaftar(req) {
   if (!cek || !cek.ok) throw new Error((cek && cek.error) || 'Sesi formulir tidak berlaku. Muat ulang halaman formulir.');
 
   const berkas = bacaBerkas(req, BATAS_PENDAFTAR.jenis, BATAS_PENDAFTAR.maksGambarMB, BATAS_PENDAFTAR.maksPdfMB);
-  const folder = denganKunci(function () { return subfolder(subfolder(folderPendaftar(), '_Draf'), cek.folder); });
   const ext = EKSTENSI[berkas.mime];
-  const nama = jenis + '-' + cap() + ext;
+  let folder, nama;
+  if (cek.daftar_ulang) {
+    // Daftar ulang: langsung ke folder santri, "Nama Santri - Jenis Berkas - Nomor urut"
+    const no = String(cek.no_registrasi || '');
+    folder = denganKunci(function () { return folderSantri(no) || subfolder(subfolder(folderPendaftar(), '_Daftar Ulang'), bersihNama(no)); });
+    nama = namaBebas(namaBerkasSantri(cek.nama_lengkap || no, labelBerkas(jenis), no), folder, ext);
+  } else {
+    folder = denganKunci(function () { return subfolder(subfolder(folderPendaftar(), '_Draf'), cek.folder); });
+    nama = jenis + '-' + cap() + ext;
+  }
   const file = folder.createFile(Utilities.newBlob(berkas.bytes, berkas.mime, nama));   // privat, tidak dibagikan
   const id = file.getId(), url = file.getUrl();
 
   try {
     rpc('catat_unggah_pendaftar', {
-      p_token: token, p_jenis: jenis, p_drive_id: id, p_nama: String(req.nama || nama).slice(0, 150),
+      p_token: token, p_jenis: jenis, p_drive_id: id, p_nama: String(cek.daftar_ulang ? nama : (req.nama || nama)).slice(0, 150),
       p_url: url, p_mime: berkas.mime, p_ukuran: berkas.bytes.length
     });
   } catch (err) {
@@ -354,6 +365,38 @@ function tabelRapi(t, proporsi, lebar) {
   }
 }
 
+
+/* ---------- Label jenis berkas (pendaftaran + daftar ulang) ---------- */
+function labelBerkas(jenis) {
+  const peng = pengaturanPublik(), label = {};
+  (((peng.spmb || {}).berkas) || []).concat(((peng.daftar_ulang || {}).berkas) || []).forEach(function (b) { label[b.kunci] = b.label; });
+  return label[jenis] || String(jenis).replace(/_/g, ' ');
+}
+
+/* ---------- JALANKAN SEKALI (3.3): rapikan berkas daftar ulang lama ----------
+   Memindahkan berkas dari "Berkas Pendaftar/_Draf/du-<nomor>" ke folder santri
+   dan menamainya "Nama Santri - Jenis Berkas - Nomor urut". Aman diulang. */
+function rapikanBerkasDaftarUlang() {
+  const draf = subfolder(folderPendaftar(), '_Draf'), it = draf.getFolders();
+  let pindah = 0, folderSelesai = 0;
+  while (it.hasNext()) {
+    const f = it.next(), nm = f.getName();
+    if (nm.indexOf('du-') !== 0) continue;
+    const no = nm.slice(3), tujuan = folderSantri(no) || subfolder(subfolder(folderPendaftar(), '_Daftar Ulang'), bersihNama(no));
+    const santri = tujuan.getName().indexOf(no + ' - ') === 0 ? tujuan.getName().slice(no.length + 3) : no;
+    const files = f.getFiles();
+    while (files.hasNext()) {
+      const file = files.next(), lama = file.getName();
+      const jenis = (lama.match(/^([a-z_]+)-\d{8}-\d{6}/) || [])[1] || 'berkas';
+      const ext = (lama.match(/\.[a-z0-9]{2,5}$/i) || [''])[0].toLowerCase();
+      file.moveTo(tujuan);
+      file.setName(namaBebas(namaBerkasSantri(santri, labelBerkas(jenis), no), tujuan, ext));
+      pindah++;
+    }
+    if (!f.getFiles().hasNext() && !f.getFolders().hasNext()) { f.setTrashed(true); folderSelesai++; }
+  }
+  Logger.log('Selesai: ' + pindah + ' berkas dipindahkan, ' + folderSelesai + ' folder sementara dibuang.');
+}
 
 /* ---------- Nama berkas santri ---------- */
 function bersihNama(t) { return String(t || '').replace(/\s*\([^)]*\)\s*/g, ' ').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim(); }

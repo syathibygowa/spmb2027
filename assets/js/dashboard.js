@@ -29,6 +29,7 @@
     { id: 'seleksi',    label: 'Seleksi',       ikon: 'ph-exam',                    tone: 'var(--c2)', peran: ['superadmin', 'admin'], sub: 'Sesi tes, penguji, kartu peserta, dan validasi nilai' },
     { id: 'pengumuman', label: 'Pengumuman',    ikon: 'ph-megaphone',               tone: 'var(--c6)', peran: ['superadmin', 'admin'], sub: 'Penerbitan hasil seleksi, Surat Keterangan Lulus, dan WhatsApp hasil' },
     { id: 'daftarulang', label: 'Daftar Ulang', ikon: 'ph-clipboard-text',         tone: 'var(--c5)', peran: ['superadmin', 'admin'], sub: 'Verifikasi daftar ulang, kuitansi, dan rekap santri baru' },
+    { id: 'keuangan',   label: 'Keuangan',      ikon: 'ph-wallet',                  tone: 'var(--ok)', peran: ['superadmin', 'admin'], sub: 'Tagihan, keringanan, pembayaran masuk, dan laporan keuangan' },
     { id: 'penilaian',  label: 'Penilaian',     ikon: 'ph-pencil-simple-line',      tone: 'var(--c5)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Isi nilai peserta di sesi yang ditugaskan kepada Anda' },
     { id: 'konten',     label: 'Konten Situs',  ikon: 'ph-browsers',                tone: 'var(--c7)', peran: ['superadmin'], sub: 'Isi landing page, profil, berita, dan berkas' },
     { id: 'spmb',       label: 'Pengaturan SPMB', ikon: 'ph-flag-banner',          tone: 'var(--c3)', peran: ['superadmin'], sub: 'Gelombang, kuota, biaya, rekening, formulir, dan templat WhatsApp' },
@@ -215,7 +216,7 @@
         <div class="card">
           <div class="card-head"><div class="ic-box" style="--tone:var(--c6)"><i class="ph-duotone ph-rocket-launch"></i></div><div><h3>Tahap pengembangan</h3><p>Menu baru muncul sesuai fase</p></div></div>
           <ul class="roadmap-mini">
-            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'done'], ['Landing page dan konten situs', 'done'], ['Pendaftaran online', 'done'], ['Seleksi, pengumuman, dan daftar ulang', 'on'], ['Daftar ulang lanjutan', ''], ['Laporan dan cadangan', '']]
+            ${[['Persiapan akun dan bahan', 'done'], ['Fondasi: login, pengguna, pengaturan', 'done'], ['Landing page dan konten situs', 'done'], ['Pendaftaran online', 'done'], ['Seleksi, pengumuman, daftar ulang, dan keuangan', 'done'], ['Uji coba bersama panitia', 'on'], ['Laporan dan cadangan', '']]
               .map(([t, s], i) => `<li class="${s}"><span class="n">${s === 'done' ? '✓' : i}</span>Fase ${i} · ${t}${s === 'on' ? ' <span class="pill" style="--tone:var(--c1);margin-left:auto">Sedang berjalan</span>' : ''}</li>`).join('')}
           </ul>
         </div>
@@ -482,6 +483,7 @@
   HALAMAN.seleksi = k => window.SPMB_MODUL.seleksi(k, { S, setFab, param: S.param });
   HALAMAN.pengumuman = k => window.SPMB_MODUL.pengumuman(k, { S, setFab, param: S.param });
   HALAMAN.daftarulang = k => window.SPMB_MODUL.daftarulang(k, { S, setFab, param: S.param });
+  HALAMAN.keuangan = k => window.SPMB_MODUL.keuangan(k, { S, setFab, param: S.param });
   HALAMAN.penilaian = k => window.SPMB_MODUL.penilaian(k, { S, setFab, param: S.param });
 
   /* =================================================================
@@ -853,7 +855,8 @@
   const DOK_TTD = [
     ['kartu_tes', 'Kartu Peserta Tes'], ['rekap_nilai', 'Rekap Nilai Seleksi'], ['berita_acara', 'Berita Acara Penetapan Hasil'],
     ['sk', 'SK Penetapan Hasil Seleksi'], ['skl', 'Surat Keterangan Lulus'], ['bukti_du', 'Bukti Daftar Ulang'],
-    ['kuitansi', 'Kuitansi Pembayaran'], ['rekap_pendaftar', 'Rekap Pendaftar dan Santri Baru']];
+    ['kuitansi', 'Kuitansi Pembayaran'], ['rekap_pendaftar', 'Rekap Pendaftar dan Santri Baru'],
+    ['profil_santri', 'Profil Santri'], ['laporan_keuangan', 'Laporan Keuangan']];
   const PILIH_TTD = [['tanpa', 'Tanpa (hanya Ketua Panitia)'], ['direktur', 'Direktur'], ['kepala_smp', 'Kepala SMP'], ['kepala_sma', 'Kepala SMA'], ['kepala_jenjang', 'Kepala sesuai jenjang santri']];
   function tabTtd(el) {
     const pt = S.pengaturan.penandatangan || {}, pej = pt.pejabat || {}, dok = pt.dokumen || {};

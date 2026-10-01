@@ -77,7 +77,7 @@
     { k: 'nama_ayah', l: 'Nama ayah', t: 'teks', src: 'kunci', s: 2 },
     { k: 'pekerjaan_ayah', l: 'Pekerjaan ayah', t: 'pilih', src: 'p', s: 2, w: true, opsiDari: 'pekerjaan' },
     { k: 'ayah_status', l: 'Status ayah', t: 'chip', src: 'd', s: 2, w: true, opsi: ['Masih hidup', 'Sudah meninggal'], bawaan: 'Masih hidup' },
-    { k: 'ayah_hubungan', l: 'Hubungan', t: 'chip', src: 'd', s: 2, w: false, opsi: ['Kandung', 'Tiri', 'Angkat'], bawaan: 'Kandung' },
+    { k: 'ayah_hubungan', l: 'Hubungan ayah', t: 'chip', src: 'd', s: 2, w: false, opsi: ['Kandung', 'Tiri', 'Angkat'], bawaan: 'Kandung' },
     { k: 'ayah_nik', l: 'NIK ayah', t: 'nik', src: 'd', s: 2, w: true, jika: D => D.ayah_status !== 'Sudah meninggal' },
     { k: 'ayah_tgl_lahir', l: 'Tanggal lahir ayah', t: 'tanggal', src: 'd', s: 2, w: false },
     { k: 'ayah_pendidikan', l: 'Pendidikan terakhir ayah', t: 'pilih', src: 'd', s: 2, w: true, opsi: PENDIDIKAN },
@@ -87,7 +87,7 @@
     { k: 'nama_ibu', l: 'Nama ibu', t: 'teks', src: 'kunci', s: 2 },
     { k: 'pekerjaan_ibu', l: 'Pekerjaan ibu', t: 'pilih', src: 'p', s: 2, w: true, opsiDari: 'pekerjaan' },
     { k: 'ibu_status', l: 'Status ibu', t: 'chip', src: 'd', s: 2, w: true, opsi: ['Masih hidup', 'Sudah meninggal'], bawaan: 'Masih hidup' },
-    { k: 'ibu_hubungan', l: 'Hubungan', t: 'chip', src: 'd', s: 2, w: false, opsi: ['Kandung', 'Tiri', 'Angkat'], bawaan: 'Kandung' },
+    { k: 'ibu_hubungan', l: 'Hubungan ibu', t: 'chip', src: 'd', s: 2, w: false, opsi: ['Kandung', 'Tiri', 'Angkat'], bawaan: 'Kandung' },
     { k: 'ibu_nik', l: 'NIK ibu', t: 'nik', src: 'd', s: 2, w: true, jika: D => D.ibu_status !== 'Sudah meninggal' },
     { k: 'ibu_tgl_lahir', l: 'Tanggal lahir ibu', t: 'tanggal', src: 'd', s: 2, w: false },
     { k: 'ibu_pendidikan', l: 'Pendidikan terakhir ibu', t: 'pilih', src: 'd', s: 2, w: true, opsi: PENDIDIKAN },
@@ -197,7 +197,7 @@
   };
 
   /* ---------- Dokumen ---------- */
-  const rupiah = n => 'Rp ' + new Intl.NumberFormat('id-ID').format(+n || 0);
+  const rupiah = n => 'Rp\u00a0' + new Intl.NumberFormat('id-ID').format(+n || 0);
   function terbilang(n) {
     const s = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
     n = Math.floor(+n || 0);
@@ -248,33 +248,109 @@
     };
   }
 
-  // Kuitansi pembayaran daftar ulang
-  function dokumenKuitansi(paket, peng) {
+  // Ringkasan tagihan setelah keringanan (dari tagihan_santri di server)
+  const KATEGORI_KERINGANAN = { saudara: 'Bersaudara', tidak_mampu: 'Tidak mampu', yatim: 'Yatim/piatu', prestasi: 'Berprestasi', hafalan: 'Hafalan', rekomendasi: 'Rekomendasi', lainnya: 'Lainnya' };
+  const NAMA_TAHAP = { pendaftaran: 'Pendaftaran', daftar_ulang: 'Daftar ulang', bulanan: 'Bulanan (SPP)', tahunan: 'Tahunan', lainnya: 'Lainnya' };
+  const ringkasDari = paket => paket.tagihan_ringkas || { rincian: (paket.tagihan || []).map(x => ({ ...x, potongan: x.potongan || 0, bayar: x.bayar ?? x.nominal })), umum: [],
+    kotor: (paket.tagihan || []).reduce((a, x) => a + +x.nominal, 0), bayar: (paket.tagihan || []).reduce((a, x) => a + +(x.bayar ?? x.nominal), 0), dibayar: 0 };
+  // Baris rincian untuk kotak .bayar-rincian (formulir dan dashboard)
+  function rincianHTML(r, { tampilBayar = true } = {}) {
+    const { esc } = window.SPMB;
+    const pot = +r.potongan || ((r.rincian || []).reduce((a, x) => a + +x.potongan, 0) + (r.umum || []).reduce((a, x) => a + +x.potongan, 0));
+    return `${(r.rincian || []).map(x => `<div><span>${esc(x.komponen)}</span><b>${rupiah(x.nominal)}</b></div>
+        ${+x.potongan ? `<div class="potongan"><span>Keringanan ${esc(x.komponen.toLowerCase())}</span><b>− ${rupiah(x.potongan)}</b></div>` : ''}`).join('')}
+      ${(r.umum || []).map(x => `<div class="potongan"><span>${esc(x.label)}${x.kategori ? ` (${esc((KATEGORI_KERINGANAN[x.kategori] || '').toLowerCase())})` : ''}</span><b>− ${rupiah(x.potongan)}</b></div>`).join('')}
+      ${pot ? `<div class="subtotal"><span>Jumlah sebelum keringanan</span><b>${rupiah(r.kotor)}</b></div>` : ''}
+      <div class="total"><span>${pot ? 'Total setelah keringanan' : 'Total'}</span><b>${rupiah(r.bayar)}</b></div>
+      ${tampilBayar && +r.dibayar ? `<div><span>Sudah dibayar</span><b>${rupiah(r.dibayar)}</b></div><div class="total sisa"><span>${r.dibayar >= r.bayar ? 'Status' : 'Sisa tagihan'}</span><b>${r.dibayar >= r.bayar ? 'LUNAS' : rupiah(r.bayar - r.dibayar)}</b></div>` : ''}`;
+  }
+
+  // Kuitansi umum: p (pendaftar), x (satu pembayaran), r (ringkasan tagihan tahap itu)
+  function kuitansiUmum({ p, x, r, peng, judul = 'Kuitansi Pembayaran', untuk }) {
     const { esc, fmt } = window.SPMB;
-    const p = paket.pendaftar, du = paket.du || {}, ta = peng.identitas?.tahun_ajaran || '';
-    const tag = paket.tagihan || [], total = tag.reduce((a, x) => a + +x.nominal, 0) || +du.tagihan || 0;
-    const bayar = +du.diterima_nominal || 0, sisa = Math.max(0, total - bayar);
-    const penyetor = du.bayar?.nama_pengirim || du.data?.wali_nama || p.nama_ayah || p.nama_ibu || '';
+    const ta = peng.identitas?.tahun_ajaran || '';
+    const total = +r?.bayar || 0, dibayar = +r?.dibayar || 0, sisa = Math.max(0, total - dibayar);
+    const penyetor = x.penyetor || p.nama_ayah || p.nama_ibu || '';
+    const baris = [];
+    (r?.rincian || []).forEach(k => { baris.push([k.komponen, k.nominal]); if (+k.potongan) baris.push([`Keringanan ${k.komponen.toLowerCase()}`, -k.potongan]); });
+    (r?.umum || []).forEach(k => baris.push([k.label, -k.potongan]));
     return {
-      judul: 'Kuitansi Pembayaran Daftar Ulang', nomor: du.nomor_kuitansi || '',
+      judul, nomor: x.nomor_kuitansi || '',
       meta: `Tahun Ajaran ${esc(ta)} · ${esc(p.gelombang || '')}${p.uji ? ' · <b>DATA UJI COBA · TIDAK BERLAKU</b>' : ''}`,
       isi: `<table class="sk-tabel"><colgroup><col style="width:28%"><col style="width:3%"><col></colgroup><tbody>
           <tr><td>Telah terima dari</td><td>:</td><td>${esc(penyetor || '–')}</td></tr>
-          <tr><td>Untuk pembayaran</td><td>:</td><td>Daftar ulang santri baru a.n. <b>${esc(p.nama_lengkap)}</b> (${esc(p.no_registrasi)}), ${esc(p.jenjang)} ${p.bagian === 'putri' ? 'Putri' : 'Putra'}</td></tr>
-          <tr><td>Uang sejumlah</td><td>:</td><td><b>${rupiah(bayar)}</b></td></tr>
-          <tr><td>Terbilang</td><td>:</td><td><i>${esc(kapital(terbilang(bayar)))} rupiah</i></td></tr>
-          <tr><td>Cara pembayaran</td><td>:</td><td>${du.diterima_metode === 'tunai' ? 'Tunai' : 'Transfer bank'}${du.diterima_tanggal ? `, ${fmt.tglPanjang(new Date(du.diterima_tanggal + 'T00:00:00'))}` : ''}</td></tr>
+          <tr><td>Untuk pembayaran</td><td>:</td><td>${esc(untuk || `${NAMA_TAHAP[x.tahap] || x.tahap}${x.komponen ? ' · ' + x.komponen : ''}`)} a.n. <b>${esc(p.nama_lengkap)}</b> (${esc(p.no_registrasi)}), ${esc(p.jenjang)} ${p.bagian === 'putri' ? 'Putri' : 'Putra'}</td></tr>
+          <tr><td>Uang sejumlah</td><td>:</td><td><b>${rupiah(x.nominal)}</b></td></tr>
+          <tr><td>Terbilang</td><td>:</td><td><i>${esc(kapital(terbilang(x.nominal)))} rupiah</i></td></tr>
+          <tr><td>Cara pembayaran</td><td>:</td><td>${x.metode === 'tunai' ? 'Tunai' : 'Transfer bank'}${x.tanggal ? `, ${fmt.tglPanjang(new Date(String(x.tanggal).slice(0, 10) + 'T00:00:00'))}` : ''}${x.rekening ? ` (${esc(x.rekening)})` : ''}</td></tr>
         </tbody></table>
-        <div style="height:8px"></div>
-        <table><colgroup><col style="width:8%"><col style="width:62%"><col style="width:30%"></colgroup><thead><tr><th>No</th><th>Rincian tagihan</th><th>Nominal</th></tr></thead><tbody>
-          ${tag.map((x, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(x.komponen)}</td><td style="text-align:right">${rupiah(x.nominal)}</td></tr>`).join('')}
+        ${baris.length ? `<div style="height:8px"></div>
+        <table><colgroup><col style="width:8%"><col style="width:62%"><col style="width:30%"></colgroup><thead><tr><th>No</th><th>Rincian tagihan ${esc((NAMA_TAHAP[x.tahap] || '').toLowerCase())}</th><th>Nominal</th></tr></thead><tbody>
+          ${baris.map(([l, n], i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(l)}</td><td style="text-align:right">${n < 0 ? '− ' + rupiah(-n) : rupiah(n)}</td></tr>`).join('')}
           <tr><td></td><td><b>Jumlah tagihan</b></td><td style="text-align:right"><b>${rupiah(total)}</b></td></tr>
-          <tr><td></td><td>Dibayar</td><td style="text-align:right">${rupiah(bayar)}</td></tr>
+          <tr><td></td><td>Total sudah dibayar (termasuk kuitansi ini)</td><td style="text-align:right">${rupiah(dibayar)}</td></tr>
           <tr><td></td><td><b>${sisa ? 'Sisa tagihan' : 'Status'}</b></td><td style="text-align:right"><b>${sisa ? rupiah(sisa) : 'LUNAS'}</b></td></tr>
-        </tbody></table>
-        ${du.catatan ? `<p style="font-size:9.5pt;margin:6px 0 0">Catatan: ${esc(du.catatan)}</p>` : ''}`,
-      ttd: [{ jabatan: 'Penyetor,', nama: penyetor }, { jabatan: 'Penerima,', nama: du.nama_verifikator || '' }],
-      tanggal: du.diterima_tanggal || null
+        </tbody></table>` : ''}
+        ${x.keterangan ? `<p style="font-size:9.5pt;margin:6px 0 0">Catatan: ${esc(x.keterangan)}</p>` : ''}`,
+      ttd: [{ jabatan: 'Penyetor,', nama: penyetor }, { jabatan: 'Penerima,', nama: x.nama_pencatat || '' }],
+      tanggal: x.tanggal || null
+    };
+  }
+  // Kuitansi daftar ulang (pembayaran saat verifikasi)
+  function dokumenKuitansi(paket, peng) {
+    const p = paket.pendaftar, du = paket.du || {}, r = ringkasDari(paket);
+    const x = (paket.pembayaran || []).find(b => b.sumber === 'daftar_ulang') || { nominal: du.diterima_nominal, tanggal: du.diterima_tanggal, metode: du.diterima_metode, nomor_kuitansi: du.nomor_kuitansi, keterangan: du.catatan };
+    return kuitansiUmum({ p, x: { tahap: 'daftar_ulang', penyetor: du.bayar?.nama_pengirim || du.data?.wali_nama, nama_pencatat: du.nama_verifikator, ...x }, r, peng,
+      judul: 'Kuitansi Pembayaran Daftar Ulang', untuk: 'Daftar ulang santri baru' });
+  }
+
+  // Profil santri lengkap untuk arsip (pendaftaran + daftar ulang). foto: dataURL pas foto atau ''
+  function dokumenProfil(paket, peng, foto = '') {
+    const { esc, fmt, penandaTangan } = window.SPMB;
+    const cfg = peng.daftar_ulang || {}, p = paket.pendaftar, du = paket.du || {}, D = nilaiGabung(paket);
+    const ta = peng.identitas?.tahun_ajaran || '';
+    const label = Object.fromEntries((peng.spmb?.berkas || []).map(b => [b.kunci, b.label]).concat((cfg.berkas || []).map(b => [b.kunci, b.label])));
+    const tglI = v => v ? fmt.tglPanjang(new Date(String(v).slice(0, 10) + 'T00:00:00')) : '–';
+    // tabel 4 kolom: label | isi | label | isi
+    const kisi = pasangan => { const rows = []; for (let i = 0; i < pasangan.length; i += 2) rows.push(pasangan.slice(i, i + 2));
+      return `<table class="profil-tabel"><colgroup><col style="width:19%"><col style="width:31%"><col style="width:19%"><col style="width:31%"></colgroup><tbody>
+        ${rows.map(r => `<tr>${r.map(([l, v]) => `<td class="lbl">${esc(l)}</td><td>${esc(v == null || v === '' ? '–' : String(v))}</td>`).join('')}${r.length < 2 ? '<td class="lbl"></td><td></td>' : ''}</tr>`).join('')}</tbody></table>`; };
+    const dua = pasangan => `<table class="profil-tabel"><colgroup><col style="width:32%"><col style="width:68%"></colgroup><tbody>
+        ${pasangan.map(([l, v]) => `<tr><td class="lbl">${esc(l)}</td><td>${esc(v == null || v === '' ? '–' : String(v))}</td></tr>`).join('')}</tbody></table>`;
+    const judul = (no, t) => `<p class="profil-judul jangan-putus">${no}. ${esc(t)}</p>`;
+    const hafalan = +p.hafalan_juz >= 1 ? `${String(+p.hafalan_juz).replace('.', ',')} juz` : +p.hafalan_surah > 0 ? `${p.hafalan_surah} surah pendek` : 'Belum ada hafalan';
+    const bagian = isianLengkap(cfg).filter(f => f.k && f.src !== 'kunci' && (!f.jika || f.jika(D)) && f.t !== 'baris');
+    const isiLangkah = s => bagian.filter(f => f.s === s).map(f => [f.l, teksNilai(f, D[f.k])]);
+    const baris = (k, f) => { const v = D[k]; return Array.isArray(v) ? v.filter(r => Object.values(r).some(x => String(x || '').trim())) : []; };
+    const fBaris = k => ISIAN.find(x => x.k === k);
+    const tabelBaris = (k, data) => { const f = fBaris(k); return data.length ? `<table><colgroup>${f.kolom.map(() => `<col style="width:${Math.floor(100 / f.kolom.length)}%">`).join('')}</colgroup>
+      <thead><tr>${f.kolom.map(([, l]) => `<th>${esc(l)}</th>`).join('')}</tr></thead><tbody>${data.map(r => `<tr>${f.kolom.map(([c]) => `<td>${esc(r[c] || '–')}</td>`).join('')}</tr>`).join('')}</tbody></table>` : ''; };
+    const prestasiDaftar = (p.prestasi || []).filter(x => (x.nama || '').trim());
+    let no = 0;
+    return {
+      judul: 'Profil Santri Baru', nomor: p.no_registrasi,
+      meta: `Tahun Ajaran ${esc(ta)} · ${esc(p.gelombang || '')} · Daftar ulang: <b>${esc((STATUS_DU[du.status] || STATUS_DU.belum)[0])}</b>${p.uji ? ' · <b>DATA UJI COBA</b>' : ''}`,
+      isi: `<div class="profil-kepala">
+          <div class="pk-isi">${dua([['Nama lengkap', p.nama_lengkap], ['Nomor registrasi', p.no_registrasi], ['NISN', p.nisn], ['NIK', p.nik], ['Nomor KK', D.no_kk],
+            ['Jenis kelamin', D.jenis_kelamin], ['Tempat, tanggal lahir', `${p.tempat_lahir || '–'}, ${tglI(p.tanggal_lahir)}`], ['Jenjang', `${p.jenjang} ${p.bagian === 'putri' ? 'Putri' : 'Putra'}`],
+            ['Asal daerah', [p.asal_kabupaten, p.asal_provinsi].filter(Boolean).join(', ')], ['Nomor SKL', p.nomor_skl]])}</div>
+          <div class="pk-foto">${foto ? `<img src="${foto}" alt="Pas foto">` : '<span>Pas foto<br>3 × 4</span>'}</div></div>
+        ${judul(++no, 'Identitas lanjutan')}${kisi(isiLangkah(0))}
+        ${judul(++no, 'Alamat dan tempat tinggal')}${kisi([['Provinsi', p.provinsi], ['Kabupaten/kota', p.kabupaten], ['Kecamatan', p.kecamatan], ['Desa/kelurahan', p.desa], ...isiLangkah(1)])}
+        ${judul(++no, 'Orang tua dan wali')}${kisi([['Nama ayah', p.nama_ayah], ['Nama ibu', p.nama_ibu], ...isiLangkah(2)])}
+        ${judul(++no, 'Data periodik dan kesehatan')}${kisi(isiLangkah(3))}
+        ${judul(++no, 'Riwayat sekolah dan kepondokan')}${kisi([['Sekolah asal', p.asal_sekolah], ['NPSN', p.npsn_sekolah], ...isiLangkah(4),
+            ['Pernah mondok', p.pernah_mondok ? 'Ya' : 'Belum'], ['Pondok sebelumnya', p.pernah_mondok ? `${p.pondok_sebelumnya || '–'}${p.lama_mondok ? ` (${p.lama_mondok})` : ''}` : '–'], ['Hafalan Al-Qur\'an', hafalan]])}
+        ${prestasiDaftar.length || baris('prestasi_tambahan').length ? `${judul(++no, 'Prestasi')}
+          ${prestasiDaftar.length ? `<table><colgroup><col style="width:45%"><col style="width:25%"><col style="width:12%"><col style="width:18%"></colgroup><thead><tr><th>Prestasi (saat pendaftaran)</th><th>Tingkat</th><th>Tahun</th><th>Penyelenggara</th></tr></thead>
+            <tbody>${prestasiDaftar.map(x => `<tr><td>${esc(x.nama)}</td><td>${esc(x.tingkat || '–')}</td><td>${esc(x.tahun || '–')}</td><td>${esc(x.penyelenggara || '–')}</td></tr>`).join('')}</tbody></table><div style="height:4px"></div>` : ''}
+          ${tabelBaris('prestasi_tambahan', baris('prestasi_tambahan'))}` : ''}
+        ${judul(++no, 'Bantuan dan beasiswa')}${kisi(isiLangkah(6))}${tabelBaris('beasiswa', baris('beasiswa'))}
+        ${judul(++no, 'Kontak darurat')}${kisi(isiLangkah(7))}
+        ${(paket.berkas || []).length ? `${judul(++no, 'Berkas tersimpan')}
+          <table><colgroup><col style="width:8%"><col style="width:52%"><col style="width:20%"><col style="width:20%"></colgroup><thead><tr><th>No</th><th>Berkas</th><th>Tanggal</th><th>Status</th></tr></thead>
+          <tbody>${paket.berkas.map((b, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${esc(label[b.jenis] || b.jenis)}</td><td>${fmt.tgl(new Date(b.dibuat_pada))}</td><td>${{ menunggu: 'Menunggu', diterima: 'Diterima', ditolak: 'Ditolak' }[b.status] || b.status}</td></tr>`).join('')}</tbody></table>` : ''}`,
+      ttd: penandaTangan('profil_santri', peng, p.jenjang), tanggal: null
     };
   }
 
@@ -292,5 +368,5 @@
   }
 
   window.SPMB_DU = { LANGKAH, ISIAN, PENDIDIKAN, PENGHASILAN, HUBUNGAN, STATUS_DU, isianLengkap, wajibKah, teksNilai, nilaiGabung,
-    dokumenBuktiDU, dokumenKuitansi, kolomEkspor, rupiah, terbilang };
+    dokumenBuktiDU, dokumenKuitansi, dokumenProfil, kuitansiUmum, rincianHTML, ringkasDari, kolomEkspor, rupiah, terbilang, KATEGORI_KERINGANAN, NAMA_TAHAP };
 })();

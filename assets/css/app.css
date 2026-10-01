@@ -1874,12 +1874,12 @@ a.stat b{color:var(--tone)}
   .klp-kepala .btn span{display:none}
 }
 /* Surat Keterangan Lulus */
-.skl-lulus{margin:6px auto 4px;width:46%;text-align:center;font-size:17pt;font-weight:800;letter-spacing:.35em;padding:5pt 0 5pt .35em;border:1.5pt solid #000}
-.skl-syarat{margin:2px 0 4px;padding-left:22pt;line-height:1.5}
+.skl-lulus{margin:4px auto 3px;width:46%;text-align:center;font-size:16pt;font-weight:800;letter-spacing:.35em;padding:3pt 0 3pt .35em;border:1.5pt solid #000}
+.skl-syarat{margin:1px 0 2px;padding-left:22pt;line-height:1.4}
 .skl-syarat li{margin:0 0 1pt}
-.skl-validasi{display:flex;align-items:center;gap:10pt;margin:10pt 0 0;padding:6pt 8pt;border:.5pt dashed #666;font-size:8.5pt;line-height:1.45}
-.skl-validasi img{width:22mm;height:22mm;image-rendering:pixelated;flex:none}
-.doc table.skl-data td{padding:1.5pt 3pt}
+.skl-validasi{display:flex;align-items:center;gap:10pt;margin:6pt 0 0;padding:4pt 8pt;border:.5pt dashed #666;font-size:8.5pt;line-height:1.45}
+.skl-validasi img{width:18mm;height:18mm;image-rendering:pixelated;flex:none}
+.doc table.skl-data td{padding:1pt 3pt}
 /* Halaman Pengumuman */
 .pgm-wadah{max-width:980px;margin:0 auto;display:grid;gap:18px}
 .pgm-gel{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
@@ -2004,3 +2004,26 @@ a.stat b{color:var(--tone)}
 .du-kepala>div:first-child{flex:1 1 240px}
 @media (max-width:640px){.du-kepala{flex-direction:column;align-items:stretch;gap:10px}.du-kepala .btn{align-self:flex-start}}
 @media (max-width:640px){.du-kepala>div:first-child{flex:none}}
+.bayar-rincian .potongan span,.bayar-rincian .potongan b{color:var(--ok);font-weight:700}
+.bayar-rincian .subtotal{opacity:.75;font-size:13px}
+.bayar-rincian .total.sisa b{color:var(--c3)}
+.bayar-catatan{display:block;margin-top:8px;color:var(--ok);font-weight:700}
+.rek-judul{display:block;margin-bottom:8px;color:var(--c3);font-weight:600;line-height:1.45}
+/* Keuangan */
+.k-kisi{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:16px}
+.k-kisi .card{margin:0}
+.k-metode{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
+.k-metode>div{flex:1;min-width:120px;padding:10px 12px;border-radius:12px;background:var(--surface-2)}
+.k-metode small{display:block;color:var(--muted);font-weight:700;font-size:12px}
+.k-angka{display:flex;gap:18px;flex-wrap:wrap}
+.k-angka>div{display:flex;flex-direction:column;align-items:flex-end}
+.k-angka small{color:var(--muted);font-weight:700;font-size:12px}
+.k-angka b{font-size:18px}
+@media (max-width:1000px){.k-kisi{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.k-angka{width:100%;justify-content:space-between}.k-angka>div{align-items:flex-start}}
+/* Profil santri (cetak/PDF) */
+.doc .profil-judul,.pdf-kanvas .profil-judul{font-weight:700;margin:10px 0 4px;font-size:10.5pt}
+.doc table.profil-tabel td.lbl{color:#333;font-size:9pt}
+.doc table.profil-tabel td{font-size:9.5pt;padding:2.5pt 4pt}
+.doc .pk-foto{flex:none}.doc .pk-foto img,.doc .pk-foto span{display:flex;align-items:center;justify-content:center;width:30mm;height:40mm;object-fit:cover;border:.5pt solid #000;text-align:center;font-size:8pt;color:#666}
+.doc .profil-kepala{display:flex;gap:5mm;align-items:flex-start}.doc .profil-kepala .pk-isi{flex:1;min-width:0}.doc .profil-kepala .profil-tabel{margin:0}

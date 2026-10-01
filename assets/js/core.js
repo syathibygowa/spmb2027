@@ -596,20 +596,20 @@
     return {
       judul: 'Surat Keterangan Lulus Seleksi', nomor: d.nomor_skl || '',
       meta: d.uji ? '<b>DATA UJI COBA · TIDAK BERLAKU</b>' : '',
-      isi: `<p style="text-align:justify;line-height:1.55;margin:4px 0 6px">Yang bertanda tangan di bawah ini, Ketua Panitia Penerimaan Murid Baru ${esc(id_.nama_lembaga || '')} Tahun Ajaran ${esc(ta)}, menerangkan bahwa:</p>
+      isi: `<p style="text-align:justify;line-height:1.42;margin:4px 0 6px">Yang bertanda tangan di bawah ini, Ketua Panitia Penerimaan Murid Baru ${esc(id_.nama_lembaga || '')} Tahun Ajaran ${esc(ta)}, menerangkan bahwa:</p>
         <table class="sk-tabel skl-data"><colgroup><col style="width:30%"><col style="width:3%"><col></colgroup><tbody>
           ${baris('Nama lengkap', d.nama_lengkap)}${baris('Nomor registrasi', d.no_registrasi)}${d.nisn ? baris('NISN', d.nisn) : ''}
           ${baris('Tempat, tanggal lahir', `${d.tempat_lahir || '–'}, ${d.tanggal_lahir ? tglI(d.tanggal_lahir) : '–'}`)}
           ${baris('Jenjang / bagian', `${d.jenjang} ${bag}`)}${baris('Sekolah asal', d.asal_sekolah)}
           ${baris('Nama orang tua', [d.nama_ayah, d.nama_ibu].filter(Boolean).join(' / '))}
         </tbody></table>
-        <p style="text-align:justify;line-height:1.55;margin:8px 0 6px">berdasarkan hasil seleksi${d.nomor_sk ? ` dan Keputusan Ketua Panitia Nomor ${esc(d.nomor_sk)} tanggal ${tglI(d.tanggal_sk)}` : ''}, dinyatakan:</p>
+        <p style="text-align:justify;line-height:1.42;margin:6px 0 4px">berdasarkan hasil seleksi${d.nomor_sk ? ` dan Keputusan Ketua Panitia Nomor ${esc(d.nomor_sk)} tanggal ${tglI(d.tanggal_sk)}` : ''}, dinyatakan:</p>
         <div class="skl-lulus">LULUS</div>
-        <p style="text-align:justify;line-height:1.55;margin:6px 0">sebagai calon santri baru ${esc(d.jenjang)} ${bag} ${esc(id_.nama_lembaga || '')} Tahun Ajaran ${esc(ta)} (${esc(d.gelombang || '')}).</p>
-        <p style="text-align:justify;line-height:1.55;margin:6px 0 2px">Calon santri wajib melakukan daftar ulang pada <b>${esc(du)}</b>${syarat.length ? ', dengan ketentuan:' : '.'}</p>
+        <p style="text-align:justify;line-height:1.42;margin:6px 0">sebagai calon santri baru ${esc(d.jenjang)} ${bag} ${esc(id_.nama_lembaga || '')} Tahun Ajaran ${esc(ta)} (${esc(d.gelombang || '')}).</p>
+        <p style="text-align:justify;line-height:1.42;margin:5px 0 2px">Calon santri wajib melakukan daftar ulang pada <b>${esc(du)}</b>${syarat.length ? ', dengan ketentuan:' : '.'}</p>
         ${syarat.length ? `<ol class="skl-syarat">${syarat.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : ''}
-        <p style="text-align:justify;line-height:1.55;margin:4px 0">Calon santri yang tidak melakukan daftar ulang sampai batas waktu tersebut dianggap mengundurkan diri.${pg.catatan_skl ? ' ' + esc(pg.catatan_skl) : ''}</p>
-        <p style="text-align:justify;line-height:1.55;margin:4px 0 0">Demikian surat keterangan ini dibuat untuk dipergunakan sebagaimana mestinya.</p>
+        <p style="text-align:justify;line-height:1.42;margin:4px 0">Calon santri yang tidak melakukan daftar ulang sampai batas waktu tersebut dianggap mengundurkan diri.${pg.catatan_skl ? ' ' + esc(pg.catatan_skl) : ''}</p>
+        <p style="text-align:justify;line-height:1.42;margin:4px 0 0">Demikian surat keterangan ini dibuat untuk dipergunakan sebagaimana mestinya.</p>
         ${d.kode_skl ? `<div class="skl-validasi">${qr ? `<img src="${qr}" alt="QR validasi">` : ''}<div><b>Validasi keaslian</b><br>Pindai kode QR atau buka ${esc(url.replace(/^https?:\/\//, ''))}<br>Kode validasi: <b>${esc(d.kode_skl)}</b></div></div>` : ''}`,
       ttd: penandaTangan('skl', peng, d.jenjang), tanggal: d.tanggal_sk || null
     };

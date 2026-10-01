@@ -41,6 +41,12 @@
     try { simpanPdf(await buatPdfDokumen(opsi), nama); } catch (e) { toast(galat(e), 'err', 6000); } finally { t.remove(); }
   }
 
+  // Pas foto dari Drive (privat) untuk Profil Santri; gagal = tanpa foto
+  async function ambilFoto(paket) {
+    const b = (paket.berkas || []).filter(x => x.jenis === 'pas_foto' && x.drive_id && x.status !== 'ditolak').pop();
+    if (!b) return '';
+    try { const h = await lihatBerkasPendaftar(b.drive_id); return (h.mime || '').startsWith('image/') ? h.data : ''; } catch (e) { return ''; }
+  }
   const TAB = [['daftar', 'Daftar dan Verifikasi', 'ph-list-checks', 'var(--c5)'], ['rekap', 'Rekap Santri Baru', 'ph-users-four', 'var(--c1)'], ['atur', 'Pengaturan', 'ph-gear-six', 'var(--c7)']];
   window.SPMB_MODUL.daftarulang = async (k, api) => {
     api.setFab(null);
@@ -137,7 +143,7 @@
     const kunciDu = new Set((cfg.berkas || []).map(b => b.kunci));
     const render = () => {
       const p = P.pendaftar, du = P.du, D = DU.nilaiGabung(P), st = du.status;
-      const total = (P.tagihan || []).reduce((a, x) => a + +x.nominal, 0) || +du.tagihan || 0;
+      const total = +DU.ringkasDari(P).bayar || +du.tagihan || 0;
       const blok = s => {
         const isi = DU.isianLengkap(cfg).filter(f => f.s === s && (f.sub || !f.jika || f.jika(D)))
           .map(f => f.sub ? `<div class="du-dl-sub">${esc(f.sub[0].replace(/ \(.*\)$/, ''))}</div>` : `<div><dt>${esc(f.l)}</dt><dd>${esc(DU.teksNilai(f, D[f.k]))}${f.t === 'koordinat' && D.koordinat?.lat ? ` <a href="https://maps.google.com/?q=${D.koordinat.lat},${D.koordinat.lng}" target="_blank" rel="noopener">peta</a>` : ''}</dd></div>`).join('');
@@ -147,6 +153,7 @@
       k.innerHTML = `
         <div class="page-head"><a class="btn sm ghost" href="#/daftarulang"><i class="ph-duotone ph-arrow-left"></i>Kembali</a><div class="spacer"></div>
           <a class="btn sm ghost" href="daftar-ulang.html?panitia=${p.id}" target="_blank" rel="noopener"><i class="ph-duotone ph-pencil-simple-line" style="color:var(--c1)"></i>Isi/ubah atas nama wali</a>
+          <button class="btn sm ghost" id="pProfil"><i class="ph-duotone ph-identification-card" style="color:var(--c3)"></i>Profil santri</button>
           <button class="btn sm ghost" id="pBukti"><i class="ph-duotone ph-file-text" style="color:var(--c4)"></i>Bukti Daftar Ulang</button>
           ${st === 'selesai' ? '<button class="btn sm ghost" id="pKwt"><i class="ph-duotone ph-receipt" style="color:var(--ok)"></i>Kuitansi</button>' : ''}
           <button class="btn sm ghost" id="pWa"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>WhatsApp</button></div>
@@ -166,8 +173,8 @@
         <div class="du-kisi">
           <div>
             <div class="card"><h3 class="du-h"><i class="ph-duotone ph-wallet" style="color:var(--ok)"></i>Pembayaran</h3>
-              <div class="bayar-rincian du-bayar">${(P.tagihan || []).map(x => `<div><span>${esc(x.komponen)}</span><b>${DU.rupiah(x.nominal)}</b></div>`).join('') || '<div><span>Rincian biaya daftar ulang belum diatur</span><b>–</b></div>'}
-                <div class="total"><span>Total tagihan</span><b>${DU.rupiah(total)}</b></div></div>
+              <div class="bayar-rincian du-bayar">${(P.tagihan || []).length ? DU.rincianHTML(DU.ringkasDari(P)) : '<div><span>Rincian biaya daftar ulang belum diatur</span><b>–</b></div>'}</div>
+              <a class="btn sm ghost" href="#/keuangan/${P.pendaftar.id}" style="margin-top:10px"><i class="ph-duotone ph-hand-heart" style="color:var(--c4)"></i>Keringanan dan riwayat pembayaran</a>
               <dl class="du-dl" style="margin-top:12px">
                 <div><dt>Klaim transfer wali</dt><dd>${du.bayar?.nominal ? DU.rupiah(du.bayar.nominal) : '–'}</dd></div>
                 <div><dt>Tanggal / pengirim</dt><dd>${du.bayar?.tanggal ? fmt.tgl(new Date(du.bayar.tanggal + 'T00:00:00')) : '–'} · ${esc(du.bayar?.nama_pengirim || '–')}${du.bayar?.bank_pengirim ? ` (${esc(du.bayar.bank_pengirim)})` : ''}</dd></div>
@@ -189,7 +196,12 @@
     };
     const pasang = () => {
       const p = P.pendaftar, du = P.du;
-      const total = (P.tagihan || []).reduce((a, x) => a + +x.nominal, 0) || +du.tagihan || 0;
+      const total = +DU.ringkasDari(P).bayar || +du.tagihan || 0;
+      $('#pProfil').onclick = () => pilihCetak('Profil santri', async pdf => {
+        const foto = await ambilFoto(P);
+        const o = DU.dokumenProfil(P, peng, foto);
+        return pdf ? unduh(o, `Profil Santri ${p.no_registrasi} ${p.nama_lengkap}.pdf`) : cetakDokumen(o);
+      });
       $('#pBukti').onclick = () => pilihCetak('Bukti Daftar Ulang', pdf => { const o = DU.dokumenBuktiDU(P, peng); return pdf ? unduh(o, `Bukti Daftar Ulang ${p.no_registrasi}.pdf`) : cetakDokumen(o); });
       $('#pKwt')?.addEventListener('click', () => pilihCetak('Kuitansi', pdf => { const o = DU.dokumenKuitansi(P, peng); return pdf ? unduh(o, `Kuitansi ${p.no_registrasi}.pdf`) : cetakDokumen(o); }));
       $('#pWa').onclick = () => UI.waBerurutan([{ p: { ...p, catatan: du.catatan }, sesi: [] }], du.status === 'selesai' ? 'du_selesai' : du.status === 'perbaikan' ? 'du_perbaikan' : 'undangan_du',
@@ -278,6 +290,7 @@
         <label class="check"><input type="checkbox" id="rSelesai" checked>Hanya yang selesai daftar ulang</label>
         <div class="spacer"></div>
         <button class="btn sm ghost" id="rCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak rekap</button>
+        <button class="btn sm ghost" id="rProfil"><i class="ph-duotone ph-identification-card" style="color:var(--c3)"></i>Profil semua santri</button>
         <button class="btn sm ghost" id="rCsv"><i class="ph-duotone ph-file-csv" style="color:var(--c5)"></i>Ekspor CSV lengkap</button>
       </div>
       <div class="stats stats-pendaftar" id="rStat"></div>
@@ -308,6 +321,24 @@
     $('#rUji').onchange = e => { SEL.uji = e.target.checked; muat().catch(x => toast(galat(x), 'err')); };
     $('#rSelesai').onchange = e => { hanyaSelesai = e.target.checked; render(); };
     $('#rCsv').onclick = () => ekspor(tampil(), 'Rekap Santri Baru');
+    $('#rProfil').onclick = async () => {
+      const rows = tampil(); if (!rows.length) return toast('Tidak ada data.', 'warn');
+      const v = await dialog({ judul: `Profil ${rows.length} santri (PDF)`, ikon: 'ph-identification-card', tone: 'var(--c3)',
+        isi: `<p style="margin:0 0 10px">Satu santri satu bagian, disusun menjadi satu berkas PDF. Untuk banyak santri, proses dapat memakan beberapa menit.</p>
+          <label class="check"><input type="checkbox" id="pfFoto" checked>Sertakan pas foto (diambil dari Google Drive, lebih lama)</label>`,
+        tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Susun PDF', ikon: 'ph-file-pdf', aksi: root => ({ foto: root.querySelector('#pfFoto').checked }) }] });
+      if (!v) return;
+      const peng = await muatPengaturan(), t = toast(`Mengambil data 0/${rows.length}…`, 'info', 1800000), tulis = m => { const d = t.querySelector('div'); if (d) d.textContent = m; };
+      try {
+        const docs = [];
+        for (let i = 0; i < rows.length; i++) {
+          tulis(`Mengambil data ${i + 1}/${rows.length}…`);
+          const { data: P, error } = await sb.rpc('du_detail', { p_id: rows[i].id }); if (error) throw error;
+          docs.push(DU.dokumenProfil(P, peng, v.foto ? await ambilFoto(P) : ''));
+        }
+        simpanPdf(await buatPdfBanyak(docs, 'Profil Santri Baru', (n, tot) => tulis(`Menyusun PDF ${n}/${tot}…`)), `Profil Santri Baru ${fmt.isoTgl()}.pdf`);
+      } catch (e) { toast(galat(e), 'err', 7000); } finally { t.remove(); }
+    };
     $('#rCetak').onclick = () => pilihCetak('Rekap santri baru', async pdf => {
       const peng = await muatPengaturan(), ta = peng.identitas?.tahun_ajaran || '', rows = tampil();
       if (!rows.length) return toast('Tidak ada data.', 'warn');

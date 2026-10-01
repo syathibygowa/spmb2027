@@ -554,7 +554,7 @@
     return kelolaDaftar(el, ctx, {
       tabel: 'rekening', label: 'Rekening Pembayaran', labelSatu: 'rekening', ikon: 'ph-bank', tone: 'var(--c5)',
       kosong: 'Belum ada rekening', pratinjau: 'index.html?pratinjau=1#biaya',
-      catatan: 'Rekening tampil di formulir pendaftaran (langkah unggah bukti transfer), di bawah rincian biaya halaman depan, dan pada tagihan daftar ulang.',
+      catatan: 'Atur Peruntukan agar wali tidak salah transfer: rekening "Pendaftaran" hanya tampil di formulir pendaftaran, rekening "Daftar ulang" hanya tampil di halaman daftar ulang, dan "Semua" tampil di keduanya. Bila putra dan putri memakai rekening berbeda, atur juga kolom Untuk santri.',
       baris: x => ({
         judul: `${x.bank} · ${x.nomor_rekening}`,
         sub: ['a.n. ' + x.atas_nama, x.keterangan].filter(Boolean).join(' · '),

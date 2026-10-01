@@ -28,6 +28,7 @@
     { id: 'pendaftar',  label: 'Pendaftar',     ikon: 'ph-identification-card',     tone: 'var(--c4)', peran: ['superadmin', 'admin'], sub: 'Data calon santri, verifikasi berkas dan pembayaran' },
     { id: 'seleksi',    label: 'Seleksi',       ikon: 'ph-exam',                    tone: 'var(--c2)', peran: ['superadmin', 'admin'], sub: 'Sesi tes, penguji, kartu peserta, dan validasi nilai' },
     { id: 'pengumuman', label: 'Pengumuman',    ikon: 'ph-megaphone',               tone: 'var(--c6)', peran: ['superadmin', 'admin'], sub: 'Penerbitan hasil seleksi, Surat Keterangan Lulus, dan WhatsApp hasil' },
+    { id: 'daftarulang', label: 'Daftar Ulang', ikon: 'ph-clipboard-text',         tone: 'var(--c5)', peran: ['superadmin', 'admin'], sub: 'Verifikasi daftar ulang, kuitansi, dan rekap santri baru' },
     { id: 'penilaian',  label: 'Penilaian',     ikon: 'ph-pencil-simple-line',      tone: 'var(--c5)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Isi nilai peserta di sesi yang ditugaskan kepada Anda' },
     { id: 'konten',     label: 'Konten Situs',  ikon: 'ph-browsers',                tone: 'var(--c7)', peran: ['superadmin'], sub: 'Isi landing page, profil, berita, dan berkas' },
     { id: 'spmb',       label: 'Pengaturan SPMB', ikon: 'ph-flag-banner',          tone: 'var(--c3)', peran: ['superadmin'], sub: 'Gelombang, kuota, biaya, rekening, formulir, dan templat WhatsApp' },
@@ -38,7 +39,6 @@
   ];
   // Menu fase berikutnya, ditampilkan sebagai penanda saja
   const SEGERA = [
-    ['Daftar Ulang', 'ph-clipboard-text', 'Fase 4']
   ];
 
   const S = { user: null, profil: null, pengaturan: {}, unread: 0, notifTerbaru: [], kanal: null, jamTimer: null, statTimer: null, param: '' };
@@ -112,7 +112,7 @@
       ${utama.map(m => `<a href="#/${m.id}" data-menu="${m.id}" style="--tone:${m.tone}">
           <span class="ni"><i class="ph-duotone ${m.ikon}"></i></span>${m.label}
           ${m.id === 'notifikasi' ? '<span class="count hidden" data-count></span>' : ''}</a>`).join('')}
-      ${S.profil.peran !== 'penguji' ? `<h5>Segera hadir</h5>
+      ${S.profil.peran !== 'penguji' && SEGERA.length ? `<h5>Segera hadir</h5>
       ${SEGERA.map(([l, ic, f]) => `<a aria-disabled="true" style="--tone:var(--c8);opacity:.55;cursor:default" title="Tersedia di ${f}">
           <span class="ni"><i class="ph-duotone ${ic}"></i></span>${l}<span class="pill" style="--tone:var(--c8);margin-left:auto;font-size:10.5px">${f}</span></a>`).join('')}` : ''}`;
     $('#nav').addEventListener('click', e => {
@@ -481,6 +481,7 @@
      ================================================================= */
   HALAMAN.seleksi = k => window.SPMB_MODUL.seleksi(k, { S, setFab, param: S.param });
   HALAMAN.pengumuman = k => window.SPMB_MODUL.pengumuman(k, { S, setFab, param: S.param });
+  HALAMAN.daftarulang = k => window.SPMB_MODUL.daftarulang(k, { S, setFab, param: S.param });
   HALAMAN.penilaian = k => window.SPMB_MODUL.penilaian(k, { S, setFab, param: S.param });
 
   /* =================================================================

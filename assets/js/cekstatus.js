@@ -140,6 +140,8 @@
           <h3><i class="ph-duotone ph-files" style="color:var(--c4)"></i>Berkas yang diunggah</h3>
           <ul class="cek-berkas">${d.berkas.map(b => `<li><span>${esc(label[b.jenis] || b.jenis)}${b.status === 'ditolak' && b.catatan ? `<small>${esc(b.catatan)}</small>` : ''}</span>
             <span class="pill" style="--tone:${(VERIF[b.status] || VERIF.menunggu)[1]}">${(VERIF[b.status] || VERIF.menunggu)[0]}</span></li>`).join('')}</ul></div>` : ''}
+        ${['lulus', 'daftar_ulang_menunggu', 'daftar_ulang_selesai'].includes(d.status) ? `<a class="kartu sisi-ajakan cek-ke-pgm" href="daftar-ulang.html?no=${encodeURIComponent(d.no_registrasi)}"><i class="ph-duotone ph-clipboard-text"></i>
+          <span><b>Daftar ulang</b><small>${d.status === 'daftar_ulang_selesai' ? 'Unduh Bukti Daftar Ulang dan Kuitansi' : 'Isi formulir daftar ulang dan unggah bukti pembayaran'}</small></span><i class="ph-duotone ph-arrow-right"></i></a>` : ''}
         ${diumumkan ? `<a class="kartu sisi-ajakan cek-ke-pgm" href="pengumuman.html?no=${encodeURIComponent(d.no_registrasi)}" style="--tone:var(--c3)"><i class="ph-duotone ph-megaphone"></i>
           <span><b>Pengumuman hasil seleksi</b><small>${['lulus', 'daftar_ulang_menunggu', 'daftar_ulang_selesai'].includes(d.status) ? 'Unduh Surat Keterangan Lulus dan lihat ketentuan daftar ulang' : 'Lihat pengumuman lengkap'}</small></span><i class="ph-duotone ph-arrow-right"></i></a>` : ''}
         <div class="hero-actions cek-aksi">

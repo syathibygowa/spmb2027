@@ -638,7 +638,8 @@
       if (k === 'hafalan_surah' && t.value !== '') { t.value = String(+t.value); D[k] = t.value; }
       if (k === 'lama_mondok' && lamaBulan(t.value)) { t.value = teksLama(lamaBulan(t.value)); D[k] = t.value; }
       if ((k === 'nisn' || k === 'nik') && V[k](D[k] ?? '')?.[0] !== 'err') periksaTerdaftar().then(() => { cekKolom('nisn', !!D.nisn); if (D.nik) cekKolom('nik', true); });
-      if (D[k] !== undefined || V[k]) cekKolom(k, true);
+      // ditunda sedikit agar klik tombol tidak hilang karena tata letak bergeser saat pesan galat berubah
+      if (D[k] !== undefined || V[k]) setTimeout(() => cekKolom(k, true), 200);
       simpanDraf();
     });
     form.addEventListener('click', async e => {

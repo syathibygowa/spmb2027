@@ -1952,3 +1952,55 @@ a.stat b{color:var(--tone)}
 .cek-ke-pgm{margin-top:14px}
 @media (max-width:1120px) and (min-width:1025px){.situs-nav a{padding:8px 5px;font-size:12.5px}.situs-bar .brand-teks b{font-size:13px}}
 .pg-aksi-kartu .btn.block{white-space:normal;height:auto;min-height:44px;padding-top:8px;padding-bottom:8px;line-height:1.35}
+/* Daftar ulang */
+.stepper-daftar.sepuluh{grid-template-columns:repeat(10,1fr)}
+.stepper-daftar.sepuluh li{font-size:11px}
+.du-kepala{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 18px;margin-bottom:14px}
+.du-kepala>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.du-kepala>div:first-child{flex:1}
+.du-kepala small{color:var(--muted);font-weight:700;font-size:12px}
+.du-kepala b{font-size:16px}
+.du-baris{display:grid;gap:8px}
+.du-baris-item{display:grid;grid-template-columns:2fr 1.2fr .7fr 1.4fr auto;gap:8px;align-items:center;padding:8px;border-radius:12px;background:var(--surface-2)}
+.du-lokasi{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.isian-satuan.pra .input{padding-right:12px;padding-left:52px}
+.isian-satuan.pra>span{right:auto;left:6px}
+.grid-form>.daftar-sub.full{grid-column:1/-1;margin-bottom:0}
+.grid-form>.daftar-sub.full:first-child{margin-top:0}
+@media (max-width:1024px){.stepper-daftar.sepuluh{display:none}}
+@media (max-width:640px){.du-baris-item{grid-template-columns:1fr 1fr}.du-baris-item>:first-child{grid-column:1/-1}.du-baris-item .icon-btn{justify-self:end}}
+@media (max-width:1024px){.stepper-daftar.sepuluh+.stepper-hp{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:0 0 16px}.stepper-daftar.sepuluh+.stepper-hp b{font-size:17px}}
+@media (max-width:1024px) and (min-width:761px){.stepper-daftar.sepuluh+.stepper-hp span{font-size:12.5px;color:var(--muted);font-weight:700}.stepper-daftar.sepuluh+.stepper-hp .bar{grid-column:1/-1;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;display:block}.stepper-daftar.sepuluh+.stepper-hp .bar i{display:block;height:100%;background:var(--grad);border-radius:3px}}
+/* Daftar ulang (dashboard) */
+.du-saring{margin:4px 0 12px}
+.du-status-kartu{border-top:4px solid var(--tone);margin-bottom:16px}
+.du-status-kartu .pg-status-kepala .ic-box{background:color-mix(in srgb,var(--tone) 15%,transparent);color:var(--tone)}
+.du-kisi{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;align-items:start}
+.du-kisi>div{display:grid;gap:16px}
+.du-kisi .card{margin:0}
+.du-h{margin:0 0 12px;font-size:16px;display:flex;align-items:center;gap:8px}
+.du-dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;margin:0}
+.du-dl>div{min-width:0}
+.du-dl dt{font-size:12px;color:var(--muted);font-weight:700}
+.du-dl dd{margin:2px 0 0;font-weight:600;overflow-wrap:anywhere}
+.du-blok summary{cursor:pointer;display:flex;align-items:center;gap:10px;font-weight:800;list-style:none}
+.du-blok summary::-webkit-details-marker{display:none}
+.du-blok[open] summary{margin-bottom:12px}
+.du-berkas{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.du-berkas li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--surface-2)}
+.du-berkas li>div{flex:1;min-width:0}
+.du-berkas b{display:block;font-size:14px}
+.du-berkas small{color:var(--muted);font-size:12px}
+.du-bayar{background:var(--surface-2);border-radius:14px;padding:12px 14px}
+.du-atur-daftar{display:grid;gap:8px}
+.du-atur-baris{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center}
+.du-atur-baris.tambahan{grid-template-columns:1.4fr .8fr 1.2fr 1.4fr auto auto}
+.du-atur-grup{margin-bottom:12px}
+.du-atur-grup>b{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:14px}
+@media (max-width:1000px){.du-kisi{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){.du-dl{grid-template-columns:minmax(0,1fr)}.du-atur-baris.tambahan{grid-template-columns:1fr 1fr}.du-atur-baris.tambahan>:first-child{grid-column:1/-1}}
+.du-dl-sub{grid-column:1/-1;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-top:6px;border-top:1px dashed var(--border)}
+.du-dl-sub:first-child{border-top:0;padding-top:0}
+.du-kepala>div:first-child{flex:1 1 240px}
+@media (max-width:640px){.du-kepala{flex-direction:column;align-items:stretch;gap:10px}.du-kepala .btn{align-self:flex-start}}
+@media (max-width:640px){.du-kepala>div:first-child{flex:none}}

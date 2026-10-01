@@ -148,7 +148,9 @@
           ${d.status === 'daftar_ulang_selesai' ? '<div class="note ok-note"><i class="ph-duotone ph-graduation-cap"></i><div>Daftar ulang sudah selesai. Selamat bergabung.</div></div>' : ''}
           ${lulus ? `<div class="pgm-aksi">
             <button type="button" class="btn" id="hPdf"><i class="ph-duotone ph-file-pdf"></i>Unduh Surat Keterangan Lulus</button>
-            <button type="button" class="btn ghost" id="hCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak</button></div>` : ''}
+            <button type="button" class="btn ghost" id="hCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak</button></div>
+          <a class="kartu sisi-ajakan cek-ke-pgm" href="daftar-ulang.html?no=${encodeURIComponent(d.no_registrasi)}" style="text-align:left"><i class="ph-duotone ph-clipboard-text"></i>
+            <span><b>${d.status === 'daftar_ulang_selesai' ? 'Lihat daftar ulang' : 'Lanjutkan ke daftar ulang'}</b><small>Masuk dengan nomor registrasi, NISN, dan tanggal lahir</small></span><i class="ph-duotone ph-arrow-right"></i></a>` : ''}
         </div>
         <div class="hero-actions cek-aksi">
           <a class="btn ghost" href="cek-status.html?no=${encodeURIComponent(d.no_registrasi)}"><i class="ph-duotone ph-path" style="color:var(--c4)"></i>Tahapan di Cek Status</a>

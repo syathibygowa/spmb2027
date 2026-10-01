@@ -257,6 +257,7 @@
       jadwal_tes: teksJadwalTes(x.sesi || []), tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
       tautan_pengumuman: `${situs}/pengumuman.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
       tautan_daftar_ulang: `${situs}/daftar-ulang.html?no=${encodeURIComponent(x.p.no_registrasi)}`, jadwal_daftar_ulang: jadwalDu,
+      catatan: x.p.catatan || opsi.catatan || '',
       nama_lembaga: id_.nama_lembaga || '', tahun_ajaran: id_.tahun_ajaran || ''
     });
     // lompati yang sudah pernah dikirimi templat ini

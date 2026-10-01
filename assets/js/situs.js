@@ -139,6 +139,7 @@
         .map(k => [(S.p.beranda?.bagian || []).find(b => b.kunci === k)?.judul || k, `index.html#${idBagian(k)}`, IKON[k][0], IKON[k][1]]),
       ['Cek Status', 'cek-status.html', 'ph-magnifying-glass', 'var(--c4)'],
       ['Pengumuman', 'pengumuman.html', 'ph-megaphone', 'var(--c3)'],
+      ['Daftar Ulang', 'daftar-ulang.html', 'ph-clipboard-text', 'var(--c5)'],
       ['Kontak dan Lokasi', 'kontak.html', 'ph-map-pin', 'var(--ok)'],
       ['Masuk Panitia', 'masuk.html', 'ph-sign-in', 'var(--c8)']
     ];
@@ -166,7 +167,7 @@
         <a href="profil.html" class="${HAL === 'profil' ? 'aktif' : ''}" style="--tone:var(--c1)"><span class="pill-ic"><i class="ph-duotone ph-identification-badge"></i></span>Profil</a>
         <a href="${tautanDaftar()}" class="daftar${HAL === 'daftar' ? ' aktif' : ''}"><span class="pill-ic"><i class="ph-duotone ph-note-pencil"></i></span>Daftar</a>
         <a href="berita.html" class="${HAL === 'berita' ? 'aktif' : ''}" style="--tone:var(--c5)"><span class="pill-ic"><i class="ph-duotone ph-newspaper"></i></span>Berita</a>
-        <button type="button" id="btnLainnya" class="${['kontak', 'cek-status', 'pengumuman'].includes(HAL) ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
+        <button type="button" id="btnLainnya" class="${['kontak', 'cek-status', 'pengumuman', 'daftar-ulang'].includes(HAL) ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
       </nav>
 
       <div class="lembar-back hidden" id="lembarLainnya">

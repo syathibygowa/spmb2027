@@ -1,5 +1,5 @@
 /* =====================================================================
-   SPMB 2027/2028 · JEMBATAN UNGGAH (Google Apps Script) · versi 3.2
+   SPMB · JEMBATAN UNGGAH (Google Apps Script) · versi 3.4
    Pondok Pesantren Tahfizhul Qur'an Imam Asy-Syathiby Wahdah Islamiyah Gowa
 
    Tugas:
@@ -19,6 +19,9 @@
    4d. Daftar ulang : (3.3) berkas daftar ulang langsung masuk folder santri
                       dengan pola nama yang sama; rapikanBerkasDaftarUlang()
                       memindahkan berkas lama dari folder _Draf/du-*.
+   4e. Unduhan      : (3.4) Admin/Superadmin mengunggah berkas Pusat Unduhan
+                      (PDF, gambar, Word, Excel, PowerPoint) ke folder
+                      "Unduhan"; berkas dibagikan "siapa saja dengan link".
    5. Penjaga       : menyapa Supabase setiap hari agar tidak dijeda.
 
    Keamanan: berkas pendaftar TIDAK dibagikan ke publik. Berkas ini TIDAK
@@ -31,17 +34,25 @@ const PENGATURAN = {
   FOLDER_INDUK: '1CDoSwzcKma-GfGoR50ocI8EpSsvrl30w',                // folder "SPMB 2027"
   ALAMAT_SITUS: 'https://syathibygowa.github.io/spmb2027',
   ZONA_WAKTU: 'Asia/Makassar',
-  VERSI: '3.3 (Fase 4)'
+  VERSI: '3.4 (Fase 5)'
 };
 
 const FOLDER_PENDAFTAR = 'Berkas Pendaftar';
-const EKSTENSI = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' };
+const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const MIME_PPTX = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+const EKSTENSI = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf',
+  [MIME_DOCX]: '.docx', [MIME_XLSX]: '.xlsx', [MIME_PPTX]: '.pptx' };
 
 // Unggahan dengan sesi panitia
 const KEPERLUAN = {
   konten: {
     folder: 'Konten Situs', peran: ['superadmin'], peranHapus: ['superadmin'], publik: true, maksMB: 10,
     jenis: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+  },
+  unduhan: {                   // Pusat Unduhan situs (brosur, panduan, formulir)
+    folder: 'Unduhan', peran: ['superadmin', 'admin'], peranHapus: ['superadmin', 'admin'], publik: true, maksMB: 15,
+    jenis: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', MIME_DOCX, MIME_XLSX, MIME_PPTX]
   },
   pendaftar_admin: {           // Admin mengganti/menambah berkas milik pendaftar
     folder: FOLDER_PENDAFTAR, peran: ['superadmin', 'admin'], peranHapus: ['superadmin', 'admin'], publik: false, maksMB: 10,
@@ -101,6 +112,7 @@ function unggah(req) {
     folder = subfolder(subfolder(folderInduk(), k.folder), bersihkan(req.bagian || 'umum'));
   }
   let nama = cap() + '-' + bersihkan(req.nama || 'berkas');
+  if (req.keperluan === 'unduhan') nama = namaBebas(bersihNama(String(req.nama || 'berkas').replace(/\.[a-z0-9]{2,5}$/i, '')).slice(0, 90) || 'berkas', folder, EKSTENSI[berkas.mime] || '');
   if (req.keperluan === 'pendaftar_admin' && req.santri && req.label) {
     nama = namaBebas(namaBerkasSantri(req.santri, req.label, req.bagian), folder, EKSTENSI[berkas.mime] || '');
   }
@@ -632,13 +644,14 @@ function folderSantri(no) {
 
 function bacaBerkas(req, izin, maksGambarMB, maksPdfMB) {
   const mime = String(req.mime || '').toLowerCase();
-  if (izin.indexOf(mime) < 0) throw new Error('Jenis berkas tidak diizinkan. Gunakan JPG, PNG, WEBP, atau PDF.');
+  if (izin.indexOf(mime) < 0) throw new Error(izin.indexOf(MIME_DOCX) >= 0 ? 'Jenis berkas tidak diizinkan. Gunakan PDF, JPG, PNG, WEBP, Word, Excel, atau PowerPoint.' : 'Jenis berkas tidak diizinkan. Gunakan JPG, PNG, WEBP, atau PDF.');
   const isi = String(req.data || '').replace(/^data:[^,]*,/, '');
   const bytes = Utilities.base64Decode(isi);
   if (!bytes.length) throw new Error('Berkas kosong atau rusak.');
   const maks = mime === 'application/pdf' ? maksPdfMB : maksGambarMB;
   if (bytes.length > maks * 1024 * 1024) throw new Error('Ukuran berkas melebihi ' + maks + ' MB.');
   if (mime === 'application/pdf' && Utilities.newBlob(bytes.slice(0, 5)).getDataAsString() !== '%PDF-') throw new Error('Berkas PDF rusak atau bukan PDF.');
+  if ([MIME_DOCX, MIME_XLSX, MIME_PPTX].indexOf(mime) >= 0 && Utilities.newBlob(bytes.slice(0, 2)).getDataAsString() !== 'PK') throw new Error('Berkas Office rusak atau bukan berkas Word/Excel/PowerPoint asli.');
   return { mime: mime, bytes: bytes };
 }
 
@@ -687,6 +700,7 @@ function siapkan() {
 
   const konten = subfolder(induk, KEPERLUAN.konten.folder);
   Logger.log('Folder konten: ' + konten.getName());
+  Logger.log('Folder unduhan: ' + subfolder(induk, KEPERLUAN.unduhan.folder).getName());
   const pend = folderPendaftar();
   subfolder(pend, '_Draf'); subfolder(pend, '_Uji Coba');
   Logger.log('Folder pendaftar: ' + pend.getName() + ' (berisi _Draf dan _Uji Coba)');

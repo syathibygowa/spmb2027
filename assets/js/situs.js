@@ -109,6 +109,7 @@
     ['berita', 'Berita', 'berita.html', 'ph-newspaper', 'var(--c5)'],
     ['cek-status', 'Cek Status', 'cek-status.html', 'ph-magnifying-glass', 'var(--c4)'],
     ['pengumuman', 'Pengumuman', 'pengumuman.html', 'ph-megaphone', 'var(--c3)'],
+    ['unduhan', 'Unduhan', 'unduhan.html', 'ph-download-simple', 'var(--c2)'],
     ['kontak', 'Kontak', 'kontak.html', 'ph-phone-call', 'var(--ok)']
   ];
 
@@ -125,7 +126,7 @@
           <div class="brand-teks"><b>${esc(nama)}</b><span>SPMB Tahun Ajaran ${esc(ta)}</span></div>
         </a>
         <nav class="situs-nav" aria-label="Menu utama">
-          ${NAV.filter(([k]) => k !== 'jadwal').map(([k, l, h, ic, t]) => `<a href="${h}" style="--tone:${t}" class="${k === HAL ? 'aktif' : ''}"><i class="ph-duotone ${ic}"></i>${l}</a>`).join('')}
+          ${NAV.filter(([k]) => !['jadwal', 'biaya'].includes(k)).map(([k, l, h, ic, t]) => `<a href="${h}" style="--tone:${t}" class="${k === HAL ? 'aktif' : ''}"><i class="ph-duotone ${ic}"></i>${l}</a>`).join('')}
         </nav>
         <div class="situs-aksi">
           <div class="hide-sm">${themeSegHTML}</div>
@@ -140,6 +141,7 @@
       ['Cek Status', 'cek-status.html', 'ph-magnifying-glass', 'var(--c4)'],
       ['Pengumuman', 'pengumuman.html', 'ph-megaphone', 'var(--c3)'],
       ['Daftar Ulang', 'daftar-ulang.html', 'ph-clipboard-text', 'var(--c5)'],
+      ['Unduhan', 'unduhan.html', 'ph-download-simple', 'var(--c2)'],
       ['Kontak dan Lokasi', 'kontak.html', 'ph-map-pin', 'var(--ok)'],
       ['Masuk Panitia', 'masuk.html', 'ph-sign-in', 'var(--c8)']
     ];
@@ -167,7 +169,7 @@
         <a href="profil.html" class="${HAL === 'profil' ? 'aktif' : ''}" style="--tone:var(--c1)"><span class="pill-ic"><i class="ph-duotone ph-identification-badge"></i></span>Profil</a>
         <a href="${tautanDaftar()}" class="daftar${HAL === 'daftar' ? ' aktif' : ''}"><span class="pill-ic"><i class="ph-duotone ph-note-pencil"></i></span>Daftar</a>
         <a href="berita.html" class="${HAL === 'berita' ? 'aktif' : ''}" style="--tone:var(--c5)"><span class="pill-ic"><i class="ph-duotone ph-newspaper"></i></span>Berita</a>
-        <button type="button" id="btnLainnya" class="${['kontak', 'cek-status', 'pengumuman', 'daftar-ulang'].includes(HAL) ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
+        <button type="button" id="btnLainnya" class="${['kontak', 'cek-status', 'pengumuman', 'daftar-ulang', 'unduhan'].includes(HAL) ? 'aktif' : ''}" style="--tone:var(--c8)"><span class="pill-ic"><i class="ph-duotone ph-dots-nine"></i></span>Lainnya</button>
       </nav>
 
       <div class="lembar-back hidden" id="lembarLainnya">

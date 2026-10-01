@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c7332f">
+<meta name="robots" content="noindex">
+<title>Presentasi Perkembangan SPMB</title>
+<link rel="icon" type="image/png" href="assets/img/ikon.png">
+<link rel="stylesheet" href="assets/vendor/phosphor/style.css">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="presentasi">
+<div id="memuat" style="min-height:100vh;display:grid;place-items:center;color:var(--muted)">
+  <div style="text-align:center"><span class="spinner" style="width:32px;height:32px;color:var(--primary)"></span><p>Menyusun laporan perkembangan…</p></div>
+</div>
+
+<!-- Bilah alat -->
+<header class="pres-bilah hidden" id="bilah">
+  <a class="icon-btn plain" href="dashboard.html#/pengaturan" title="Kembali ke dashboard" aria-label="Kembali ke dashboard"><i class="ph-duotone ph-arrow-left"></i></a>
+  <div class="pres-judul"><b id="bJudul">Perkembangan SPMB</b><span><span class="pres-live"><i></i>LIVE</span> <span id="bWaktu">–</span></span></div>
+  <div class="spacer"></div>
+  <select class="select" id="pGel" aria-label="Gelombang"><option value="">Semua gelombang</option></select>
+  <label class="check uji-saklar hidden" id="pUjiLabel"><input type="checkbox" id="pUji">Data uji</label>
+  <div class="pres-seg" role="group" aria-label="Arah gulir">
+    <button type="button" data-arah="v" title="Gulir ke bawah" aria-label="Gulir ke bawah"><i class="ph-duotone ph-arrows-down-up"></i></button>
+    <button type="button" data-arah="h" title="Gulir ke samping" aria-label="Gulir ke samping"><i class="ph-duotone ph-arrows-left-right"></i></button>
+  </div>
+  <div id="themeSeg" class="hide-sm"></div>
+  <button class="icon-btn plain" id="pSegar" title="Muat ulang data" aria-label="Muat ulang data"><i class="ph-duotone ph-arrows-clockwise"></i></button>
+  <button class="icon-btn plain" id="pLayar" title="Layar penuh (F)" aria-label="Layar penuh"><i class="ph-duotone ph-corners-out"></i></button>
+</header>
+
+<main class="pres-slide-wadah arah-v" id="slides" tabindex="0" aria-label="Slide laporan"></main>
+
+<nav class="pres-titik hidden" id="titik" aria-label="Daftar slide"></nav>
+<div class="pres-navi hidden" id="navi">
+  <button class="icon-btn" id="pPrev" aria-label="Slide sebelumnya"><i class="ph-duotone ph-caret-up"></i></button>
+  <span id="pNomor">1 / 1</span>
+  <button class="icon-btn" id="pNext" aria-label="Slide berikutnya"><i class="ph-duotone ph-caret-down"></i></button>
+</div>
+
+<script src="assets/vendor/supabase.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/core.js"></script>
+<script src="assets/js/presentasi.js"></script>
+</body>
+</html>

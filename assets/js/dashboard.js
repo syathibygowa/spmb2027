@@ -30,6 +30,7 @@
     { id: 'pengumuman', label: 'Pengumuman',    ikon: 'ph-megaphone',               tone: 'var(--c6)', peran: ['superadmin', 'admin'], sub: 'Penerbitan hasil seleksi, Surat Keterangan Lulus, dan WhatsApp hasil' },
     { id: 'daftarulang', label: 'Daftar Ulang', ikon: 'ph-clipboard-text',         tone: 'var(--c5)', peran: ['superadmin', 'admin'], sub: 'Verifikasi daftar ulang, kuitansi, dan rekap santri baru' },
     { id: 'keuangan',   label: 'Keuangan',      ikon: 'ph-wallet',                  tone: 'var(--ok)', peran: ['superadmin', 'admin'], sub: 'Tagihan, keringanan, pembayaran masuk, dan laporan keuangan' },
+    { id: 'unduhan',    label: 'Unduhan',       ikon: 'ph-download-simple',         tone: 'var(--c2)', peran: ['superadmin', 'admin'], sub: 'Brosur, panduan, formulir, dan dokumen untuk calon santri' },
     { id: 'penilaian',  label: 'Penilaian',     ikon: 'ph-pencil-simple-line',      tone: 'var(--c5)', peran: ['superadmin', 'admin', 'penguji'], sub: 'Isi nilai peserta di sesi yang ditugaskan kepada Anda' },
     { id: 'konten',     label: 'Konten Situs',  ikon: 'ph-browsers',                tone: 'var(--c7)', peran: ['superadmin'], sub: 'Isi landing page, profil, berita, dan berkas' },
     { id: 'spmb',       label: 'Pengaturan SPMB', ikon: 'ph-flag-banner',          tone: 'var(--c3)', peran: ['superadmin'], sub: 'Gelombang, kuota, biaya, rekening, formulir, dan templat WhatsApp' },
@@ -210,6 +211,7 @@
             ${isAdmin ? `<a href="#/seleksi"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-calendar-check"></i></span>Sesi tes</a>
             <a href="#/seleksi?tab=nilai"><span class="ic-box" style="--tone:var(--c6);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-list-checks"></i></span>Validasi nilai</a>
             <a href="#/pendaftar"><span class="ic-box" style="--tone:var(--c4);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-identification-card"></i></span>Data pendaftar</a>
+            <a href="presentasi.html" target="_blank" rel="noopener"><span class="ic-box" style="--tone:var(--c7);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-presentation-chart"></i></span>Presentasi</a>
             <a href="daftar.html" target="_blank"><span class="ic-box" style="--tone:var(--c2);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-user-plus"></i></span>Input pendaftar</a>` : ''}
             ${isSuper ? `<a href="#/konten"><span class="ic-box" style="--tone:var(--c7);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-browsers"></i></span>Konten situs</a>
             <a href="#/konten?m=berita"><span class="ic-box" style="--tone:var(--c3);width:34px;height:34px;font-size:18px"><i class="ph-duotone ph-pencil-line"></i></span>Tulis berita</a>
@@ -503,6 +505,7 @@
   HALAMAN.pengumuman = k => window.SPMB_MODUL.pengumuman(k, { S, setFab, param: S.param });
   HALAMAN.daftarulang = k => window.SPMB_MODUL.daftarulang(k, { S, setFab, param: S.param });
   HALAMAN.keuangan = k => window.SPMB_MODUL.keuangan(k, { S, setFab, param: S.param });
+  HALAMAN.unduhan = k => window.SPMB_MODUL.unduhan(k, { S, setFab, param: S.param });
   HALAMAN.penilaian = k => window.SPMB_MODUL.penilaian(k, { S, setFab, param: S.param });
 
   /* =================================================================
@@ -712,6 +715,7 @@
         <button role="tab" data-tab="ketua"><i class="ph-duotone ph-seal-check" style="color:var(--c6)"></i>Ketua Panitia</button>
         <button role="tab" data-tab="ttd"><i class="ph-duotone ph-signature" style="color:var(--c4)"></i>Penanda tangan</button>
         <button role="tab" data-tab="integrasi"><i class="ph-duotone ph-plugs-connected" style="color:var(--c2)"></i>Integrasi</button>
+        <a class="icon-btn plain tab-presentasi" href="presentasi.html" target="_blank" rel="noopener" title="Presentasi perkembangan SPMB" aria-label="Presentasi perkembangan SPMB"><i class="ph-duotone ph-presentation-chart" style="color:var(--c7)"></i></a>
       </div>
       <div id="isiTab"></div>`;
     const buka = tab => {
@@ -1005,7 +1009,7 @@
       box.innerHTML = '<div class="note info"><span class="spinner" style="width:18px;height:18px"></span><div>Menghubungi Apps Script…</div></div>';
       try {
         const j = await SPMB.kirimKeJembatan({ aksi: 'periksa' });
-        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>.${j.kuota_email != null ? ` Sisa kuota email hari ini: <b>${j.kuota_email}</b>.` : ''}${/^([12]\.|3\.[01]\b)/.test(j.versi) ? '<br><b>Perhatian:</b> ini masih versi lama. Terapkan Apps Script versi 3.2 (Fase 3 Langkah 6).' : ''}</div></div>`;
+        box.innerHTML = `<div class="note" style="background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 35%,transparent)"><i class="ph-duotone ph-check-circle" style="color:var(--ok)"></i><div><b>Terhubung.</b> Apps Script versi ${esc(j.versi)} mengenali Anda sebagai <b>${esc(NAMA_PERAN[j.peran] || j.peran)}</b>.${j.kuota_email != null ? ` Sisa kuota email hari ini: <b>${j.kuota_email}</b>.` : ''}${/^([12]\.|3\.[0-3]\b)/.test(j.versi) ? '<br><b>Perhatian:</b> ini masih versi lama. Terapkan Apps Script versi 3.4 agar unggahan Pusat Unduhan berjalan.' : ''}</div></div>`;
       } catch (err) {
         box.innerHTML = `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div><b>Belum terhubung.</b> ${esc(pesanGalat(err))}</div></div>`;
       }
@@ -1161,47 +1165,168 @@
   }
 
   /* =================================================================
-     LOG AKTIVITAS (Superadmin)
+     LOG AKTIVITAS (Superadmin): bawaan 30 hari terakhir, saringan, halaman, ekspor Excel
      ================================================================= */
-  const NAMA_AKSI = { insert: ['Menambah', 'ph-plus-circle', 'var(--ok)'], update: ['Mengubah', 'ph-pencil-simple', 'var(--c1)'], delete: ['Menghapus', 'ph-trash', 'var(--danger)'],
-    buat_akun: ['Membuat', 'ph-user-plus', 'var(--c2)'], atur_ulang_sandi: ['Atur ulang sandi', 'ph-key', 'var(--c6)'], urutkan: ['Mengurutkan', 'ph-arrows-down-up', 'var(--c5)'] };
-  const NAMA_OBJEK = { profil_pengguna: 'akun pengguna', pengaturan: 'pengaturan', akun: 'akun', konten_situs: 'konten situs', berita: 'berita' };
+  const NAMA_AKSI = {
+    insert: ['Menambah', 'ph-plus-circle', 'var(--ok)'], update: ['Mengubah', 'ph-pencil-simple', 'var(--c1)'], delete: ['Menghapus', 'ph-trash', 'var(--danger)'],
+    buat_akun: ['Membuat akun', 'ph-user-plus', 'var(--c2)'], atur_ulang_sandi: ['Atur ulang sandi', 'ph-key', 'var(--c6)'], urutkan: ['Mengurutkan', 'ph-arrows-down-up', 'var(--c5)'],
+    hapus: ['Menghapus', 'ph-trash', 'var(--danger)'], daftar: ['Pendaftaran baru', 'ph-user-plus', 'var(--ok)'],
+    isi_nilai: ['Mengisi nilai', 'ph-pencil-simple-line', 'var(--c5)'], ubah_nilai: ['Mengubah nilai', 'ph-pencil-simple-line', 'var(--c3)'], hapus_nilai: ['Menghapus nilai', 'ph-trash', 'var(--danger)'],
+    validasi_nilai_setujui: ['Menyetujui nilai', 'ph-check-circle', 'var(--ok)'], validasi_nilai_kembalikan: ['Mengembalikan nilai', 'ph-arrow-u-up-left', 'var(--c3)'], validasi_nilai_buka: ['Membuka kunci nilai', 'ph-lock-open', 'var(--c6)'],
+    tugaskan_penguji: ['Menugaskan penguji', 'ph-chalkboard-teacher', 'var(--c2)'], lepas_penguji: ['Melepas penguji', 'ph-user-minus', 'var(--c8)'],
+    tetapkan_hasil: ['Menetapkan hasil', 'ph-gavel', 'var(--c2)'], terbitkan_hasil: ['Menerbitkan hasil', 'ph-megaphone', 'var(--c6)'], tarik_hasil: ['Menarik hasil', 'ph-arrow-counter-clockwise', 'var(--danger)'],
+    kirim_daftar_ulang: ['Mengirim daftar ulang', 'ph-paper-plane-tilt', 'var(--c5)'], verifikasi_daftar_ulang: ['Verifikasi daftar ulang', 'ph-clipboard-text', 'var(--ok)'],
+    catat_pembayaran: ['Mencatat pembayaran', 'ph-hand-coins', 'var(--ok)'], batalkan_pembayaran: ['Membatalkan pembayaran', 'ph-prohibit', 'var(--danger)'],
+    atur_keringanan: ['Mengatur keringanan', 'ph-percent', 'var(--c4)'], hapus_keringanan: ['Menghapus keringanan', 'ph-percent', 'var(--danger)'], atur_format_kuitansi: ['Format kuitansi', 'ph-receipt', 'var(--c5)'],
+    isi_data_uji: ['Membuat data uji', 'ph-flask', 'var(--c6)'], isi_data_uji_lengkap: ['Membuat data uji lengkap', 'ph-flask', 'var(--c6)'], hapus_data_uji: ['Menghapus data uji', 'ph-flask', 'var(--danger)'],
+    mulai_tahun_ajaran: ['Memulai tahun ajaran', 'ph-calendar-star', 'var(--c7)']
+  };
+  const NAMA_OBJEK = { profil_pengguna: 'akun pengguna', pengaturan: 'pengaturan', akun: 'akun', konten_situs: 'konten situs', berita: 'berita',
+    pendaftar: 'pendaftar', gelombang: 'gelombang', sesi_tes: 'sesi tes', nilai_tes: 'nilai', unduhan: 'unduhan', kuota: 'kuota', rincian_biaya: 'rincian biaya', rekening: 'rekening' };
+  const AKSI_CRUD = ['insert', 'update', 'delete'];
+  const labelAksi = r => {
+    const a = NAMA_AKSI[r.aksi];
+    if (!a) return [r.aksi.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()), 'ph-dot-outline', 'var(--c8)'];
+    return AKSI_CRUD.includes(r.aksi) || r.aksi === 'hapus' ? [`${a[0]} ${NAMA_OBJEK[r.objek] || (r.objek || '').replace(/_/g, ' ')}`, a[1], a[2]] : a;
+  };
   HALAMAN.log = async k => {
-    const { data, error } = await sb.from('log_aktivitas').select('*').order('dibuat_pada', { ascending: false }).limit(150);
-    if (error) throw error;
     const nama = {};
-    (await sb.from('profil_pengguna').select('id,nama_lengkap,email')).data?.forEach(p => nama[p.id] = p.nama_lengkap || p.email);
+    (await sb.from('profil_pengguna').select('id,nama_lengkap,email').order('nama_lengkap')).data?.forEach(p => nama[p.id] = p.nama_lengkap || p.email);
+    const PER_HAL = 50;
+    const hariIni = fmt.isoTgl(), sebulan = fmt.isoTgl(new Date(Date.now() - 30 * 864e5));
+    const L = { dari: sebulan, sampai: hariIni, aksi: '', pengguna: '', cari: '', hal: 0, total: 0, data: [] };
     const ringkas = r => {
+      const b = r.rincian?.baru || r.rincian?.lama || {};
       if (r.objek === 'pengaturan') return `Pengaturan "${esc(r.objek_id)}"`;
       if (r.objek === 'konten_situs' || r.objek === 'berita') {
         if (r.aksi === 'urutkan') return `${esc(UI.NAMA_MODUL[r.objek_id] || r.objek_id || '')} (${r.rincian?.jumlah || 0} item)`;
-        const b = r.rincian?.baru || r.rincian?.lama || {};
         const ket = r.aksi === 'update' && r.rincian?.lama && r.rincian?.baru
           ? (r.rincian.lama.diarsipkan_pada !== r.rincian.baru.diarsipkan_pada ? (r.rincian.baru.diarsipkan_pada ? ' (diarsipkan)' : ' (dipulihkan)')
             : r.rincian.lama.tampil !== r.rincian.baru.tampil ? (r.rincian.baru.tampil ? ' (ditampilkan)' : ' (disembunyikan)')
             : r.rincian.lama.status !== r.rincian.baru.status ? ` (${esc(r.rincian.baru.status)})` : '') : '';
         return `${r.objek === 'berita' ? 'Berita' : esc(UI.NAMA_MODUL[b.jenis] || 'Konten')}: ${esc(b.judul || '(tanpa judul)')}${ket}`;
       }
+      if (r.objek === 'unduhan') return `Unduhan: ${esc(b.judul || '')}${r.aksi === 'update' && r.rincian?.lama?.tampil !== r.rincian?.baru?.tampil ? (r.rincian.baru.tampil ? ' (ditampilkan)' : ' (disembunyikan)') : ''}`;
       if (r.objek === 'akun') return `Akun ${esc(r.rincian?.nama || nama[r.objek_id] || '')}${r.rincian?.peran ? ` (${NAMA_PERAN[r.rincian.peran]})` : ''}`;
-      const b = r.rincian?.baru || r.rincian?.lama || {};
-      return `Akun ${esc(b.nama_lengkap || b.email || '')}${r.aksi === 'update' && r.rincian?.lama?.peran !== r.rincian?.baru?.peran ? ` (peran: ${NAMA_PERAN[r.rincian.lama.peran]} → ${NAMA_PERAN[r.rincian.baru.peran]})` : ''}${r.aksi === 'update' && r.rincian?.lama?.aktif !== r.rincian?.baru?.aktif ? ` (${r.rincian.baru.aktif ? 'diaktifkan' : 'dinonaktifkan'})` : ''}`;
+      if (r.objek === 'profil_pengguna') return `Akun ${esc(b.nama_lengkap || b.email || '')}${r.aksi === 'update' && r.rincian?.lama?.peran !== r.rincian?.baru?.peran ? ` (peran: ${NAMA_PERAN[r.rincian.lama.peran]} → ${NAMA_PERAN[r.rincian.baru.peran]})` : ''}${r.aksi === 'update' && r.rincian?.lama?.aktif !== r.rincian?.baru?.aktif ? ` (${r.rincian.baru.aktif ? 'diaktifkan' : 'dinonaktifkan'})` : ''}`;
+      // Umum: rangkum isian penting dari rincian
+      const d = r.rincian || {};
+      const bagian = [d.no || d.pendaftar, d.nama || b.nama || b.judul || b.nama_lengkap, d.bidang && `bidang ${d.bidang}`, d.hasil && `hasil ${String(d.hasil).replace(/_/g, ' ')}`,
+        d.aksi && String(d.aksi).replace(/_/g, ' '), d.tahap && String(d.tahap).replace(/_/g, ' '), d.nominal != null && `Rp ${fmt.angka(d.nominal)}`, d.kuitansi && `kuitansi ${d.kuitansi}`,
+        d.jumlah != null && `${fmt.angka(d.jumlah)} data`, d.baru && typeof d.baru === 'string' && `${d.lama || ''} → ${d.baru}`, d.catatan && `“${String(d.catatan).slice(0, 80)}”`, d.alasan && `alasan: ${String(d.alasan).slice(0, 80)}`]
+        .filter(x => x && typeof x !== 'object');
+      return esc(bagian.join(' · ') || (r.objek ? `${NAMA_OBJEK[r.objek] || r.objek} ${r.objek_id || ''}` : '–'));
     };
+    const teksPolos = h => { const t = document.createElement('div'); t.innerHTML = h; return t.textContent; };
+    const dasar = (kolom, opsi) => {
+      let q = sb.from('log_aktivitas').select(kolom, opsi)
+        .gte('dibuat_pada', `${L.dari}T00:00:00+08:00`).lt('dibuat_pada', `${fmt.isoTgl(new Date(new Date(L.sampai + 'T00:00:00').getTime() + 864e5))}T00:00:00+08:00`);
+      if (L.aksi) { const [a, o] = L.aksi.split('|'); q = q.eq('aksi', a); if (o) q = q.eq('objek', o); }
+      if (L.pengguna) q = L.pengguna === 'sistem' ? q.is('pengguna_id', null) : q.eq('pengguna_id', L.pengguna);
+      if (L.cari) { const c = L.cari.replace(/[%,()*]/g, ' ').trim(); if (c) q = q.or(`nama_pengguna.ilike.*${c}*,objek_id.ilike.*${c}*,aksi.ilike.*${c}*,objek.ilike.*${c}*`); }
+      return q;
+    };
+
     k.innerHTML = `
-      <div class="page-head"><p class="muted" style="margin:0">150 aktivitas terakhir. Setiap perubahan akun dan pengaturan tercatat otomatis.</p><div class="spacer"></div>
-        <button class="btn sm ghost" id="btnCetakLog"><i class="ph-duotone ph-printer"></i>Cetak</button></div>
-      <div class="table-wrap"><table class="tbl"><thead><tr><th>Waktu</th><th>Petugas</th><th>Aktivitas</th><th>Objek</th></tr></thead><tbody>
-      ${data.length ? data.map(r => { const [l, ic, t] = NAMA_AKSI[r.aksi] || [r.aksi, 'ph-dot', 'var(--c8)']; return `
+      <div class="card" style="margin-bottom:14px">
+        <div class="grid-form log-saring" style="align-items:end">
+          <div class="field" style="margin:0"><label for="lDari">Dari tanggal</label><input class="input" type="date" id="lDari" value="${L.dari}" max="${hariIni}"></div>
+          <div class="field" style="margin:0"><label for="lSampai">Sampai tanggal</label><input class="input" type="date" id="lSampai" value="${L.sampai}" max="${hariIni}"></div>
+          <div class="field" style="margin:0"><label for="lAksi">Aktivitas</label><select class="select" id="lAksi"><option value="">Semua aktivitas</option></select></div>
+          <div class="field" style="margin:0"><label for="lPengguna">Petugas</label><select class="select" id="lPengguna"><option value="">Semua petugas</option>
+            ${Object.entries(nama).map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('')}<option value="sistem">Sistem / pengunjung</option></select></div>
+          <div class="field" style="margin:0"><label for="lCari">Cari</label><div class="input-ikon"><i class="ph-duotone ph-magnifying-glass"></i><input class="input" type="search" id="lCari" placeholder="Nama, nomor, objek"></div></div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px">
+          <div class="chips-select" id="lCepat">${[['7', '7 hari'], ['30', '30 hari'], ['90', '3 bulan'], ['365', '1 tahun']].map(([n, l]) => `<label><input type="radio" name="cepat" value="${n}" ${n === '30' ? 'checked' : ''}>${l}</label>`).join('')}</div>
+          <div class="spacer" style="flex:1"></div>
+          <button class="btn sm ghost" id="lReset"><i class="ph-duotone ph-arrow-counter-clockwise"></i>Atur ulang</button>
+          <button class="btn sm ghost" id="lXlsx"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel</button>
+          <button class="btn sm ghost" id="lCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak</button>
+        </div>
+      </div>
+      <p class="muted" id="lInfo" style="margin:0 0 10px"></p>
+      <div class="table-wrap"><table class="tbl"><thead><tr><th style="width:150px">Waktu</th><th>Petugas</th><th>Aktivitas</th><th>Rincian</th></tr></thead><tbody id="lBody"></tbody></table></div>
+      <div id="lHal" style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:12px"></div>`;
+
+    const muatAksi = async () => {
+      const { data } = await dasar('aksi,objek').limit(10000);
+      const hit = {};
+      (data || []).forEach(r => { const key = AKSI_CRUD.includes(r.aksi) || r.aksi === 'hapus' ? `${r.aksi}|${r.objek || ''}` : r.aksi; hit[key] = (hit[key] || 0) + 1; });
+      const sel = $('#lAksi'), v = L.aksi;
+      sel.innerHTML = '<option value="">Semua aktivitas</option>' + Object.entries(hit)
+        .map(([key, n]) => { const [a, o] = key.split('|'); return [key, labelAksi({ aksi: a, objek: o })[0], n]; })
+        .sort((x, y) => x[1].localeCompare(y[1], 'id')).map(([key, l, n]) => `<option value="${esc(key)}" ${key === v ? 'selected' : ''}>${esc(l)} (${fmt.angka(n)})</option>`).join('');
+      if (v && !hit[v]) { sel.insertAdjacentHTML('beforeend', `<option value="${esc(v)}" selected>${esc(labelAksi({ aksi: v.split('|')[0], objek: v.split('|')[1] })[0])} (0)</option>`); }
+    };
+    const muat = async () => {
+      if (L.dari > L.sampai) return toast('Tanggal awal tidak boleh setelah tanggal akhir.', 'err');
+      $('#lBody').innerHTML = '<tr><td colspan="4"><div class="skeleton" style="height:14px;width:60%"></div></td></tr>';
+      const { data, count, error } = await dasar('*', { count: 'exact' }).order('dibuat_pada', { ascending: false }).range(L.hal * PER_HAL, L.hal * PER_HAL + PER_HAL - 1);
+      if (error) { $('#lBody').innerHTML = `<tr><td colspan="4"><div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>${esc(pesanGalat(error))}</div></div></td></tr>`; return; }
+      L.data = data || []; L.total = count || 0;
+      const halMaks = Math.max(0, Math.ceil(L.total / PER_HAL) - 1);
+      $('#lInfo').innerHTML = `<b>${fmt.angka(L.total)}</b> aktivitas pada ${fmt.tglPanjang(new Date(L.dari + 'T00:00:00'))} – ${fmt.tglPanjang(new Date(L.sampai + 'T00:00:00'))}${L.total > PER_HAL ? ` · menampilkan ${fmt.angka(L.hal * PER_HAL + 1)}–${fmt.angka(Math.min(L.total, (L.hal + 1) * PER_HAL))}` : ''}`;
+      $('#lBody').innerHTML = L.data.length ? L.data.map(r => { const [l, ic, t] = labelAksi(r); return `
         <tr><td style="white-space:nowrap">${fmt.tglJam(r.dibuat_pada)}</td>
-          <td>${esc(r.nama_pengguna || 'Sistem')}</td>
-          <td><span class="pill" style="--tone:${t}"><i class="ph-duotone ${ic}"></i>${l} ${NAMA_OBJEK[r.objek] || esc(r.objek || '')}</span></td>
-          <td>${ringkas(r)}</td></tr>`; }).join('') : '<tr><td colspan="4"><div class="empty"><i class="ph-duotone ph-clock-counter-clockwise"></i><b>Belum ada aktivitas</b></div></td></tr>'}
-      </tbody></table></div>`;
-    $('#btnCetakLog').onclick = () => cetakDokumen({
-      judul: 'Log Aktivitas Sistem SPMB', meta: `Dicetak: ${fmt.tglPanjang(new Date())}`,
-      isi: `<table><thead><tr><th style="width:6%">No</th><th style="width:20%">Waktu</th><th style="width:22%">Petugas</th><th style="width:20%">Aktivitas</th><th style="width:32%">Objek</th></tr></thead><tbody>
-        ${data.map((r, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${fmt.tglJam(r.dibuat_pada)}</td><td>${esc(r.nama_pengguna || 'Sistem')}</td><td>${(NAMA_AKSI[r.aksi] || [r.aksi])[0]} ${NAMA_OBJEK[r.objek] || ''}</td><td>${ringkas(r)}</td></tr>`).join('')}</tbody></table>`,
-      ttd: [{ jabatan: 'Superadmin', nama: S.profil.nama_lengkap }]
-    });
+          <td>${esc(r.nama_pengguna || (r.pengguna_id ? nama[r.pengguna_id] || '–' : 'Sistem'))}</td>
+          <td><span class="pill" style="--tone:${t}"><i class="ph-duotone ${ic}"></i>${esc(l)}</span></td>
+          <td>${ringkas(r)}</td></tr>`; }).join('') : '<tr><td colspan="4"><div class="empty"><i class="ph-duotone ph-clock-counter-clockwise"></i><b>Tidak ada aktivitas</b>Ubah rentang tanggal atau saringan.</div></td></tr>';
+      $('#lHal').innerHTML = L.total > PER_HAL ? `<button class="btn sm ghost" data-hal="-1" ${L.hal ? '' : 'disabled'}><i class="ph-duotone ph-caret-left"></i>Sebelumnya</button>
+        <span class="muted">Halaman ${L.hal + 1} dari ${halMaks + 1}</span>
+        <button class="btn sm ghost" data-hal="1" ${L.hal < halMaks ? '' : 'disabled'}>Berikutnya<i class="ph-duotone ph-caret-right"></i></button>` : '';
+    };
+    const ambilSemua = async (maks = 5000) => {
+      const hasil = [];
+      for (let i = 0; i < maks; i += 1000) {
+        const { data, error } = await dasar('*').order('dibuat_pada', { ascending: false }).range(i, Math.min(maks, i + 1000) - 1);
+        if (error) throw error;
+        hasil.push(...(data || [])); if (!data || data.length < 1000) break;
+      }
+      return hasil;
+    };
+    const ulang = async (aksiJuga = true) => { L.hal = 0; if (aksiJuga) await muatAksi(); await muat(); };
+    const tunda = (fn, ms = 350) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+    $('#lDari').onchange = e => { L.dari = e.target.value || sebulan; document.querySelectorAll('[name=cepat]').forEach(r => r.checked = false); ulang(); };
+    $('#lSampai').onchange = e => { L.sampai = e.target.value || hariIni; document.querySelectorAll('[name=cepat]').forEach(r => r.checked = false); ulang(); };
+    $('#lCepat').onchange = e => { const n = +e.target.value; L.sampai = hariIni; L.dari = fmt.isoTgl(new Date(Date.now() - n * 864e5)); $('#lDari').value = L.dari; $('#lSampai').value = L.sampai; ulang(); };
+    $('#lAksi').onchange = e => { L.aksi = e.target.value; ulang(false); };
+    $('#lPengguna').onchange = e => { L.pengguna = e.target.value; ulang(); };
+    $('#lCari').oninput = tunda(e => { L.cari = e.target.value.trim(); ulang(false); });
+    $('#lReset').onclick = () => {
+      Object.assign(L, { dari: sebulan, sampai: hariIni, aksi: '', pengguna: '', cari: '' });
+      $('#lDari').value = sebulan; $('#lSampai').value = hariIni; $('#lPengguna').value = ''; $('#lCari').value = '';
+      document.querySelector('[name=cepat][value="30"]').checked = true; ulang();
+    };
+    $('#lHal').onclick = e => { const b = e.target.closest('[data-hal]'); if (!b) return; L.hal += +b.dataset.hal; muat(); window.scrollTo(0, 0); };
+    const judulRentang = () => `${fmt.tgl(new Date(L.dari + 'T00:00:00'))} s.d. ${fmt.tgl(new Date(L.sampai + 'T00:00:00'))}`;
+    $('#lXlsx').onclick = async e => {
+      const b = e.currentTarget; b.disabled = true;
+      try {
+        const semua = await ambilSemua(20000);
+        if (!semua.length) return toast('Tidak ada aktivitas untuk diekspor.', 'err');
+        SPMB.unduhXlsx(`Log Aktivitas SPMB ${judulRentang().replace(/\//g, '-')}`, {
+          nama: 'Log Aktivitas', judul: 'Log Aktivitas Sistem SPMB', sub: `Rentang ${judulRentang()} · diekspor ${fmt.tglJam(new Date())} WITA`,
+          kolom: [{ j: 'No', w: 6, t: 'angka' }, { j: 'Tanggal', w: 12, t: 'tgl' }, { j: 'Jam', w: 8 }, { j: 'Petugas', w: 26 }, { j: 'Aktivitas', w: 30 }, { j: 'Objek', w: 16 }, { j: 'ID objek', w: 22 }, { j: 'Rincian', w: 70 }],
+          baris: semua.map((r, i) => { const w = new Date(r.dibuat_pada); return [i + 1, fmt.isoTgl(w), fmt.jam(w), r.nama_pengguna || (r.pengguna_id ? nama[r.pengguna_id] || '' : 'Sistem'),
+            labelAksi(r)[0], NAMA_OBJEK[r.objek] || r.objek || '', r.objek_id || '', teksPolos(ringkas(r))]; })
+        });
+        toast(`${fmt.angka(semua.length)} aktivitas diekspor.`);
+      } catch (err) { toast(pesanGalat(err), 'err'); } finally { b.disabled = false; }
+    };
+    $('#lCetak').onclick = async () => {
+      try {
+        const semua = await ambilSemua(1000);
+        cetakDokumen({
+          judul: 'Log Aktivitas Sistem SPMB', meta: `Rentang ${judulRentang()} · ${fmt.angka(semua.length)} aktivitas${L.total > semua.length ? ` (1.000 terbaru dari ${fmt.angka(L.total)})` : ''} · Dicetak ${fmt.tglPanjang(new Date())}`,
+          isi: `<table><thead><tr><th style="width:6%">No</th><th style="width:17%">Waktu</th><th style="width:19%">Petugas</th><th style="width:22%">Aktivitas</th><th style="width:36%">Rincian</th></tr></thead><tbody>
+            ${semua.map((r, i) => `<tr><td style="text-align:center">${i + 1}</td><td>${fmt.tglJam(r.dibuat_pada)}</td><td>${esc(r.nama_pengguna || 'Sistem')}</td><td>${esc(labelAksi(r)[0])}</td><td>${ringkas(r)}</td></tr>`).join('')}</tbody></table>`,
+          ttd: [{ jabatan: 'Superadmin', nama: S.profil.nama_lengkap }]
+        });
+      } catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+    await muatAksi(); await muat();
   };
 
   /* =================================================================

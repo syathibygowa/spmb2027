@@ -130,8 +130,7 @@
         </nav>
         <div class="situs-aksi">
           <div class="hide-sm">${themeSegHTML}</div>
-          <a class="icon-btn hide-sm" href="masuk.html" title="Masuk panitia" aria-label="Masuk panitia"><i class="ph-duotone ph-sign-in"></i></a>
-          <a class="btn sm" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>Daftar</a>
+          <a class="btn sm btn-daftar-bar" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>Daftar</a>
         </div>
       </header>`;
 
@@ -161,7 +160,8 @@
             ${(S.konten.kontak_panitia || []).slice(0, 3).map(k => `<li><a href="${waTautan(k.data.no_wa)}" target="_blank" rel="noopener"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>${esc(k.judul)}${k.data.bagian && k.data.bagian !== 'Umum' ? ` (${esc(k.data.bagian)})` : ''}</a></li>`).join('')}
             <li><a href="masuk.html"><i class="ph-duotone ph-sign-in" style="color:var(--c8)"></i>Masuk panitia</a></li></ul></div>
         </div>
-        <div class="wadah kaki-bawah">© ${new Date().getFullYear()} ${esc(id.nama_lembaga || nama)}. Hak cipta dilindungi.</div>
+        <div class="wadah kaki-bawah"><span>© ${new Date().getFullYear()} ${esc(id.nama_lembaga || nama)}. Hak cipta dilindungi.</span>
+          <span class="kredit"><i class="ph-duotone ph-code"></i>Dikembangkan oleh <b>RAMLI AMIRUDDIN</b></span></div>
       </footer>
 
       <nav class="situs-bawah" aria-label="Navigasi bawah">
@@ -194,9 +194,12 @@
       wa.querySelector('.wa-tombol').addEventListener('click', e => { if (wa.dataset.banyak) { e.preventDefault(); wa.classList.toggle('buka'); } });
       document.addEventListener('click', e => { if (!e.target.closest('#waMelayang')) wa.classList.remove('buka'); });
     }
-    // bayangan bilah atas saat digulir
+    // Bilah atas menyatu dengan bagian pembuka; berubah padat (putih) saat digulir
     const bar = $('.situs-bar');
-    addEventListener('scroll', () => bar.classList.toggle('bergulir', scrollY > 8), { passive: true });
+    const aturBar = () => bar.classList.toggle('bergulir', scrollY > 8);
+    addEventListener('scroll', aturBar, { passive: true }); aturBar();
+    const cekPembuka = () => { const f = $('#isi')?.firstElementChild; document.body.classList.toggle('bar-transparan', !!f && f.matches('.hero-situs,.kepala-hal')); };
+    cekPembuka(); new MutationObserver(cekPembuka).observe($('#isi'), { childList: true });
   }
 
   function sosmedHTML() {
@@ -260,22 +263,37 @@
             <span class="ic-box lencana-ikon"><i class="ph-duotone ph-${esc(x.data.ikon || 'star')}"></i></span></div>
           <div class="isi"><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></article>`));
     },
-    alur: () => !(S.konten.alur || []).length ? '' : `<ol class="alur">${S.konten.alur.map((x, i) => `
-      <li style="--tone:var(--${esc(x.data.warna || 'c3')})"><span class="alur-no">${i + 1}</span><span class="ic-box"><i class="ph-duotone ph-${esc(x.data.ikon || 'check')}"></i></span>
-        <div><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></li>`).join('')}</ol>
-      <div class="hero-actions" style="justify-content:center;margin-top:18px"><a class="btn" href="${tautanDaftar()}"><i class="ph-duotone ph-note-pencil"></i>Isi formulir pendaftaran</a>
-        <a class="btn ghost" href="cek-status.html"><i class="ph-duotone ph-magnifying-glass"></i>Cek status pendaftaran</a></div>`,
+    alur: () => { const d = S.konten.alur || []; if (!d.length) return '';
+      // Satu baris bila 7 langkah atau kurang; selebihnya dibagi dua baris seimbang
+      const kolom = d.length <= 7 ? d.length : Math.ceil(d.length / 2);
+      return `<ol class="alur-langkah" style="--kolom:${kolom}">${d.map((x, i) => `
+      <li class="${(i % kolom === kolom - 1) || i === d.length - 1 ? 'akhir-baris' : ''}" style="--tone:var(--${esc(x.data.warna || 'c3')});--i:${i}" data-muncul>
+        <div class="alur-simpul"><span class="alur-bulat"><i class="ph-duotone ph-${esc(x.data.ikon || 'check')}"></i></span><span class="alur-no">${i + 1}</span></div>
+        <div class="alur-teks"><small>Langkah ${i + 1}</small><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></li>`).join('')}</ol>
+      <div class="alur-ajakan">
+        <a class="ajak-kartu utama" href="${tautanDaftar()}" data-muncul style="--i:0">
+          <span class="ajak-ikon"><i class="ph-duotone ph-note-pencil"></i></span>
+          <span class="ajak-teks"><small>Belum mendaftar?</small><b>Isi formulir pendaftaran</b><em>Daftar online kapan saja lewat HP atau laptop, lalu unggah berkasnya.</em></span>
+          <i class="ph-duotone ph-arrow-right ajak-panah"></i></a>
+        <a class="ajak-kartu" href="cek-status.html" data-muncul style="--i:1">
+          <span class="ajak-ikon"><i class="ph-duotone ph-magnifying-glass"></i></span>
+          <span class="ajak-teks"><small>Sudah mendaftar?</small><b>Cek status pendaftaran</b><em>Pantau verifikasi berkas, jadwal tes, dan hasil seleksi dengan nomor registrasi.</em></span>
+          <i class="ph-duotone ph-arrow-right ajak-panah"></i></a>
+      </div>`; },
 
-    jaminan: () => !(S.konten.jaminan || []).length ? '' : `<div class="kisi-3">${S.konten.jaminan.map(x => `
-      <div class="kartu jaminan" style="--tone:var(--${esc(x.data.warna || 'c5')})">
+    jaminan: () => !(S.konten.jaminan || []).length ? '' : `<div class="kisi-3 kisi-jaminan">${S.konten.jaminan.map((x, i) => `
+      <div class="kartu jaminan${x.gambar ? ' berfoto' : ''}" style="--tone:var(--${esc(x.data.warna || 'c5')});--i:${i % 6}" data-muncul>
+        ${x.gambar ? `<div class="jaminan-foto" aria-hidden="true"><img alt="" loading="lazy" src="${esc(gambar(x.gambar, 800))}"></div>` : ''}
+        <span class="jaminan-kilau" aria-hidden="true"></span>
         <div class="jaminan-atas"><span class="ic-box"><i class="ph-duotone ph-${esc(x.data.ikon || 'seal-check')}"></i></span>${x.data.target ? `<span class="target">${esc(x.data.target)}</span>` : ''}</div>
         <b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div>`).join('')}</div>`,
 
-    program: () => !(S.konten.program || []).length ? '' : `<div class="kisi-3">${S.konten.program.map((x, i) => `
-      <article class="kartu kartu-foto">
+    program: () => !(S.konten.program || []).length ? '' : `<div class="kisi-4 kisi-program">${S.konten.program.map((x, i) => `
+      <article class="kartu kartu-foto kartu-program${i >= 8 ? ' lebih' : ''}" data-muncul style="--i:${i % 4}">
         <div class="foto">${x.gambar ? `<img alt="${esc(x.judul)}" loading="lazy" src="${esc(gambar(x.gambar, 720))}">` : `<div class="foto-kosong" style="--tone:var(--c${(i % 6) + 1})"><i class="ph-duotone ph-book-open-text"></i></div>`}
           ${x.data.jenjang ? `<span class="pill-foto">${esc(x.data.jenjang)}</span>` : ''}</div>
-        <div class="isi"><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></article>`).join('')}</div>`,
+        <div class="isi"><b>${esc(x.judul)}</b>${x.isi ? `<p>${esc(x.isi)}</p>` : ''}${lencanaTersembunyi(x)}</div></article>`).join('')}</div>
+      ${S.konten.program.length > 8 ? `<div class="tengah"><button type="button" class="btn outline" data-program-semua><i class="ph-duotone ph-squares-four"></i>Tampilkan semua program (${S.konten.program.length})</button></div>` : ''}`,
 
     prestasi: () => {
       const d = S.konten.prestasi || []; if (!d.length) return '';
@@ -341,11 +359,12 @@
       </div>`;
     },
 
-    testimoni: () => !(S.konten.testimoni || []).length ? '' : `<div class="geser">${S.konten.testimoni.map((x, i) => `
-      <figure class="kartu testimoni" style="--tone:var(--c${[2, 5, 3, 1, 4, 6][i % 6]})">
-        <i class="ph-duotone ph-quotes kutip"></i><blockquote>${esc(x.isi)}</blockquote>
+    testimoni: () => !(S.konten.testimoni || []).length ? '' : sliderHTML(S.konten.testimoni.map((x, i) => { const yt = youtubeId(x.data.youtube); return `
+      <figure class="kartu testimoni${yt ? ' bervideo' : ''}" style="--tone:var(--c${[2, 5, 3, 1, 4, 6][i % 6]})">
+        ${yt ? `<div class="testi-video">${ytSampul({ judul: '', data: { youtube: x.data.youtube } })}</div>` : '<i class="ph-duotone ph-quotes kutip"></i>'}
+        ${x.isi ? `<blockquote>${esc(x.isi)}</blockquote>` : ''}
         <figcaption>${x.gambar ? `<img class="avatar" alt="" loading="lazy" src="${esc(gambar(x.gambar, 160))}">` : `<span class="avatar">${esc(SPMB.inisial(x.judul))}</span>`}
-          <span><b>${esc(x.judul)}</b><small>${esc([x.data.peran, x.data.keterangan].filter(Boolean).join(' · '))}</small></span>${lencanaTersembunyi(x)}</figcaption></figure>`).join('')}</div>`,
+          <span><b>${esc(x.judul)}</b><small>${esc([x.data.peran, x.data.keterangan].filter(Boolean).join(' · '))}</small></span>${lencanaTersembunyi(x)}</figcaption></figure>`; }), 'slider-testi'),
 
     galeri: () => {
       const d = S.konten.galeri || []; if (!d.length) return '';
@@ -382,8 +401,8 @@
     return ['ph-link-simple', 'var(--c5)', 'tautan'];
   }
 
-  function sliderHTML(kartu) {
-    return `<div class="slider" data-slider>
+  function sliderHTML(kartu, kelas = '') {
+    return `<div class="slider ${kelas}" data-slider>
       <div class="slider-trek" tabindex="0" aria-roledescription="carousel">${kartu.join('')}</div>
       <button type="button" class="slider-nav kiri" data-geser="-1" aria-label="Sebelumnya"><i class="ph-duotone ph-caret-left"></i></button>
       <button type="button" class="slider-nav kanan" data-geser="1" aria-label="Berikutnya"><i class="ph-duotone ph-caret-right"></i></button>
@@ -420,7 +439,7 @@
       addEventListener('resize', gambarTitik);
       new IntersectionObserver(([e]) => { terlihat = e.isIntersecting; }, { threshold: .4 }).observe(sl);
       gambarTitik();
-      if (!diam) setInterval(() => { if (terlihat && !jeda && !document.hidden && halaman() > 1) geser(1); }, 4000);
+      if (!diam) setInterval(() => { if (terlihat && !jeda && !sl.dataset.henti && !document.hidden && halaman() > 1) geser(1); }, 5000);
     });
   }
 
@@ -465,8 +484,9 @@
     const d = S.konten.faq || []; if (!d.length) return '';
     const kat = [...new Set(d.map(x => x.data.kategori).filter(Boolean))];
     return `${kat.length > 1 ? `<div class="chip-tab"><button type="button" data-faq="" aria-selected="true">Semua</button>${kat.map(k => `<button type="button" data-faq="${esc(k)}" aria-selected="false">${esc(k)}</button>`).join('')}</div>` : ''}
-      <div class="faq">${d.map(x => `<details data-faq-item="${esc(x.data.kategori || '')}"><summary><i class="ph-duotone ph-question"></i><span>${esc(x.judul)}</span>${lencanaTersembunyi(x)}<i class="ph-duotone ph-caret-down panah"></i></summary>
-        <div class="artikel">${teksBerformat(x.isi)}</div></details>`).join('')}</div>`;
+      <div class="faq faq-2" data-faq-wadah><div class="faq-kolom"></div><div class="faq-kolom"></div>
+        <template>${d.map((x, i) => `<details data-faq-item="${esc(x.data.kategori || '')}" style="--tone:var(--c${[1, 5, 3, 2, 4, 6][i % 6]})"><summary><span class="faq-no">${String(i + 1).padStart(2, '0')}</span><span>${esc(x.judul)}</span>${lencanaTersembunyi(x)}<i class="ph-duotone ph-caret-down panah"></i></summary>
+        <div class="artikel">${teksBerformat(x.isi)}</div></details>`).join('')}</template></div>`;
   }
 
   function petaSrc(id) {
@@ -482,7 +502,6 @@
 
   function kontakHTML() {
     const id = S.p.identitas || {};
-    const panitia = S.konten.kontak_panitia || [];
     const peta = petaSrc(id);
     const buka = id.peta_lokasi || (id.alamat ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(id.alamat)}` : '');
     return `<div class="kontak-grid">
@@ -493,11 +512,6 @@
           ${id.email ? `<div class="baris"><span class="ic-box" style="--tone:var(--c3)"><i class="ph-duotone ph-envelope-simple"></i></span><div><small>Email</small><p><a href="mailto:${esc(id.email)}">${esc(id.email)}</a></p></div></div>` : ''}
           ${sosmedHTML() ? `<div class="baris"><span class="ic-box" style="--tone:var(--c4)"><i class="ph-duotone ph-share-network"></i></span><div><small>Media sosial</small><div class="sosmed">${sosmedHTML()}</div></div></div>` : ''}
         </div>
-        ${panitia.length ? `<div class="kisi-panitia">${panitia.map((k, i) => `
-          <div class="kartu panitia" style="--tone:var(--c${[5, 4, 1, 2][i % 4]})">
-            <span class="avatar">${esc(SPMB.inisial(k.judul))}</span>
-            <div><b>${esc(k.judul)}</b><small>${esc(k.data.peran || 'Panitia SPMB')}${k.data.bagian && k.data.bagian !== 'Umum' ? ` · ${esc(k.data.bagian)}` : ''}</small>${lencanaTersembunyi(k)}</div>
-            <a class="btn sm wa" href="${waTautan(k.data.no_wa)}" target="_blank" rel="noopener"><i class="ph-duotone ph-whatsapp-logo"></i>Chat</a></div>`).join('')}</div>` : ''}
       </div>
       <div class="kartu peta">${peta ? `<iframe title="Peta lokasi pondok" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${esc(peta)}"></iframe>` : '<div class="kosong-sek"><i class="ph-duotone ph-map-trifold"></i><b>Peta lokasi segera tersedia.</b></div>'}
         ${buka ? `<a class="btn ghost block" href="${esc(buka)}" target="_blank" rel="noopener"><i class="ph-duotone ph-navigation-arrow" style="color:var(--c1)"></i>Buka di Google Maps</a>` : ''}</div>
@@ -545,6 +559,8 @@
         <div class="wadah">${!s.tampil ? '<span class="lencana-sembunyi besar"><i class="ph-duotone ph-eye-slash"></i>Bagian ini disembunyikan</span>' : ''}${kepala(s.kunci, s)}${isi}</div></section>`;
     }).join('');
     pasangInteraksi(main);
+    susunFaq(main);
+    pasangMuncul(main);
     pasangSlider(main);
     pasangPutarOtomatis(main);
     jalankanSliderHero();
@@ -616,6 +632,7 @@
     root.addEventListener('click', e => {
       const putar = e.target.closest('[data-putar]');
       if (putar) {
+        putar.closest('[data-slider]')?.setAttribute('data-henti', '1');   // slider berhenti selama video diputar
         putar.outerHTML = iframeYT(putar.dataset.putar, false);
         return;
       }
@@ -655,8 +672,11 @@
       if (fq) {
         fq.parentNode.querySelectorAll('[data-faq]').forEach(b => b.setAttribute('aria-selected', String(b === fq)));
         root.querySelectorAll('[data-faq-item]').forEach(g => g.hidden = !!fq.dataset.faq && g.dataset.faqItem !== fq.dataset.faq);
+        susunFaq(root);
         return;
       }
+      const ps = e.target.closest('[data-program-semua]');
+      if (ps) { root.querySelectorAll('.kartu-program.lebih').forEach(k => k.classList.remove('lebih')); ps.parentNode.remove(); return; }
       const lb = e.target.closest('[data-lightbox]');
       if (lb) {
         const jenis = lb.dataset.lightbox;
@@ -665,6 +685,28 @@
         bukaLightbox(semua.map(x => data[+x.dataset.i]), semua.indexOf(lb), jenis === 'flyer');
       }
     });
+  }
+
+  // Tanya jawab dua kolom: butir yang tampil dibagi bergantian kiri-kanan
+  function susunFaq(root) {
+    root.querySelectorAll('[data-faq-wadah]').forEach(w => {
+      const tpl = w.querySelector('template');
+      if (tpl) { w.dataset.butir = '1'; w.append(...tpl.content.children); tpl.remove(); }
+      const kol = w.querySelectorAll('.faq-kolom'), butir = [...w.querySelectorAll(':scope > details, .faq-kolom > details')];
+      const duaKolom = matchMedia('(min-width:721px)').matches;
+      butir.sort((a, b) => (+a.dataset.urut || 0) - (+b.dataset.urut || 0));
+      let n = 0;
+      butir.forEach((d, i) => { if (!d.dataset.urut) d.dataset.urut = i; if (!d.hidden) { kol[duaKolom ? n % 2 : 0].append(d); n++; } else kol[0].append(d); });
+    });
+  }
+  matchMedia('(min-width:721px)').addEventListener?.('change', () => susunFaq(document));
+  // Kartu muncul perlahan saat terlihat di layar
+  function pasangMuncul(root) {
+    const el = root.querySelectorAll('[data-muncul]');
+    if (!el.length) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.forEach(x => x.classList.add('muncul')); return; }
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('muncul'); io.unobserve(e.target); } }), { threshold: .15, rootMargin: '0px 0px -40px 0px' });
+    el.forEach(x => io.observe(x));
   }
 
   function bukaLightbox(daftar, i, unduh) {
@@ -887,7 +929,7 @@
     $('#isi').innerHTML = `${kepalaHalaman('Kontak dan Lokasi', 'Hubungi panitia SPMB atau kunjungi pondok kami', 'ph-phone-call', 'var(--ok)')}
       <section class="sek"><div class="wadah">${kontakHTML()}</div></section>
       ${faq ? `<section class="sek alt" id="faq"><div class="wadah">${kepala('faq', { judul: 'Tanya Jawab', subjudul: 'Pertanyaan yang sering diajukan' })}${faq}</div></section>` : ''}`;
-    pasangInteraksi($('#isi'));
+    pasangInteraksi($('#isi')); susunFaq($('#isi'));
   }
 
   /* =================================================================

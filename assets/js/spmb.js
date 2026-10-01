@@ -43,7 +43,8 @@
   }
 
   // Isi templat WhatsApp: {nama} -> nilai (juga dipakai menu Pendaftar di Langkah 5)
-  const isiTemplat = (teks, data) => String(teks || '').replace(/\{(\w+)\}/g, (m, k) => data[k] != null && data[k] !== '' ? data[k] : m);
+  // Isian yang dikenal diganti nilainya (boleh kosong); isian tak dikenal dibiarkan agar petugas melihatnya
+  const isiTemplat = (teks, data) => String(teks || '').replace(/\{(\w+)\}/g, (m, k) => k in (data || {}) && data[k] != null ? data[k] : m).replace(/\n{3,}/g, '\n\n');
   // Pratinjau format WhatsApp: *tebal*, _miring_, ~coret~
   const formatWA = teks => esc(teks)
     .replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/(^|[\s(])_([^_\n]+)_/g, '$1<i>$2</i>').replace(/~([^~\n]+)~/g, '<s>$1</s>')
@@ -700,74 +701,154 @@
   }
 
   /* =================================================================
-     TAB TEMPLAT WHATSAPP (pengaturan kunci "templat_wa")
+     TAB TEMPLAT WHATSAPP (pengaturan "templat_wa" dan "wa_info")
+     - Templat bawaan dan templat buatan sendiri (tambah, ubah, hapus)
+     - Grup WhatsApp umum dan data pertemuan wali untuk isian templat
      ================================================================= */
-  const ISIAN_WA = [
-    ['nama', 'Nama santri'], ['no_registrasi', 'Nomor registrasi'], ['jenjang', 'Jenjang'], ['gelombang', 'Gelombang'],
-    ['catatan', 'Catatan petugas'], ['jadwal_tes', 'Jadwal tes'], ['tautan_status', 'Tautan Cek Status'],
-    ['tautan_pengumuman', 'Tautan Pengumuman'], ['jadwal_daftar_ulang', 'Jadwal daftar ulang'], ['tautan_daftar_ulang', 'Tautan Daftar Ulang'], ['nama_lembaga', 'Nama lembaga'], ['tahun_ajaran', 'Tahun ajaran']
-  ];
-  const IKON_WA = { diterima: ['ph-check-circle', 'var(--ok)'], berkas_kurang: ['ph-file-x', 'var(--c7)'], bayar_ok: ['ph-credit-card', 'var(--c5)'],
-    jadwal_tes: ['ph-calendar-check', 'var(--c2)'], pengingat_tes: ['ph-alarm', 'var(--c3)'], lulus: ['ph-confetti', 'var(--ok)'], cadangan: ['ph-hourglass-medium', 'var(--c6)'],
-    tidak_lulus: ['ph-hand-heart', 'var(--c8)'], undangan_du: ['ph-envelope-open', 'var(--c1)'], du_selesai: ['ph-graduation-cap', 'var(--c4)'] };
-
   async function tabWA(el, ctx) {
+    const WA = window.SPMB_WA;
     const p = await muatPengaturan(true);
     const T = JSON.parse(JSON.stringify(p.templat_wa || {}));
+    const info = JSON.parse(JSON.stringify(p.wa_info || { grup: [], pertemuan: {} }));
+    info.grup = info.grup || []; info.pertemuan = info.pertemuan || {};
+    const BAWAAN = Object.keys(WA.IKON);
     const situs = (CFG.alamatSitus || location.origin).replace(/\/$/, '');
     const y = SPMB.tahunAwalTA(SPMB.taAktif(p));
     const tglContoh = (bln, hr) => fmt.hariTgl(new Date(y, bln, hr));
-    const contoh = {
-      nama: 'Muhammad Fathir', no_registrasi: `SPMB${String(y).slice(2)}-SMP-P-0001`, jenjang: 'SMP', gelombang: 'Gelombang 1',
-      catatan: '- Foto Kartu Keluarga kurang jelas', jadwal_tes: `${tglContoh(0, 9)} pukul 08.00 WITA (offline, kampus pondok)`,
+    const contoh = () => ({
+      nama: 'Muhammad Fathir', no_registrasi: `SPMB${String(y).slice(2)}-SMP-P-0001`, jenjang: 'SMP Putra', gelombang: 'Gelombang 1', nama_ayah: 'Syamsuddin', nama_ibu: 'Nurhayati',
+      catatan: '- Foto Kartu Keluarga kurang jelas', jadwal_tes: `• Tahfizh, Tertulis: ${tglContoh(0, 9)} pukul 08.00–11.30 WITA, Aula Pondok Putra`,
+      grup_wa: [...info.grup.filter(g => g.tautan).map(g => `• ${g.nama || 'Grup SPMB'}:\n${g.tautan}`), '• Grup Sesi SMP Putra:\nhttps://chat.whatsapp.com/contoh'].join('\n\n'),
       tautan_status: situs + '/cek-status.html', tautan_pengumuman: situs + '/pengumuman.html', jadwal_daftar_ulang: `${fmt.tglPanjang(new Date(y, 2, 10))} s.d. ${fmt.tglPanjang(new Date(y, 2, 17))}`, tautan_daftar_ulang: situs + '/daftar-ulang.html',
+      rincian_tagihan: '• Biaya daftar ulang: Rp4.750.000, sudah dibayar Rp2.000.000, sisa *Rp2.750.000*\n• Biaya tahunan: Rp1.500.000', sisa_tagihan: 'Rp4.250.000', total_tagihan: 'Rp6.500.000', sudah_dibayar: 'Rp2.250.000',
+      rekening: '• BSI 1234567890 a.n. Panitia SPMB', ...WA.teksPertemuan(info.pertemuan),
       nama_lembaga: p.identitas?.nama_lembaga || 'Pondok Pesantren', tahun_ajaran: SPMB.taAktif(p)
-    };
-    // jsonb tidak menjaga urutan kunci: urutkan sesuai alur pendaftaran
-    const URUT = Object.keys(IKON_WA);
-    const kunci = Object.keys(T).sort((x, y) => (URUT.indexOf(x) + 1 || 99) - (URUT.indexOf(y) + 1 || 99));
-    el.innerHTML = `
-      <div class="note info"><i class="ph-duotone ph-info"></i><div>Templat dipakai tombol WhatsApp di menu Pendaftar (Langkah 5). Kata dalam kurung kurawal, misalnya <code>{nama}</code>, diganti otomatis. Tulis <code>*teks*</code> untuk huruf tebal dan <code>_teks_</code> untuk miring di WhatsApp.</div></div>
-      <form id="fWA" novalidate>
-        ${kunci.length ? kunci.map((k2, i) => {
-          const [ic, t] = IKON_WA[k2] || ['ph-chat-circle-text', 'var(--c1)'];
-          return `
-          <details class="card wa-templat" ${i === 0 ? 'open' : ''}>
-            <summary><span class="ic-box" style="--tone:${t}"><i class="ph-duotone ${ic}"></i></span>
-              <div class="teks"><b>${esc(T[k2].judul)}</b><span>${esc((T[k2].isi || '').split('\n').find(s => s.trim() && !/^Assalamu/.test(s)) || '')}</span></div>
-              <i class="ph-duotone ph-caret-down panah"></i></summary>
-            <div class="grid-2" style="align-items:start;margin-top:12px">
-              <div>
-                <div class="field"><label>Judul templat</label><input class="input" data-wa-judul="${k2}" value="${esc(T[k2].judul)}" maxlength="60"></div>
-                <div class="field"><label>Isi pesan</label><textarea class="textarea" data-wa-isi="${k2}" maxlength="1500" style="min-height:220px">${esc(T[k2].isi)}</textarea></div>
-                <div class="token-baris">${ISIAN_WA.map(([t2, l]) => `<button type="button" class="chip-token" data-sisip="${k2}" data-token="{${t2}}" title="${l}">{${t2}}</button>`).join('')}</div>
-              </div>
-              <div><span class="label" style="display:block;font-size:13px;font-weight:700;margin-bottom:6px">Pratinjau dengan data contoh</span>
-                <div class="wa-layar"><div class="wa-gelembung" data-wa-prev="${k2}"></div></div></div>
-            </div>
-          </details>`;
-        }).join('') : '<div class="card"><div class="empty"><i class="ph-duotone ph-whatsapp-logo"></i><b>Templat belum tersedia</b>Jalankan SQL 04 terlebih dahulu.</div></div>'}
-        <div class="bilah-simpan"><button class="btn" type="submit" ${kunci.length ? '' : 'disabled'}><i class="ph-duotone ph-floppy-disk"></i>Simpan semua templat</button></div>
-      </form>`;
-    const f = $('#fWA');
-    const segar = k2 => { const ta = f.querySelector(`[data-wa-isi="${k2}"]`); f.querySelector(`[data-wa-prev="${k2}"]`).innerHTML = formatWA(isiTemplat(ta.value, contoh)); };
-    kunci.forEach(segar);
-    f.addEventListener('input', e => { const k2 = e.target.dataset.waIsi; if (k2) segar(k2); });
-    f.addEventListener('click', e => {
-      const b = e.target.closest('[data-sisip]'); if (!b) return;
-      const ta = f.querySelector(`[data-wa-isi="${b.dataset.sisip}"]`), a = ta.selectionStart;
-      ta.setRangeText(b.dataset.token, a, ta.selectionEnd, 'end'); ta.focus(); segar(b.dataset.sisip);
     });
+    const kunciUrut = () => WA.urutkan(T);
+    const opsi = (arr, v) => arr.map(([k, l]) => `<option value="${k}" ${k === (v || 'semua') ? 'selected' : ''}>${l}</option>`).join('');
+    const barisGrup = (g, i) => `<div class="grup-baris" data-g="${i}">
+      <input class="input" data-gk="nama" maxlength="60" value="${esc(g.nama || '')}" placeholder="Nama grup, mis. Grup Besar SPMB ${esc(SPMB.taAktif(p))}">
+      <input class="input" data-gk="tautan" type="url" inputmode="url" maxlength="300" value="${esc(g.tautan || '')}" placeholder="https://chat.whatsapp.com/…">
+      <select class="select" data-gk="jenjang" aria-label="Jenjang">${opsi([['semua', 'SMP & SMA'], ['SMP', 'SMP'], ['SMA', 'SMA']], g.jenjang)}</select>
+      <select class="select" data-gk="bagian" aria-label="Bagian">${opsi([['semua', 'Putra & putri'], ['putra', 'Putra'], ['putri', 'Putri']], g.bagian)}</select>
+      <select class="select" data-gk="status" aria-label="Untuk">${opsi([['semua', 'Semua pendaftar'], ['lulus', 'Yang lulus'], ['santri_baru', 'Santri baru (sudah daftar ulang)']], g.status)}</select>
+      <button type="button" class="icon-btn plain" data-hapus-grup="${i}" title="Hapus grup" aria-label="Hapus grup"><i class="ph-duotone ph-trash" style="color:var(--danger)"></i></button></div>`;
+    const m = info.pertemuan;
+
+    el.innerHTML = `
+      <div class="note info"><i class="ph-duotone ph-info"></i><div>Templat dipakai tombol WhatsApp di menu Pendaftar (satu wali atau beruntun ke banyak wali), Seleksi, Pengumuman, dan Daftar Ulang. Kata dalam kurung kurawal, misalnya <code>{nama}</code>, diganti otomatis. Tulis <code>*teks*</code> untuk huruf tebal dan <code>_teks_</code> untuk miring.</div></div>
+      <details class="card wa-templat" id="waInfo">
+        <summary><span class="ic-box" style="--tone:var(--ok)"><i class="ph-duotone ph-chats-circle"></i></span>
+          <div class="teks"><b>Grup WhatsApp dan pertemuan wali</b><span>Isian {grup_wa} dan {jadwal_pertemuan}; grup tiap sesi tes diatur di menu Seleksi</span></div><i class="ph-duotone ph-caret-down panah"></i></summary>
+        <div style="margin-top:12px">
+          <h4 class="sub-judul"><i class="ph-duotone ph-users-three" style="color:var(--ok)"></i>Grup WhatsApp umum</h4>
+          <p class="muted" style="font-size:13px;margin:0 0 10px">Contoh: grup besar SPMB, grup wali santri putra, grup santri baru. Saat mengirim templat <b>Undangan grup WhatsApp</b>, setiap wali otomatis menerima daftar grup yang sesuai dengan jenjang, bagian, statusnya, <b>ditambah grup sesi tes</b> yang diikuti anaknya, dalam satu pesan.</p>
+          <div id="grupDaftar">${info.grup.map(barisGrup).join('')}</div>
+          <button type="button" class="btn sm ghost" id="tambahGrup"><i class="ph-duotone ph-plus-circle" style="color:var(--ok)"></i>Tambah grup</button>
+          <h4 class="sub-judul" style="margin-top:20px"><i class="ph-duotone ph-calendar-star" style="color:var(--c2)"></i>Pertemuan wali (untuk templat Undangan pertemuan)</h4>
+          <div class="grid-form">
+            <div class="field full"><label>Judul pertemuan</label><input class="input" id="mJudul" maxlength="100" value="${esc(m.judul || 'Pertemuan Wali Calon Santri')}"></div>
+            <div class="field"><label>Tanggal</label><input class="input" id="mTanggal" type="date" value="${esc(m.tanggal || '')}"></div>
+            <div class="field"><label>Jam (WITA)</label><input class="input" id="mJam" type="time" value="${esc(m.jam || '')}"></div>
+            <div class="field"><label>Bentuk</label><select class="select" id="mMode">${opsi([['offline', 'Tatap muka'], ['online', 'Daring (Zoom/Meet)']], m.mode || 'offline')}</select></div>
+            <div class="field"><label>Tempat / media</label><input class="input" id="mTempat" maxlength="120" value="${esc(m.tempat || '')}" placeholder="Aula Pondok / Zoom"></div>
+            <div class="field full"><label>Tautan rapat daring (opsional)</label><input class="input" id="mTautan" type="url" maxlength="300" value="${esc(m.tautan || '')}" placeholder="https://meet.google.com/…"></div>
+            <div class="field full"><label>Keterangan (opsional)</label><textarea class="textarea" id="mKet" maxlength="500" rows="2" placeholder="Misalnya: Mohon membawa Bukti Pendaftaran.">${esc(m.keterangan || '')}</textarea></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><button type="button" class="btn" id="simpanInfo"><i class="ph-duotone ph-floppy-disk"></i>Simpan grup dan pertemuan</button></div>
+        </div>
+      </details>
+      <form id="fWA" novalidate>
+        <div id="daftarTpl"></div>
+        <div class="bilah-simpan" style="justify-content:space-between">
+          <button class="btn ghost" type="button" id="tambahTpl"><i class="ph-duotone ph-plus-circle" style="color:var(--c1)"></i>Buat templat baru</button>
+          <button class="btn" type="submit"><i class="ph-duotone ph-floppy-disk"></i>Simpan semua templat</button>
+        </div>
+      </form>`;
+
+    const kartuTpl = (k2, buka) => {
+      const [ic, t] = WA.ikon(k2), kustom = !BAWAAN.includes(k2);
+      return `<details class="card wa-templat" data-k="${k2}" ${buka ? 'open' : ''}>
+        <summary><span class="ic-box" style="--tone:${t}"><i class="ph-duotone ${ic}"></i></span>
+          <div class="teks"><b>${esc(T[k2].judul || k2)}${kustom ? ' <span class="pill" style="--tone:var(--c1)">Buatan sendiri</span>' : ''}</b><span>${esc((T[k2].isi || '').split('\n').find(s => s.trim() && !/^Assalamu/.test(s)) || '')}</span></div>
+          <i class="ph-duotone ph-caret-down panah"></i></summary>
+        <div class="grid-2" style="align-items:start;margin-top:12px">
+          <div>
+            <div class="field"><label>Judul templat</label><input class="input" data-wa-judul="${k2}" value="${esc(T[k2].judul || '')}" maxlength="60"></div>
+            <div class="field"><label>Isi pesan</label><textarea class="textarea" data-wa-isi="${k2}" maxlength="2000" style="min-height:240px">${esc(T[k2].isi || '')}</textarea></div>
+            <div class="token-baris">${WA.ISIAN.map(([t2, l]) => `<button type="button" class="chip-token" data-sisip="${k2}" data-token="{${t2}}" title="${l}">{${t2}}</button>`).join('')}</div>
+            ${kustom ? `<button type="button" class="btn sm ghost" data-hapus-tpl="${k2}" style="margin-top:10px"><i class="ph-duotone ph-trash" style="color:var(--danger)"></i>Hapus templat ini</button>` : ''}
+          </div>
+          <div><span class="label" style="display:block;font-size:13px;font-weight:700;margin-bottom:6px">Pratinjau dengan data contoh</span>
+            <div class="wa-layar"><div class="wa-gelembung" data-wa-prev="${k2}"></div></div></div>
+        </div></details>`;
+    };
+    const f = $('#fWA');
+    const ambilIsian = () => kunciUrut().forEach(k2 => { const j = f.querySelector(`[data-wa-judul="${k2}"]`), i = f.querySelector(`[data-wa-isi="${k2}"]`); if (j) { T[k2].judul = j.value; T[k2].isi = i.value; } });
+    const segar = k2 => { const ta = f.querySelector(`[data-wa-isi="${k2}"]`); if (ta) f.querySelector(`[data-wa-prev="${k2}"]`).innerHTML = formatWA(isiTemplat(ta.value, contoh())); };
+    const gambar = buka => {
+      const ks = kunciUrut();
+      $('#daftarTpl').innerHTML = ks.length ? ks.map((k2, i) => kartuTpl(k2, buka ? k2 === buka : i === 0)).join('') : '<div class="card"><div class="empty"><i class="ph-duotone ph-whatsapp-logo"></i><b>Templat belum tersedia</b>Klik Buat templat baru.</div></div>';
+      ks.forEach(segar);
+      if (buka) f.querySelector(`[data-k="${buka}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    };
+    gambar();
+
+    f.addEventListener('input', e => { const k2 = e.target.dataset.waIsi; if (k2) segar(k2); });
+    f.addEventListener('click', async e => {
+      const b = e.target.closest('[data-sisip]');
+      if (b) { const ta = f.querySelector(`[data-wa-isi="${b.dataset.sisip}"]`), a = ta.selectionStart; ta.setRangeText(b.dataset.token, a, ta.selectionEnd, 'end'); ta.focus(); segar(b.dataset.sisip); return; }
+      const h = e.target.closest('[data-hapus-tpl]');
+      if (h) {
+        const k2 = h.dataset.hapusTpl;
+        if (!(await konfirmasi('Hapus templat?', `Templat "${esc(T[k2].judul || k2)}" dihapus setelah Anda menekan <b>Simpan semua templat</b>. Riwayat pesan yang sudah terkirim tetap tersimpan.`, 'Hapus', true))) return;
+        ambilIsian(); delete T[k2]; gambar(); toast('Templat dihapus. Tekan Simpan semua templat untuk menyimpan.', 'info');
+      }
+    });
+    $('#tambahTpl').onclick = async () => {
+      const judul = await dialog({ judul: 'Buat templat baru', ikon: 'ph-chat-circle-text', tone: 'var(--c1)',
+        isi: '<div class="field"><label for="tplBaru">Judul templat</label><input class="input" id="tplBaru" maxlength="60" placeholder="Contoh: Pengingat pengambilan seragam"></div>',
+        tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Buat', ikon: 'ph-plus', aksi: root => { const v = root.querySelector('#tplBaru').value.trim(); if (v.length < 3) { toast('Judul minimal 3 karakter.', 'err'); return false; } return v; } }] });
+      if (!judul) return;
+      ambilIsian();
+      const k2 = 'k_' + slugDari(judul).replace(/-/g, '_').slice(0, 30) + '_' + Date.now().toString(36).slice(-4);
+      T[k2] = { judul, isi: `Assalamu'alaikum warahmatullah.\n\nBapak/Ibu wali ananda *{nama}* ({no_registrasi}),\n\n…tulis isi pesan di sini…\n\nPanitia SPMB {tahun_ajaran}`, kustom: true };
+      gambar(k2);
+      toast('Templat baru dibuat. Lengkapi isinya lalu tekan Simpan semua templat.', 'info', 6000);
+    };
     f.onsubmit = async e => {
       e.preventDefault();
+      ambilIsian();
       const nilai = {};
-      for (const k2 of kunci) {
-        const judul = f.querySelector(`[data-wa-judul="${k2}"]`).value.trim(), isi = f.querySelector(`[data-wa-isi="${k2}"]`).value.trim();
-        if (!judul || isi.length < 10) return toast(`Templat "${T[k2].judul}": judul dan isi pesan wajib diisi.`, 'err');
+      for (const k2 of kunciUrut()) {
+        const judul = String(T[k2].judul || '').trim(), isi = String(T[k2].isi || '').trim();
+        if (!judul || isi.length < 10) return toast(`Templat "${judul || k2}": judul dan isi pesan wajib diisi.`, 'err');
         nilai[k2] = { ...T[k2], judul, isi };
       }
-      try { await ctx.simpanPengaturan('templat_wa', nilai); toast('Templat WhatsApp disimpan.'); }
+      try { await ctx.simpanPengaturan('templat_wa', nilai); toast('Templat WhatsApp disimpan.'); gambar(); }
       catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+
+    // Grup dan pertemuan
+    const bacaGrup = () => [...el.querySelectorAll('.grup-baris')].map(r => Object.fromEntries([...r.querySelectorAll('[data-gk]')].map(x => [x.dataset.gk, x.value.trim()])));
+    $('#tambahGrup').onclick = () => { info.grup = bacaGrup(); info.grup.push({ nama: '', tautan: '', jenjang: 'semua', bagian: 'semua', status: 'semua' }); $('#grupDaftar').innerHTML = info.grup.map(barisGrup).join(''); $('#grupDaftar .grup-baris:last-child input').focus(); };
+    $('#grupDaftar').onclick = e => { const b = e.target.closest('[data-hapus-grup]'); if (!b) return; info.grup = bacaGrup(); info.grup.splice(+b.dataset.hapusGrup, 1); $('#grupDaftar').innerHTML = info.grup.map(barisGrup).join(''); };
+    $('#simpanInfo').onclick = async () => {
+      const grup = bacaGrup().filter(g => g.nama || g.tautan);
+      const salah = grup.find(g => !/^https:\/\/\S+$/.test(g.tautan) || !g.nama);
+      if (salah) return toast('Setiap grup wajib diisi nama dan tautan yang diawali https://', 'err');
+      const v = id => el.querySelector(id).value.trim();
+      const pertemuan = { judul: v('#mJudul'), tanggal: v('#mTanggal') || null, jam: v('#mJam'), mode: v('#mMode'), tempat: v('#mTempat'), tautan: v('#mTautan'), keterangan: v('#mKet') };
+      if (pertemuan.tautan && !/^https:\/\/\S+$/.test(pertemuan.tautan)) return toast('Tautan rapat harus diawali https://', 'err');
+      try {
+        const { data, error } = await sb.from('pengaturan').update({ nilai: { ...info, grup, pertemuan } }).eq('kunci', 'wa_info').select('kunci');
+        if (error) throw error;
+        if (!data?.length) return toast('Pengaturan grup belum tersedia. Jalankan SQL 17 di Supabase terlebih dahulu.', 'err', 8000);
+        info.grup = grup; info.pertemuan = pertemuan; await muatPengaturan(true);
+        $('#grupDaftar').innerHTML = info.grup.map(barisGrup).join('');
+        kunciUrut().forEach(segar);
+        toast('Grup WhatsApp dan data pertemuan disimpan.');
+      } catch (err) { toast(pesanGalat(err), 'err'); }
     };
   }
 })();

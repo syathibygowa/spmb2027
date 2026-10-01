@@ -69,6 +69,8 @@
     const { S, setFab } = api;
     // Saringan dari tautan (mis. kartu statistik di Beranda): #/pendaftar?st=@berkas&uji=1&gel=2
     const qs = new URLSearchParams(location.hash.split('?')[1] || '');
+    const waAwal = qs.get('wa') === '1'; qs.delete('wa');
+    if (waAwal) history.replaceState(null, '', '#/pendaftar');
     if ([...qs.keys()].length) {
       Object.assign(SARING, { st: qs.get('st') || '', uji: qs.get('uji') === '1', gel: qs.get('gel') || '', q: '', jb: '', hal: 0 });
       history.replaceState(null, '', '#/pendaftar');
@@ -98,6 +100,7 @@
       <div class="bilah-aksi">
         <span class="muted" id="infoJumlah"></span><div class="spacer"></div>
         <button class="btn sm ghost" id="btnSegarkan" title="Muat ulang"><i class="ph-duotone ph-arrows-clockwise" style="color:var(--c5)"></i><span class="hide-sm">Muat ulang</span></button>
+        <button class="btn sm ghost" id="btnWaMassal" title="Kirim WhatsApp ke semua pendaftar sesuai saringan"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>WhatsApp</button>
         <button class="btn sm ghost" id="btnCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Unduh Excel</button>
         <button class="btn sm ghost" id="btnCetak"><i class="ph-duotone ph-printer" style="color:var(--c1)"></i>Cetak daftar</button>
         <button class="btn sm ghost" id="btnPdf"><i class="ph-duotone ph-file-pdf" style="color:var(--c7)"></i>PDF</button>
@@ -223,6 +226,17 @@
       try { const o = await opsiDaftar(); if (o) { await unduhPdfDokumen(o, `Daftar Calon Santri ${fmt.tgl(new Date()).replace(/\//g, '-')}.pdf`); toast('Daftar calon santri PDF diunduh.'); } }
       catch (err) { toast(pesanGalat(err), 'err'); } finally { b.disabled = false; }
     };
+    // WhatsApp beruntun ke semua pendaftar sesuai saringan (satu pesan per wali)
+    const waMassal = async () => {
+      if (!window.SPMB_WA) return toast('Modul WhatsApp belum dimuat. Muat ulang halaman.', 'err');
+      try {
+        const data = await ambilSemua('id,no_registrasi,nama_lengkap,jenjang,bagian,status,gelombang_id,no_wa,darurat_no,darurat_nama,nama_ayah,nama_ibu,verif_berkas,verif_bayar,catatan_berkas,catatan_bayar,uji');
+        if (!data.length) return toast('Tidak ada pendaftar sesuai saringan.', 'warn');
+        await window.SPMB_WA.kirimBeruntun(data, { judul: `WhatsApp beruntun · ${fmt.angka(data.length)} wali (${judulSaring()})` });
+      } catch (err) { toast(pesanGalat(err), 'err'); }
+    };
+    $('#btnWaMassal').onclick = waMassal;
+    if (waAwal) setTimeout(waMassal, 300);
     $('#btnCsv').onclick = async () => {
       try {
         const data = await ambilSemua();
@@ -663,47 +677,8 @@
 
     /* ---------- WhatsApp dari templat ---------- */
     async function bukaWA(awal) {
-      const T = S.pengaturan.templat_wa || (await muatPengaturan(true)).templat_wa || {};
-      const kunci = Object.keys(IKON_WA).filter(x => T[x]).concat(Object.keys(T).filter(x => !IKON_WA[x]));
-      const pilih = awal && T[awal] ? awal : P.status === 'ikut_tes' && T.jadwal_tes ? 'jadwal_tes' : P.verif_berkas === 'perbaikan' ? 'berkas_kurang' : P.verif_bayar === 'diterima' && T.bayar_ok ? 'bayar_ok' : 'diterima';
-      const id_ = S.pengaturan.identitas || {};
-      const situs = alamatSitus();
-      // Jadwal tes dari sesi yang diikuti (Fase 4); bila belum dijadwalkan, pakai tanggal tes gelombang
-      const { data: ikut } = await sb.from('peserta_sesi').select('sesi_tes(*)').eq('pendaftar_id', P.id);
-      const jadwalSesi = UI.teksJadwalTes ? UI.teksJadwalTes((ikut || []).map(x => x.sesi_tes), S.pengaturan) : '';
-      const data = {
-        nama: P.nama_lengkap, no_registrasi: P.no_registrasi, jenjang: `${P.jenjang} ${bagianL(P.bagian)}`, gelombang: G?.nama || '',
-        catatan: P.catatan_berkas || P.catatan_bayar || '', jadwal_tes: jadwalSesi || (G?.tes_mulai ? (G.tes_selesai && G.tes_selesai !== G.tes_mulai ? `${tglPanjangIso(G.tes_mulai)} – ${tglPanjangIso(G.tes_selesai)}` : tglPanjangIso(G.tes_mulai)) : ''),
-        tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(P.no_registrasi)}`, tautan_pengumuman: `${situs}/pengumuman.html?no=${encodeURIComponent(P.no_registrasi)}`,
-        tautan_daftar_ulang: `${situs}/daftar-ulang.html?no=${encodeURIComponent(P.no_registrasi)}`, jadwal_daftar_ulang: G?.daftar_ulang_mulai ? (G.daftar_ulang_selesai && G.daftar_ulang_selesai !== G.daftar_ulang_mulai ? `${tglPanjangIso(G.daftar_ulang_mulai)} s.d. ${tglPanjangIso(G.daftar_ulang_selesai)}` : tglPanjangIso(G.daftar_ulang_mulai)) : 'jadwal menyusul', nama_lembaga: id_.nama_lembaga || '', tahun_ajaran: id_.tahun_ajaran || ''
-      };
-      const nomor = { utama: P.no_wa, darurat: P.darurat_no };
-      const hasil = await dialog({
-        judul: 'Kirim WhatsApp', ikon: 'ph-whatsapp-logo', tone: '#16a34a', lebar: true,
-        isi: `<div class="wa-kirim">
-          <div><div class="field"><label>Templat pesan</label><div class="chips-select templat-pilih">${kunci.map(x => `<label><input type="radio" name="templat" value="${x}" ${x === pilih ? 'checked' : ''}><i class="ph-duotone ${(IKON_WA[x] || ['ph-chat-text'])[0]}" style="color:${(IKON_WA[x] || [0, 'var(--c8)'])[1]}"></i>${esc(T[x].judul || x)}</label>`).join('')}</div></div>
-            <div class="field"><label>Kirim ke</label><div class="chips-select">
-              <label><input type="radio" name="ke" value="utama" checked>Orang tua · +${esc(P.no_wa)}</label>
-              ${P.darurat_no ? `<label><input type="radio" name="ke" value="darurat">${esc(P.darurat_nama || 'Kontak darurat')} · +${esc(P.darurat_no)}</label>` : ''}</div></div>
-            <div class="field"><label>Isi pesan (dapat diubah)</label><textarea class="textarea" id="isiWA" rows="10"></textarea>
-              <small>*tebal*, _miring_. Teks {dalam kurung kurawal} belum terisi datanya; ubah sebelum mengirim.</small></div></div>
-          <div class="wa-layar"><div class="wa-gelembung" id="pratinjauWA"></div></div></div>`,
-        tombol: [{ label: 'Batal', kelas: 'ghost', nilai: null }, { label: 'Buka WhatsApp', ikon: 'ph-paper-plane-tilt', kelas: 'wa-btn', aksi: root => ({
-          templat: root.querySelector('[name=templat]:checked')?.value || 'lainnya', nomor: nomor[root.querySelector('[name=ke]:checked').value], pesan: root.querySelector('#isiWA').value.trim() }) }],
-        saatBuka: root => {
-          const ta = root.querySelector('#isiWA'), pv = root.querySelector('#pratinjauWA');
-          const isi = () => { const t = root.querySelector('[name=templat]:checked')?.value; ta.value = UI.isiTemplat(T[t]?.isi || '', data); pv.innerHTML = UI.formatWA(ta.value); };
-          root.querySelectorAll('[name=templat]').forEach(r => r.onchange = isi);
-          ta.oninput = () => { pv.innerHTML = UI.formatWA(ta.value); };
-          isi();
-        }
-      });
-      if (!hasil || !hasil.pesan) return;
-      window.open(`https://wa.me/${hasil.nomor}?text=${encodeURIComponent(hasil.pesan)}`, '_blank', 'noopener');
-      const { error } = await sb.from('log_wa').insert({ pendaftar_id: P.id, templat: hasil.templat, nomor: hasil.nomor, pesan: hasil.pesan });
-      if (error) toast('WhatsApp dibuka, tetapi riwayat tidak tersimpan: ' + pesanGalat(error), 'warn');
-      else toast('WhatsApp dibuka dan tercatat di riwayat.');
-      if (tabAktif === 'riwayat') tabRiwayat($('#isiTabP'));
+      if (!window.SPMB_WA) return toast('Modul WhatsApp belum dimuat. Muat ulang halaman.', 'err');
+      await window.SPMB_WA.kirimBeruntun([P], { awal, saatKirim: () => { if (tabAktif === 'riwayat') tabRiwayat($('#isiTabP')); } });
     }
 
     /* ---------- Ubah status, batalkan, hapus ---------- */

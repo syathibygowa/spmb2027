@@ -248,17 +248,21 @@
     if (!daftar.length) return toast('Tidak ada penerima.', 'warn');
     const peng = await muatPengaturan(true);
     const T = peng.templat_wa || {}, id_ = peng.identitas || {};
-    const pilihan = (opsi.pilihan || ['jadwal_tes', 'pengingat_tes']).filter(x => T[x]);
+    const pilihan = (opsi.pilihan || ['jadwal_tes', 'pengingat_tes', 'undangan_grup']).filter(x => T[x]);
     if (!pilihan.length) return toast('Templat WhatsApp yang diperlukan belum ada. Periksa Pengaturan SPMB > Templat WhatsApp.', 'err');
     const g = opsi.gel || {}, tglDu = iso => iso ? fmt.tglPanjang(dIso(iso)) : '';
+    // Isian tambahan (grup WhatsApp, pertemuan, rekening, tagihan) dari modul WhatsApp
+    let ekstra = {};
+    try { if (window.SPMB_WA) ekstra = await window.SPMB_WA.siapkanData(daftar.map(x => ({ ...x.p, gelombang_id: x.p.gelombang_id || g.id })), { pengaturan: peng }); } catch (e) { console.warn(e); }
     const jadwalDu = g.daftar_ulang_mulai ? (g.daftar_ulang_selesai && g.daftar_ulang_selesai !== g.daftar_ulang_mulai ? `${tglDu(g.daftar_ulang_mulai)} s.d. ${tglDu(g.daftar_ulang_selesai)}` : tglDu(g.daftar_ulang_mulai)) : 'jadwal menyusul';
     const { data: log } = await sb.from('log_wa').select('pendaftar_id,templat,pada').in('pendaftar_id', daftar.map(x => x.p.id)).in('templat', pilihan).order('pada', { ascending: false });
     const terkirim = {}; (log || []).forEach(l => { const k = l.pendaftar_id + l.templat; if (!terkirim[k]) terkirim[k] = l.pada; });
     let i = 0, templat = pilihan.includes(awalTemplat) ? awalTemplat : pilihan[0], jml = 0;
     const situs = alamatSitus();
     const dataPesan = x => ({
+      ...(ekstra[x.p.id] || {}),
       nama: x.p.nama_lengkap, no_registrasi: x.p.no_registrasi, jenjang: `${x.p.jenjang} ${bagianL(x.p.bagian)}`, gelombang: gelNama || '',
-      jadwal_tes: teksJadwalTes(x.sesi || []), tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
+      jadwal_tes: teksJadwalTes(x.sesi || []) || ekstra[x.p.id]?.jadwal_tes || '', tautan_status: `${situs}/cek-status.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
       tautan_pengumuman: `${situs}/pengumuman.html?no=${encodeURIComponent(x.p.no_registrasi)}`,
       tautan_daftar_ulang: `${situs}/daftar-ulang.html?no=${encodeURIComponent(x.p.no_registrasi)}`, jadwal_daftar_ulang: jadwalDu,
       catatan: x.p.catatan || opsi.catatan || '',
@@ -449,6 +453,7 @@
         <div class="field"><label>Jenjang peserta</label><select class="select" name="jenjang">${['semua', 'SMP', 'SMA'].map(v => `<option value="${v}" ${s.jenjang === v ? 'selected' : ''}>${jenjangL(v)}</option>`).join('')}</select></div>
         <div class="field"><label>Putra / putri</label><select class="select" name="bagian">${['semua', 'putra', 'putri'].map(v => `<option value="${v}" ${s.bagian === v ? 'selected' : ''}>${bagianL(v)}</option>`).join('')}</select></div>
         <div class="field"><label>Kapasitas kursi</label><input class="input" type="number" inputmode="numeric" min="1" max="1000" name="kapasitas" value="${esc(s.kapasitas ?? '')}" placeholder="Tanpa batas"></div>
+        <div class="field full"><label>Tautan grup WhatsApp sesi ini (opsional)</label><input class="input" name="grup_wa" type="url" inputmode="url" maxlength="300" value="${esc(s.grup_wa || '')}" placeholder="https://chat.whatsapp.com/…"><small>Dikirim lewat templat <b>Undangan grup WhatsApp</b> bersama grup umum, sehingga wali cukup menerima satu pesan berisi semua grup yang harus dimasuki.</small></div>
         <div class="field full"><label>Ketentuan / catatan untuk peserta</label><textarea class="textarea" name="catatan" rows="3" maxlength="600" placeholder="Satu ketentuan per baris. Kosong = ketentuan bawaan di Kartu Peserta.">${esc(s.catatan || '')}</textarea></div>
       </div><div id="fErr"></div></form>`,
       saatBuka: root => {
@@ -467,6 +472,7 @@
           bidang: [...f.querySelectorAll('[name=bidang]:checked')].map(x => x.value), mode: f.querySelector('[name=mode]:checked').value,
           tempat: v('tempat'), tautan: v('tautan'), jenjang: v('jenjang'), bagian: v('bagian'), kapasitas: v('kapasitas') ? +v('kapasitas') : null, catatan: v('catatan')
         };
+        if (v('grup_wa') || 'grup_wa' in s) d.grup_wa = v('grup_wa');   // kolom dari SQL 17
         if (d.mode === 'offline') d.tautan = '';
         const err = [];
         if (d.nama.length < 2) err.push('Nama sesi minimal 2 karakter.');
@@ -475,6 +481,7 @@
         if (d.jam_selesai && d.jam_selesai <= d.jam_mulai) err.push('Jam selesai harus setelah jam mulai.');
         if (!d.bidang.length) err.push('Pilih minimal satu bidang tes.');
         if (d.tautan && !/^https?:\/\/\S+$/.test(d.tautan)) err.push('Tautan rapat harus diawali https://');
+        if (d.grup_wa && !/^https:\/\/\S+$/.test(d.grup_wa)) err.push('Tautan grup WhatsApp harus diawali https://');
         if (d.kapasitas != null && (d.kapasitas < 1 || d.kapasitas > 1000)) err.push('Kapasitas 1 sampai 1000.');
         root.querySelector('#fErr').innerHTML = err.length ? `<div class="note err"><i class="ph-duotone ph-warning-circle"></i><div>${err.map(esc).join('<br>')}</div></div>` : '';
         if (err.length) return false;
@@ -521,6 +528,7 @@
         <div class="sesi-info">
           <div><i class="ph-duotone ${MODE[s.mode][1]}" style="color:${MODE[s.mode][2]}"></i><span>${s.mode === 'online' ? 'Media' : 'Tempat'}</span><b>${esc(s.tempat || '–')}</b></div>
           ${s.mode === 'online' ? `<div><i class="ph-duotone ph-link" style="color:var(--c2)"></i><span>Tautan rapat</span><b>${s.tautan ? `<a href="${esc(s.tautan)}" target="_blank" rel="noopener">${esc(s.tautan)}</a>` : '–'}</b></div>` : ''}
+          <div><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i><span>Grup WhatsApp</span><b>${s.grup_wa ? `<a href="${esc(s.grup_wa)}" target="_blank" rel="noopener">${esc(s.grup_wa)}</a>` : '–'}</b></div>
           <div><i class="ph-duotone ph-armchair" style="color:var(--c3)"></i><span>Kapasitas</span><b>${s.kapasitas ? `${peserta.length} / ${s.kapasitas} kursi` : `${peserta.length} peserta (tanpa batas)`}</b></div>
           ${s.catatan ? `<div class="penuh"><i class="ph-duotone ph-note" style="color:var(--c6)"></i><span>Ketentuan</span><b>${esc(s.catatan).replace(/\n/g, '<br>')}</b></div>` : ''}
         </div>

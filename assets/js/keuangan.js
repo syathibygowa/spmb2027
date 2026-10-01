@@ -140,7 +140,8 @@
     let data = [];
     el.innerHTML = `<div class="page-head">${kepalaSaring(gels)}
         <div class="field" style="margin:0;flex:1;min-width:180px;max-width:300px"><input class="input" id="kCari" type="search" placeholder="Cari nama atau nomor…" value="${esc(SEL.q)}"></div>
-        <div class="spacer"></div><button class="btn sm ghost" id="kCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel</button></div>
+        <div class="spacer"></div><button class="btn sm ghost" id="kWa" title="Kirim tagihan lewat WhatsApp ke santri yang belum lunas"><i class="ph-duotone ph-whatsapp-logo" style="color:#16a34a"></i>Kirim tagihan</button>
+        <button class="btn sm ghost" id="kCsv"><i class="ph-duotone ph-microsoft-excel-logo" style="color:var(--ok)"></i>Ekspor Excel</button></div>
       <div class="chips-select du-saring" id="kSaring"></div>
       <div class="table-wrap"><table class="tbl"><thead><tr><th>Santri</th><th class="hide-sm">Status santri</th><th style="text-align:right">Harus bayar</th><th style="text-align:right">Masuk</th><th style="text-align:right" class="hide-sm">Sisa</th><th>Pembayaran</th><th class="c"></th></tr></thead><tbody id="kIsi"></tbody></table></div>`;
     const ST = r => statusBayar(r.tagihan, r.dibayar)[0];
@@ -162,6 +163,13 @@
     await muat(); pasangSaring(muat);
     $('#kCari').oninput = e => { SEL.q = e.target.value.trim(); render(); };
     $('#kSaring').onchange = e => { SEL.st = e.target.value; render(); };
+    $('#kWa').onclick = async () => {
+      if (!window.SPMB_WA) return toast('Modul WhatsApp belum dimuat. Muat ulang halaman.', 'err');
+      const q = SEL.q.toLowerCase();
+      const sasaran = data.filter(r => r.sisa > 0 && (!SEL.st || (SEL.st === 'k' ? r.keringanan : ST(r) === SEL.st)) && (!q || (r.nama_lengkap + ' ' + r.no_registrasi).toLowerCase().includes(q)));
+      if (!sasaran.length) return toast('Tidak ada santri dengan sisa tagihan pada saringan ini.', 'info');
+      await window.SPMB_WA.kirimBeruntun(sasaran.map(r => ({ ...r, uji: SEL.uji })), { awal: 'tagihan', judul: `Kirim tagihan WhatsApp · ${fmt.angka(sasaran.length)} santri belum lunas` });
+    };
     $('#kCsv').onclick = () => {
       const th = ['pendaftaran', 'daftar_ulang', 'tahunan', 'bulanan', 'lainnya'];
       unduhExcel([['No. Registrasi', 'Nama', 'Jenjang', 'Bagian', 'Status santri', ...th.flatMap(t => [`${DU.NAMA_TAHAP[t]} tagihan`, `${DU.NAMA_TAHAP[t]} keringanan`, `${DU.NAMA_TAHAP[t]} masuk`]), 'Total harus bayar', 'Total masuk', 'Sisa', 'Status bayar', 'No. WA'],

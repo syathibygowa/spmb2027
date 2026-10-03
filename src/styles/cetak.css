@@ -1,0 +1,79 @@
+/* SIMKA PRO | src/styles/cetak.css | v1.2 | Fase 1 – Jabatan dan tunjangan | 03/10/2026 */
+/* =====================================================================
+   SIMKA PRO · Standar cetak dokumen
+   Kertas F4 215 × 330 mm, margin 2 cm, garis tabel ½ pt,
+   tebal hanya pada judul dan kepala tabel, tanda tangan sejajar kiri–kanan.
+   ===================================================================== */
+@page { size: 215mm 330mm; margin: 20mm; }
+
+.dok {
+  font-family: Arial, 'Liberation Sans', Helvetica, sans-serif;
+  font-size: 11pt;
+  line-height: 1.4;
+  color: #000;
+  background: #fff;
+}
+.dok, .dok * { color: #000; }
+.dok table.tabel { font-size: 10pt; }
+.dok .kop img { display: block; width: 100%; height: auto; }
+.dok .kop-garis { border: 0; border-top: 1.5pt solid #000; border-bottom: .5pt solid #000; height: 2pt; margin: 2pt 0 0; }
+.dok .judul-dok { margin: 12pt 0 2pt; text-align: center; font-size: 13pt; font-weight: 700; text-transform: uppercase; }
+.dok .subjudul-dok { margin: 0 0 10pt; text-align: center; font-size: 11pt; font-weight: 400; }
+.dok .meta-dok { margin: 0 0 8pt; font-weight: 400; }
+.dok .meta-dok td { border: 0; padding: 0 6pt 1pt 0; }
+
+.dok table.tabel { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.dok table.tabel th,
+.dok table.tabel td {
+  border: .5pt solid #000;
+  padding: 3pt 5pt;
+  vertical-align: top;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.dok table.tabel th { font-weight: 700; text-align: center; vertical-align: middle; }
+.dok table.tabel td.tengah { text-align: center; }
+.dok table.tabel thead { display: table-header-group; }
+.dok table.tabel tr { break-inside: avoid; }
+
+.dok .ttd {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 16mm;
+  margin-top: 14pt;
+  break-inside: avoid;
+  text-align: center;
+}
+.dok .ttd .ruang { height: 22mm; }
+.dok .ttd .nama { font-weight: 400; text-decoration: underline; }
+.dok .catatan-cetak { margin-top: 10pt; font-size: 8.5pt; color: #333; }
+
+/* Lembar pratinjau di layar (meniru kertas F4) */
+@media screen {
+  .lembar-f4 {
+    width: 215mm;
+    min-height: 330mm;
+    padding: 20mm;
+    margin: 0 auto;
+    box-shadow: 0 2px 6px rgba(0,0,0,.08), 0 18px 40px -18px rgba(0,0,0,.35);
+    border-radius: 4px;
+  }
+}
+
+@media print {
+  html, body { background: #fff !important; color: #000 !important; }
+  html.dark { color-scheme: light; }
+  .layar-saja { display: none !important; }
+  /* Dokumen di luar aplikasi (dipindah ke <body>): sembunyikan seluruh tampilan aplikasi */
+  body:has(> .cetak-saja) #app { display: none !important; }
+  .cetak-saja { display: block !important; }
+  .lembar-f4 { width: auto; min-height: 0; padding: 0; margin: 0; box-shadow: none; }
+  main, .isi-utama { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+}
+@media screen { .cetak-saja:not(.tampil) { display: none; } }
+
+/* Tabel lebar (F4 mendatar): huruf lebih kecil, angka rata kanan */
+.dok table.tabel.kecil { font-size: 8pt; }
+.dok table.tabel.kecil th, .dok table.tabel.kecil td { padding: 2pt 3pt; }
+.dok table.tabel.kecil th { font-size: 7.5pt; overflow-wrap: normal; word-break: normal; }
+.dok table.tabel td.kanan { text-align: right; }

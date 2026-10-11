@@ -1,4 +1,4 @@
-<!-- SIMKA PRO | src/pages/tunjangan/TabPeta.vue | v1.0 | Fase 1 – Jabatan dan tunjangan | 03/10/2026 -->
+<!-- SIMKA PRO | src/pages/tunjangan/TabPeta.vue | v1.1 | Fase 8 – Urutan kolom seragam (NIY/NIS > Nama > JK) | 10/10/2026 -->
 <script setup>
 // Peta jabatan per pegawai dalam bentuk tabel: jabatan yang diemban, komponen tunjangan,
 // jumlah perkiraan, dan keterangan kekurangan data. Jabatan dapat diubah langsung dari baris tabel.
@@ -67,12 +67,12 @@ async function simpan() {
 }
 
 function ekspor() {
-  const judul = ['No.', 'Nama', 'NIY', 'Bidang/Unit', 'Jabatan struktural', 'Jabatan fungsional', 'Pendidikan', 'Masa kerja', 'Status', ...KOLOM.map((k) => 'T. ' + KATEGORI[k].n.toLowerCase()), 'Jumlah', 'Keterangan']
-  const data = tampil.value.map(({ p, h }, i) => [i + 1, p.nama_lengkap, p.niy || '', p.nama_unit || '', p.jabatan_struktural || '', fungsionalNama(p), p.pendidikan_terakhir || '', masa(p),
+  const judul = ['No.', 'NIY', 'Nama', 'Bidang/Unit', 'Jabatan struktural', 'Jabatan fungsional', 'Pendidikan', 'Masa kerja', 'Status', ...KOLOM.map((k) => 'T. ' + KATEGORI[k].n.toLowerCase()), 'Jumlah', 'Keterangan']
+  const data = tampil.value.map(({ p, h }, i) => [i + 1, p.niy || '', p.nama_lengkap, p.nama_unit || '', p.jabatan_struktural || '', fungsionalNama(p), p.pendidikan_terakhir || '', masa(p),
     STATUS_PEGAWAI[p.status_kepegawaian] || '', ...KOLOM.map((k) => h.per[k] || 0), h.total, h.catatan.join(' ')])
-  data.push(['', 'Jumlah', '', '', '', '', '', '', '', ...KOLOM.map((k) => jumlahKolom.value[k]), total.value, ''])
+  data.push(['', '', 'Jumlah', '', '', '', '', '', '', ...KOLOM.map((k) => jumlahKolom.value[k]), total.value, ''])
   const ws = XLSX.utils.aoa_to_sheet([[`Peta jabatan dan perkiraan tunjangan per ${formatPanjang(tanggal.value)}`], [], judul, ...data])
-  ws['!cols'] = judul.map((j, i) => ({ wch: i === 1 ? 32 : i === judul.length - 1 ? 60 : Math.max(10, Math.min(28, j.length + 2)) }))
+  ws['!cols'] = judul.map((j, i) => ({ wch: i === 2 ? 32 : i === judul.length - 1 ? 60 : Math.max(10, Math.min(28, j.length + 2)) }))
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Peta jabatan')
   XLSX.writeFile(wb, `Peta-Jabatan-Tunjangan-${formatPendek(tanggal.value).replace(/\//g, '-')}.xlsx`)
 }

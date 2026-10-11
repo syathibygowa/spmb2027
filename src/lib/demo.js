@@ -1,4 +1,4 @@
-// SIMKA PRO | src/lib/demo.js | v1.4 | Fase 1 – Jabatan dan tunjangan | 03/10/2026
+// SIMKA PRO | src/lib/demo.js | v1.10 | Fase 8 – Tahap 5 penanda tangan demo terhubung akun | 11/10/2026
 // Data contoh untuk MODE DEMO. Nama pegawai di bawah fiktif.
 const menitLalu = (m) => new Date(Date.now() - m * 60000).toISOString()
 
@@ -21,6 +21,11 @@ export const PEGAWAI_DEMO = [
   ['Ustzh. Aisyah Putri, S.Pd.', '2024071010', 'P', 'Bidang Bahasa', ['Guru mapel'], null, 'honorer', 'menunggu', '2024-07-10'],
   ['Ust. Ilham Saputra, S.Sos.', '2020011511', 'L', 'Bidang Media', ['Petugas media'], null, 'kontrak', 'aktif', '2020-01-15'],
   ['Ust. Syamsul Arifin, S.Pd.', '2019071512', 'L', 'Bidang Kesetaraan Wustha', ['Guru mapel', 'Musyrif'], null, 'tetap', 'aktif', '2019-07-15'],
+  ['Ust. Rahmat Hidayat', '2021030113', 'L', 'Unit Security', ['Petugas keamanan'], null, 'honorer', 'aktif', '2021-03-01'],
+  ['Ust. Fajar Nugraha', '2022050114', 'L', 'Unit Security', ['Petugas keamanan'], null, 'honorer', 'aktif', '2022-05-01'],
+  ['Ust. Andi Saputra', '2023010215', 'L', 'Unit Security', ['Petugas keamanan'], null, 'honorer', 'aktif', '2023-01-02'],
+  ['Ust. Irfan Maulana', '2024020116', 'L', 'Unit Security', ['Petugas keamanan'], null, 'honorer', 'aktif', '2024-02-01'],
+  ['Ustzh. Siti Rahmah, A.Md.Kep.', '2023080117', 'P', 'Unit Klinik', ['Petugas kesehatan'], null, 'kontrak', 'aktif', '2023-08-01'],
 ].map(([nama_lengkap, niy, jenis_kelamin, nama_unit, jabatan_fungsional, jabatan_struktural, status_kepegawaian, status_akun, tmt_tugas], i) => ({
   id: `p${i + 1}`, nama_lengkap, niy, jenis_kelamin, nama_unit, jabatan_fungsional, jabatan_struktural,
   status_kepegawaian, status_akun, status_keaktifan: 'aktif', tmt_tugas,
@@ -40,7 +45,7 @@ export const NOTIFIKASI_DEMO = {
   ],
   pegawai: [
     { judul: 'Akun Anda telah aktif', isi: 'Selamat bergabung di SIMKA PRO. Lengkapi profil Anda bila masih ada data yang kosong.', tautan: '/profil', ikon: 'CheckCircle', warna: 'hijau', menit: 30 },
-    { judul: 'Presensi GPS segera hadir', isi: 'Fitur presensi dengan selfie dibuka pada Fase 2.', tautan: '/presensi', ikon: 'Fingerprint', warna: 'teal', menit: 1440, dibaca: true },
+    { judul: 'Presensi GPS sudah dibuka', isi: 'Presensi dengan selfie kini tersedia. Lakukan presensi pada setiap sesi Anda.', tautan: '/presensi', ikon: 'Fingerprint', warna: 'teal', menit: 1440, dibaca: true },
   ],
 }
 
@@ -99,8 +104,8 @@ export const LEMBAGA_DEMO = () => ({
       pita_teks: 'Nomor Induk Berusaha. 0205230018097', pita_warna: '#F8E02F', aktif: true, urutan: 4 },
   ],
   signatories: [
-    { id: 's1', jabatan_tertulis: 'Direktur', nama: 'Siswandi Safari, S.Pd.I., Lc., S.H., M.Ag.', niy: '1983020910201401', aktif: true, urutan: 1 },
-    { id: 's2', jabatan_tertulis: 'Kepala Kesetaraan Wustha (SMP)', nama: 'Chamdar Nur, S.Pd.I., SH., Lc., M.Pd.', niy: '1983042805201401', aktif: true, urutan: 2 },
+    { id: 's1', jabatan_tertulis: 'Direktur', nama: 'Siswandi Safari, S.Pd.I., Lc., S.H., M.Ag.', niy: '1983020910201401', aktif: true, urutan: 1, sumber_jabatan: 'DIREKTUR', employee_id: 'demo-direktur' },
+    { id: 's2', jabatan_tertulis: 'Kepala Kesetaraan Wustha (SMP)', nama: 'Chamdar Nur, S.Pd.I., SH., Lc., M.Pd.', niy: '1983042805201401', aktif: true, urutan: 2, employee_id: 'demo-wustha' },
     { id: 's3', jabatan_tertulis: 'Kepala SMA', nama: 'H. Afrianto, Lc, M.H.', niy: '1994042801202001', aktif: true, urutan: 3 },
   ],
   signer_rules: [
@@ -180,7 +185,8 @@ export const FITUR_DEMO = [
 export const IZIN_ADMIN_DEMO = [
   { kode: 'verval_akun', nama: 'Verifikasi akun pegawai baru', urutan: 1 }, { kode: 'kelola_pegawai', nama: 'Mengelola data kepegawaian dan impor Excel', urutan: 2 },
   { kode: 'kalender', nama: 'Mengelola hari libur dan kalender', urutan: 3 }, { kode: 'audit_log', nama: 'Melihat audit log seluruh pegawai', urutan: 4 },
-  { kode: 'verval_presensi', nama: 'Verval presensi di luar area (Fase 2)', urutan: 5 },
+  { kode: 'verval_presensi', nama: 'Verval presensi di luar area dan permintaan koreksi', urutan: 5 },
+  { kode: 'atur_presensi', nama: 'Mengatur pola sesi, jadwal pegawai, dan shift presensi', urutan: 8 },
 ]
 
 // ---------- Data contoh tarif tunjangan (mengikuti isi awal migrasi 1100) ----------
@@ -203,3 +209,74 @@ export const TARIF_DEMO = () => {
     b('honorer_jam', 'muhaffizh_lama', 'Muhaffizh lama (per jam)', 25000), b('honorer_jam', 'muhaffizh_baru', 'Muhaffizh baru (per jam)', 20000),
   ]
 }
+
+// ---------- Data contoh presensi (mengikuti isi awal migrasi 1400) ----------
+export const PRESENSI_DEMO = () => {
+  const pola = [
+    ['GURU', 'Guru', 'rentang', 'sekolah', false, 'presensi'], ['KANTOR', 'Staf dan kantor', 'rentang', 'kantor', false, 'pegawai'],
+    ['STRUKTURAL', 'Jadwal umum struktural', 'rentang', 'kantor', true, 'sistem'], ['MUHAFFIZH', 'Halaqah tahfizh', 'sesi', 'tahfizh', false, 'tahfizh'],
+    ['MUSYRIF', 'Asrama', 'sesi', 'asrama', false, 'santri'], ['EKSKUL', 'Pembina ekskul', 'sesi', 'sekolah', false, 'laporan'],
+    ['MEDIS', 'Klinik (medis)', 'shift', 'medis', false, 'klinik'], ['SECURITY', 'Security', 'shift', 'security', false, 'security'],
+  ].map(([kode, nama, jenis, kalender, pola_struktural, warna], i) => ({ id: 'pl-' + kode, kode, nama, jenis, kalender, pola_struktural, warna, employee_id: null, aktif: true, urutan: i + 1, catatan: null }))
+  const S = (pola, kode, nama, m, s, buka, tol, tutup, wp, pb, tc, bp, ops, ld, lp, urutan) => ({
+    id: `ss-${pola}-${kode}`, pattern_id: 'pl-' + pola, kode, nama, hari: [0, 1, 2, 3, 4, 5, 6], jam_mulai: m + ':00', jam_selesai: s + ':00',
+    buka_menit: buka, toleransi_terlambat_menit: tol, tutup_menit: tutup, wajib_pulang: wp, pulang_buka_menit: pb,
+    toleransi_cepat_pulang_menit: tc, batas_pulang_menit: bp, opsional: ops, label_datang: ld, label_pulang: lp, aktif: true, urutan })
+  const sesi = [
+    S('GURU', 'KERJA', 'Jam kerja', '07:30', '14:00', 30, 10, 120, true, 120, 10, 180, false, 'Datang', 'Pulang', 1),
+    S('GURU', 'ISTIRAHAT', 'Istirahat', '12:00', '13:00', 15, 10, 60, true, 60, 0, 60, true, 'Keluar', 'Kembali', 2),
+    S('KANTOR', 'KERJA', 'Jam kerja', '07:30', '14:00', 30, 10, 120, true, 120, 10, 180, false, 'Datang', 'Pulang', 1),
+    S('KANTOR', 'ISTIRAHAT', 'Istirahat', '12:00', '13:00', 15, 10, 60, true, 60, 0, 60, true, 'Keluar', 'Kembali', 2),
+    S('STRUKTURAL', 'KERJA', 'Jam kerja', '07:30', '14:00', 30, 10, 120, true, 120, 10, 180, false, 'Datang', 'Pulang', 1),
+    S('MUHAFFIZH', 'SUBUH', 'Halaqah subuh', '05:00', '06:30', 30, 10, 45, false, 0, 0, 0, false, 'Hadir', 'Selesai', 1),
+    S('MUHAFFIZH', 'SORE', 'Halaqah sore', '15:30', '16:00', 30, 10, 45, false, 0, 0, 0, false, 'Hadir', 'Selesai', 2),
+    S('MUHAFFIZH', 'MALAM', 'Halaqah malam', '18:30', '19:30', 30, 10, 45, false, 0, 0, 0, false, 'Hadir', 'Selesai', 3),
+    S('MUSYRIF', 'PAGI', 'Asrama pagi', '04:00', '07:00', 30, 10, 45, false, 0, 0, 0, false, 'Hadir', 'Selesai', 1),
+    S('MUSYRIF', 'MALAM', 'Asrama malam', '21:00', '00:00', 30, 10, 45, false, 0, 0, 0, false, 'Hadir', 'Selesai', 2),
+    S('MEDIS', 'SHIFT1', 'Shift 1', '07:30', '11:00', 30, 10, 60, true, 30, 10, 120, false, 'Datang', 'Pulang', 1),
+    S('MEDIS', 'SHIFT2', 'Shift 2', '16:00', '19:00', 30, 10, 60, true, 30, 10, 120, false, 'Datang', 'Pulang', 2),
+    S('SECURITY', 'PAGI', 'Shift pagi', '06:00', '14:00', 30, 10, 120, true, 60, 10, 180, false, 'Datang', 'Pulang', 1),
+    S('SECURITY', 'SIANG', 'Shift siang', '14:00', '22:00', 30, 10, 120, true, 60, 10, 180, false, 'Datang', 'Pulang', 2),
+    S('SECURITY', 'MALAM', 'Shift malam', '22:00', '06:00', 30, 10, 120, true, 60, 10, 180, false, 'Datang', 'Pulang', 3),
+  ]
+  // Jabatan fungsional demo (f0..f13) → pola bawaan
+  const polaJabatan = { f0: 'pl-GURU', f2: 'pl-MUHAFFIZH', f3: 'pl-MUSYRIF', f4: 'pl-EKSKUL', f5: 'pl-KANTOR', f6: 'pl-KANTOR', f7: 'pl-KANTOR',
+    f8: 'pl-MEDIS', f9: 'pl-SECURITY', f10: 'pl-KANTOR', f11: 'pl-KANTOR', f12: 'pl-KANTOR', f13: 'pl-KANTOR' }
+  const titik = [
+    { id: 'tk1', nama: 'Masjid', lat: -5.208143, lng: 119.494981, radius_m: 100, aktif: true, urutan: 1, catatan: null },
+    { id: 'tk2', nama: 'Gedung sekolah', lat: -5.207350, lng: 119.496120, radius_m: 80, aktif: true, urutan: 2, catatan: 'Wustha dan SMA' },
+  ]
+  const pengaturan = { mulai_tanggal: null, jeda_minimal_pulang_menit: 15, batas_akurasi_m: 100, berlaku_cek_detik: 180, retensi_selfie_hari: 183, folder_selfie: 'SIMKA PRO/Presensi', pengingat_menit: 10 }
+  return { pola, sesi, titik, pengaturan, polaJabatan }
+}
+
+// ---------------------------------------------------------------------
+// Fase 3: pengumuman dan audit log (data contoh)
+// ---------------------------------------------------------------------
+const hariDepan = (h) => { const d = new Date(Date.now() + h * 86400000); return d.toISOString().slice(0, 10) }
+export const PENGUMUMAN_DEMO = (peran) => {
+  const kelola = peran !== 'pegawai'
+  return [
+    { judul: 'Rapat koordinasi seluruh pegawai', isi: 'Assalamu\'alaikum warahmatullahi wabarakatuh.\n\nDiberitahukan kepada seluruh pegawai bahwa rapat koordinasi awal bulan dilaksanakan pada Kamis pukul 20.00 WITA di Aula Utama. Mohon hadir tepat waktu dan membawa catatan program bidang masing-masing.\n\nJazakumullahu khairan.',
+      penting: true, ringkasan_sasaran: 'Semua pegawai', menit: 40, dibaca: false, penerima: 17, sudah: 9, sampai: hariDepan(3) },
+    { judul: 'Jadwal piket kebersihan asrama pekan ini', isi: 'Jadwal piket pengawasan kebersihan asrama pekan ini sudah diperbarui. Musyrif dimohon memeriksa pembagian kamar dan melaporkan kendala kepada Kepala Bidang Kesantrian.',
+      penting: false, ringkasan_sasaran: 'Bidang Kesantrian; Musyrif', menit: 300, dibaca: true, penerima: 5, sudah: 5 },
+    { judul: 'Pengisian data NIY dan nomor HP', isi: 'Pegawai yang belum melengkapi NIY dan nomor HP di profil dimohon menghubungi admin kepegawaian paling lambat akhir pekan ini.',
+      penting: false, ringkasan_sasaran: 'Semua pegawai', menit: 2900, dibaca: true, penerima: 17, sudah: 14 },
+    { judul: 'Libur pertengahan semester', isi: 'Libur pertengahan semester untuk santri berlangsung tiga hari. Pegawai tetap masuk sesuai jadwal tugas masing-masing.',
+      penting: false, ringkasan_sasaran: 'Semua pegawai', menit: 20000, dibaca: true, penerima: 17, sudah: 17, sampai: hariDepan(-5) },
+  ].map((p, i) => ({
+    id: 'pg' + (i + 1), judul: p.judul, isi: p.isi, penting: p.penting, ringkasan_sasaran: p.ringkasan_sasaran, tampil_sampai: p.sampai || null,
+    created_at: menitLalu(p.menit), updated_at: menitLalu(p.menit), pembuat: 'Ust. Fadhil Rahman, S.Kom.',
+    dibaca_pada: p.dibaca ? menitLalu(p.menit - 5) : null, penerima: kelola ? p.penerima : null, sudah_dibaca: kelola ? p.sudah : null, saya_penerima: true,
+  }))
+}
+
+export const AUDIT_DEMO = () => [
+  { m: 12, pelaku: 'Ust. Fadhil Rahman, S.Kom.', emp: 'd-ad', aksi: 'tambah', tabel: 'announcements', data: { judul: 'Rapat koordinasi seluruh pegawai', penting: true } },
+  { m: 75, pelaku: 'Superadmin SIMKA', emp: 'd-sa', aksi: 'ubah', tabel: 'employees', data: { nama_lengkap: { lama: 'Ust. Hasan Basri', baru: 'Ust. Hasan Basri, Lc.' }, no_hp: { lama: null, baru: '081234567890' } } },
+  { m: 190, pelaku: 'Superadmin SIMKA', emp: 'd-sa', aksi: 'ubah', tabel: 'pattern_sessions', data: { toleransi_terlambat: { lama: 10, baru: 15 } } },
+  { m: 600, pelaku: 'Ust. Fadhil Rahman, S.Kom.', emp: 'd-ad', aksi: 'tambah', tabel: 'shift_rosters', data: { tanggal: hariDepan(1), employee_id: 'p5' } },
+  { m: 1500, pelaku: 'Superadmin SIMKA', emp: 'd-sa', aksi: 'hapus', tabel: 'holidays', data: { nama: 'Libur contoh', tanggal: hariDepan(-2) } },
+  { m: 2880, pelaku: 'Ust. Hasan Basri, Lc.', emp: 'd-pg', aksi: 'ubah', tabel: 'employees', data: { tema: { lama: 'sistem', baru: 'gelap' } } },
+].map((r, i) => ({ id: i + 1, created_at: menitLalu(r.m), employee_id: r.emp, pelaku: r.pelaku, aksi: r.aksi, tabel: r.tabel, data_id: null, ringkasan: null, data: r.data }))

@@ -1,7 +1,7 @@
-<!-- SIMKA PRO | src/pages/pegawai/DaftarPegawai.vue | v1.2 | Fase 1 – Perbaikan | 03/10/2026 -->
+<!-- SIMKA PRO | src/pages/pegawai/DaftarPegawai.vue | v1.4 | Fase 8 – Urutan kolom seragam (NIY/NIS > Nama > JK) | 10/10/2026 -->
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { PhMagnifyingGlass, PhPrinter, PhEye, PhCaretRight, PhUsersThree, PhSlidersHorizontal, PhUserPlus, PhFileXls, PhChartBar, PhDownloadSimple } from '@phosphor-icons/vue'
+import { PhCards, PhMagnifyingGlass, PhPrinter, PhEye, PhCaretRight, PhUsersThree, PhSlidersHorizontal, PhUserPlus, PhFileXls, PhChartBar, PhDownloadSimple } from '@phosphor-icons/vue'
 import { useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import { KEAKTIFAN, STATUS_KELUARGA, PENDIDIKAN, LEVEL_MUHAFFIZH } from '@/lib/kepegawaian'
@@ -10,10 +10,16 @@ import { useSesi } from '@/stores/sesi'
 import { formatPanjang, formatPendek, hariIniISO } from '@/lib/tanggal'
 import { ambilPenandaTangan } from '@/lib/penandatangan'
 import DokumenCetak from '@/components/cetak/DokumenCetak.vue'
+import BilahTab from '@/components/BilahTab.vue'
+import Kartu from '@/pages/kartu/Kartu.vue'
 import TandaTangan from '@/components/cetak/TandaTangan.vue'
 import LembarBawah from '@/components/LembarBawah.vue'
 import TombolAksi from '@/components/TombolAksi.vue'
 import InputTanggal from '@/components/InputTanggal.vue'
+// Tab Cetak kartu (pindahan dari menu Kartu Pegawai) untuk admin ber-izin cetak_kartu
+const sesiK = useSesi(); const bolehKartu = computed(() => sesiK.bolehAdmin('cetak_kartu'))
+const TAB_PEG = [{ k: 'data', n: 'Data pegawai', ikon: PhUsersThree, w: 'pegawai' }, { k: 'kartu', n: 'Cetak kartu', ikon: PhCards, w: 'profil' }]
+const tabPeg = ref('data')
 
 const peg = usePegawai(); const sesi = useSesi(); const router = useRouter()
 const keaktifan = ref('aktif')
@@ -38,9 +44,9 @@ const tampil = computed(() => {
     (!q || [p.nama_lengkap, p.niy, p.nama_unit, jabatan(p)].join(' ').toLowerCase().includes(q)))
 })
 function eksporExcel() {
-  const kolom = ['No.', 'Nama lengkap bergelar', 'NIY', 'Jenis kelamin', 'Tempat lahir', 'Tanggal lahir', 'TMT tugas', 'Masa kerja', 'Status kepegawaian',
+  const kolom = ['No.', 'NIY', 'Nama lengkap bergelar', 'Jenis kelamin', 'Tempat lahir', 'Tanggal lahir', 'TMT tugas', 'Masa kerja', 'Status kepegawaian',
     'Kategori honorer', 'Pendidikan terakhir', 'Status keluarga', 'Nomor HP', 'Email', 'Bidang/Unit', 'Jabatan fungsional', 'Jabatan struktural', 'Level muhaffizh', 'Status keaktifan', 'Status akun']
-  const data = tampil.value.map((p, i) => [i + 1, p.nama_lengkap, p.niy || '', p.jenis_kelamin || '', p.tempat_lahir || '', p.tanggal_lahir ? formatPendek(p.tanggal_lahir) : '',
+  const data = tampil.value.map((p, i) => [i + 1, p.niy || '', p.nama_lengkap, p.jenis_kelamin || '', p.tempat_lahir || '', p.tanggal_lahir ? formatPendek(p.tanggal_lahir) : '',
     p.tmt_tugas ? formatPendek(p.tmt_tugas) : '', p.masa_kerja?.teks || '', STATUS_PEG[p.status_kepegawaian] || '', p.kategori_honorer || '', PENDIDIKAN[p.pendidikan_terakhir] || '',
     STATUS_KELUARGA[p.status_keluarga] || '', p.no_hp || '', p.email || '', p.nama_unit || '', (p.jabatan_fungsional || []).join(', '), p.jabatan_struktural || '',
     LEVEL_MUHAFFIZH[p.level_muhaffizh] || '', KEAKTIFAN[p.status_keaktifan] || '', STATUS_AKUN[p.status_akun]?.n || ''])
@@ -54,6 +60,9 @@ const judulCetak = computed(() => saring.value === 'semua' ? 'Daftar Pegawai' : 
 </script>
 <template>
   <div>
+    <BilahTab v-if="bolehKartu" class="layar-saja mb-4" :tab="TAB_PEG" v-model="tabPeg" label="Bagian data pegawai" />
+    <Kartu v-if="tabPeg === 'kartu'" bagian="massal" />
+    <template v-else>
     <div class="layar-saja">
       <!-- Kepala halaman desktop -->
       <div class="mb-5 hidden items-center gap-3 lg:flex">
@@ -95,13 +104,13 @@ const judulCetak = computed(() => saring.value === 'semua' ? 'Daftar Pegawai' : 
       <div class="kartu mt-4 hidden overflow-x-auto lg:block">
         <table class="w-full text-left text-sm">
           <thead class="border-b border-garis bg-permukaan2 text-teks2">
-            <tr><th class="px-4 py-3 font-bold">Nama</th><th class="px-4 py-3 font-bold">NIY</th><th class="px-4 py-3 font-bold">Bidang/unit</th>
+            <tr><th class="px-4 py-3 font-bold">NIY</th><th class="px-4 py-3 font-bold">Nama</th><th class="px-4 py-3 font-bold">Bidang/unit</th>
               <th class="px-4 py-3 font-bold">Jabatan</th><th class="px-4 py-3 font-bold">Status</th><th class="px-4 py-3 font-bold">Akun</th><th class="w-10" /></tr>
           </thead>
           <tbody class="divide-y divide-garis">
             <tr v-for="p in tampil" :key="p.id" class="hover:bg-permukaan2">
-              <td class="px-4 py-3 font-semibold text-teks"><router-link :to="`/pegawai/${p.id}`" class="hover:underline">{{ p.nama_lengkap }}</router-link></td>
               <td class="px-4 py-3 tabular-nums text-teks2">{{ p.niy || '–' }}</td>
+              <td class="px-4 py-3 font-semibold text-teks"><router-link :to="`/pegawai/${p.id}`" class="hover:underline">{{ p.nama_lengkap }}</router-link></td>
               <td class="px-4 py-3 text-teks2">{{ p.nama_unit || '–' }}</td>
               <td class="px-4 py-3 text-teks2">{{ jabatan(p) || '–' }}</td>
               <td class="px-4 py-3 text-teks2">{{ STATUS_PEG[p.status_kepegawaian] || '–' }}</td>
@@ -137,11 +146,11 @@ const judulCetak = computed(() => saring.value === 'semua' ? 'Daftar Pegawai' : 
     <div>
       <DokumenCetak :kop="kop" :judul="judulCetak" :subjudul="`Keadaan per ${formatPanjang(tglDok)}`"  v-model:pratinjau="pratinjau" :pencetak="sesi.pengguna?.nama_lengkap">
         <table class="tabel">
-          <colgroup><col style="width:6%"><col style="width:24%"><col style="width:14%"><col style="width:6%"><col style="width:22%"><col style="width:16%"><col style="width:12%"></colgroup>
-          <thead><tr><th>No.</th><th>Nama</th><th>NIY</th><th>L/P</th><th>Jabatan</th><th>Bidang/Unit</th><th>Status</th></tr></thead>
+          <colgroup><col style="width:6%"><col style="width:14%"><col style="width:24%"><col style="width:6%"><col style="width:22%"><col style="width:16%"><col style="width:12%"></colgroup>
+          <thead><tr><th>No.</th><th>NIY</th><th>Nama</th><th>L/P</th><th>Jabatan</th><th>Bidang/Unit</th><th>Status</th></tr></thead>
           <tbody>
             <tr v-for="(p, i) in tampil" :key="p.id">
-              <td class="tengah">{{ i + 1 }}</td><td>{{ p.nama_lengkap }}</td><td class="tengah">{{ p.niy || '–' }}</td>
+              <td class="tengah">{{ i + 1 }}</td><td class="tengah">{{ p.niy || '–' }}</td><td>{{ p.nama_lengkap }}</td>
               <td class="tengah">{{ p.jenis_kelamin }}</td><td>{{ jabatan(p) }}</td><td>{{ p.nama_unit }}</td><td class="tengah">{{ STATUS_PEG[p.status_kepegawaian] || '–' }}</td>
             </tr>
           </tbody>
@@ -171,6 +180,7 @@ const judulCetak = computed(() => saring.value === 'semua' ? 'Daftar Pegawai' : 
         </div>
       </div>
     </LembarBawah>
+    </template>
   </div>
 </template>
 <style scoped>
